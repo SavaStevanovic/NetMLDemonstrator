@@ -1,47 +1,65 @@
 from sklearn.metrics import f1_score, accuracy_score
 import torch
+from pycocotools.cocoeval import COCOeval
+import numpy as np
+import torchvision
+from PIL import Image, ImageFont, ImageDraw, ImageEnhance
+import torch.nn.functional as F
 
-def metrics( net, dataloader, epoch=1):
+def metrics( net, dataloader, box_transform, epoch=1):
     net.eval()
     correct = 0
     total = 0
-    predictions = []
-    labels = []
+    average_precision = []
+    images = []
     with torch.no_grad():
-        for data in dataloader:
-            inputs1, inputs2, _, label = data['first_text'], data['second_text'], data['loss_mul'], data['label']
-            inputs1_cuda, inputs2_cuda = inputs1.to('cuda'), inputs2.to('cuda')
-            
-            outputs1, outputs2 = net(inputs1_cuda, inputs2_cuda)
-            loss = (outputs2 - outputs1).pow(2).sum(1)
-            predicted = loss < 0.1
-            predictions+=predicted.cpu().numpy().tolist()
-            labels+=label.numpy().tolist()
-    print("Class balance {}".format(sum(labels)/len(labels)))
-    return f1_score(labels, predictions), accuracy_score(labels, predictions)
+        for i, data in enumerate(dataloader):
+            image, labels = data
+            outputs = F.sigmoid(net(image.cuda())).cpu()
+            boxes_pr = box_transform(outputs)
+            boxes_tr = box_transform(labels)
+            metched =[False for x in boxes_tr]
+            true_positives = 0
 
-def validation_metrics(net, dataloader, epoch=1):
-    net.eval()
-    correct = 0
-    with torch.no_grad():
-        for data in dataloader:
-            inputs1, posible_targets, label= data['team'], data['posible_matches'], data['label']
-            team_name, posible_matches_names = data['team_name'], data['posible_matches_names']
-            inputs1_cuda = inputs1.cuda()
-            min_loss = 10000
-            ind = -1
-            closeness = []
-            for i, x in enumerate(posible_targets.squeeze()):
-                outputs1, outputs2 = net(inputs1_cuda, x.unsqueeze(0).cuda())
-                loss = (outputs2 - outputs1).pow(2).sum(1)
-                closeness.append((posible_matches_names[i][0], loss.cpu().numpy()[0]))
-                if loss< min_loss:
-                    min_loss = loss
-                    ind = i
-            closeness = sorted(closeness, key=lambda tup: tup[1])    
-            correct += ind==label
-            if ind!=label:
-                print("For '{}' predicted match was '{}' but correct is '{}'".format(team_name[0], posible_matches_names[ind][0], posible_matches_names[label][0]))
-                print(closeness)
-                print("-----------------------------------------")
-    return correct.numpy()[0]/len(dataloader)
+            for b in boxes_pr:
+                for i, true_b in enumerate(boxes_tr):  
+                    if b['category_id'] != true_b['category_id']:
+                        continue
+                    if IoU(b['bbox'], true_b['bbox'])>0.5:
+                        metched[i]=True
+                        true_positives+=1
+            average_precision.append(true_positives/(len(boxes_pr)+0.1**9))
+
+            if i>len(dataloader)-5:
+                pilImage = torchvision.transforms.ToPILImage()(image[0,...])
+                draw = ImageDraw.Draw(pilImage)
+                for l in boxes_pr:
+                    bbox = l['bbox']
+                    draw.rectangle(((bbox[0], bbox[1]), (bbox[0]+bbox[2], bbox[1]+bbox[3])), outline = 'red')
+                    draw.text((bbox[0], bbox[1]-10), dataloader.cats[l['category_id']][1], outline = 'red')
+                for l in boxes_tr:
+                    bbox = l['bbox']
+                    draw.rectangle(((bbox[0], bbox[1]), (bbox[0]+bbox[2], bbox[1]+bbox[3])), outline = 'blue')
+                    draw.text((bbox[0], bbox[1]-10), dataloader.cats[l['category_id']][1], outline = 'blue')
+                images.append(np.array(pilImage))
+    return sum(average_precision)/len(average_precision), images
+
+
+
+def IoU(bboxDT, bboxGT):
+    xA = max(bboxDT[0], bboxGT[0])
+    yA = max(bboxDT[1], bboxGT[1])
+    xB = min(bboxDT[0] + bboxDT[2], bboxGT[0] + bboxGT[2])
+    yB = min(bboxDT[1] + bboxDT[3], bboxGT[1] + bboxGT[3])
+    # compute the area of intersection rectangle
+    interArea = max(0, xB - xA) * max(0, yB - yA)
+    # compute the area of both the prediction and ground-truth
+    # rectangles
+    boxAArea = bboxDT[2] * bboxDT[2]
+    boxBArea = bboxGT[2] * bboxGT[2]
+    # compute the intersection over union by taking the intersection
+    # area and dividing it by the sum of prediction + ground-truth
+    # areas - the interesection area
+    iou = interArea / float(boxAArea + boxBArea - interArea)
+    # return the intersection over union value
+    return iou

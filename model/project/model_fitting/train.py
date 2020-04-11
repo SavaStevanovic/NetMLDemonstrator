@@ -3,7 +3,7 @@ import torch.nn as nn
 import torch
 import os
 from model_fitting.losses import YoloLoss
-from model_fitting.metrics import metrics, validation_metrics
+from model_fitting.metrics import metrics
 from datetime import datetime
 from torch.utils.tensorboard import SummaryWriter
 from tqdm import tqdm
@@ -20,23 +20,10 @@ def fit_epoch(net, trainloader, writer, lr_rate, box_transform, epoch=1):
     loss = 0.0
 
     for i, data in enumerate(tqdm(trainloader)):
-
         # get the inputs; data is a list of [inputs, labels]
         image, labels = data
-
-        # pilImage = torchvision.transforms.ToPILImage()(image[0,...])
-        # draw = ImageDraw.Draw(pilImage)
-        # boxes = box_transform(labels)
-        # for l in boxes:
-        #     bbox = l['bbox']
-        #     draw.rectangle(((bbox[0], bbox[1]), (bbox[0]+bbox[2], bbox[1]+bbox[3])))
-        #     draw.text((bbox[0], bbox[1]), trainloader.cats[l['category_id']][1])
-        # if len(boxes):
-        #     pilImage.save(os.path.join('demo_data', str(random.random())+'.png'), "png")
-
         # zero the parameter gradients
         optimizer.zero_grad()
-
         # forward + backward + optimize
         outputs = net(image.cuda())
         loss = criterion(outputs, labels.cuda())
@@ -50,29 +37,33 @@ def fit_epoch(net, trainloader, writer, lr_rate, box_transform, epoch=1):
 def fit(net, trainloader, validationloader, chp_prefix, box_transform, epochs=1000, lower_learning_period=10):
     log_datatime = str(datetime.now().time())
     writer = SummaryWriter(os.path.join('logs', log_datatime))
-    best_acc = 0
+    best_map = 0
     i = 0
     lr_rate = 0.001
     for epoch in range(epochs):
         fit_epoch(net, trainloader, writer, lr_rate, box_transform, epoch=epoch)
-        train_f1_score, train_acc = metrics(net, trainloader, epoch)
-        val_acc = validation_metrics(net, validationloader, epoch)
-        writer.add_scalars('metrics', {'val_acc':val_acc, 'train_acc':train_acc, 'train_f1_score':train_f1_score}, epoch)
-        if best_acc < val_acc:
+        train_map, train_samples = metrics(net, trainloader, box_transform, epoch)
+        validation_map, validation_samples = metrics(net, validationloader, box_transform, epoch)
+        writer.add_scalars('metrics', {'train_map':train_map, 'validation_map':validation_map}, epoch)
+        for sample in train_samples:
+            writer.add_images('train_sample', sample, epoch, dataformats='HWC')
+        for sample in validation_samples:
+            writer.add_images('validation_sample', sample, epoch, dataformats='HWC')
+        if best_map < validation_map:
             i=0
-            best_acc = val_acc
-            print('Epoch {}. Saving model with acc: {}'.format(epoch, val_acc))
+            best_map = validation_map
+            print('Epoch {}. Saving model with mAP: {}'.format(epoch, validation_map))
             chp_dir = 'checkpoints'
             os.makedirs((chp_dir), exist_ok=True)
             torch.save(net, os.path.join(chp_dir, '{}_checkpoints.pth'.format(chp_prefix)))
             with open(os.path.join(chp_dir, '{}_acc.txt'.format(chp_prefix)), 'w', encoding = 'utf-8') as f:
-                f.write(str(best_acc))
+                f.write(str(best_map))
         else:
             i+=1
-            print('Epoch {} acc: {}'.format(epoch, val_acc))
+            print('Epoch {} mAP: {}'.format(epoch, validation_map))
         if i==lower_learning_period:
             lr_rate*=0.5
             i=0
             print("Learning rate lowered to {}".format(lr_rate))
     print('Finished Training')
-    return best_acc
+    return best_map
