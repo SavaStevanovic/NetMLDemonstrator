@@ -15,8 +15,10 @@ def metrics( net, dataloader, box_transform, epoch=1):
     with torch.no_grad():
         for i, data in enumerate(dataloader):
             image, labels = data
-            outputs = F.sigmoid(net(image.cuda())).cpu()
+            outputs = torch.sigmoid(net(image.cuda())).cpu()
             boxes_pr = box_transform(outputs)
+            # if len(boxes_pr)>0:
+            #     print('Alaljulja')
             boxes_tr = box_transform(labels)
             metched =[False for x in boxes_tr]
             true_positives = 0

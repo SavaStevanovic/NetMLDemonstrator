@@ -18,7 +18,7 @@ def fit_epoch(net, trainloader, writer, lr_rate, box_transform, epoch=1):
     optimizer = optim.Adam(net.parameters(), lr_rate)
     criterion = YoloLoss(classes_len = net.classes, ratios = net.ratios)
     loss = 0.0
-
+    objectness_f1s = 0.0
     for i, data in enumerate(tqdm(trainloader)):
         # get the inputs; data is a list of [inputs, labels]
         image, labels = data
@@ -26,25 +26,26 @@ def fit_epoch(net, trainloader, writer, lr_rate, box_transform, epoch=1):
         optimizer.zero_grad()
         # forward + backward + optimize
         outputs = net(image.cuda())
-        loss = criterion(outputs, labels.cuda())
+        loss, objectness_f1 = criterion(outputs, labels.cuda())
         loss.backward()
         optimizer.step()
 
         loss += loss.item()
+        objectness_f1s +=objectness_f1
 
-    writer.add_scalar('training loss', loss/len(trainloader), epoch)
+    return loss/len(trainloader), objectness_f1s/len(trainloader)
 
 def fit(net, trainloader, validationloader, chp_prefix, box_transform, epochs=1000, lower_learning_period=10):
     log_datatime = str(datetime.now().time())
     writer = SummaryWriter(os.path.join('logs', log_datatime))
     best_map = 0
     i = 0
-    lr_rate = 0.001
+    lr_rate = 0.0001
     for epoch in range(epochs):
-        fit_epoch(net, trainloader, writer, lr_rate, box_transform, epoch=epoch)
+        loss, objectness_f1 = fit_epoch(net, trainloader, writer, lr_rate, box_transform, epoch=epoch)
         train_map, train_samples = metrics(net, trainloader, box_transform, epoch)
         validation_map, validation_samples = metrics(net, validationloader, box_transform, epoch)
-        writer.add_scalars('metrics', {'train_map':train_map, 'validation_map':validation_map}, epoch)
+        writer.add_scalars('metrics', {'train_map':train_map, 'validation_map':validation_map, 'train_loss':loss, 'objectness_f1':objectness_f1}, epoch)
         for sample in train_samples:
             writer.add_images('train_sample', sample, epoch, dataformats='HWC')
         for sample in validation_samples:
