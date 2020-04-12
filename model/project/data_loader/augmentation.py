@@ -78,11 +78,11 @@ class TargetTransformToBoxes(object):
 
     def __call__(self, target):
         first_target = target[0,...]
-        objects = np.argwhere(first_target[::(5+self.classes_len)]>0.5).T
+        objects = np.argwhere(first_target[::(len(self.ratios)*5+self.classes_len)]>0.5).T
         labels = []
         for cords in objects:
             l = {}
-            class_id = np.argmax(first_target[cords[0]+5:cords[0]+5+self.classes_len, cords[1], cords[2]])
+            class_id = np.argmax(first_target[cords[0]+5:cords[0]+len(self.ratios)*5+self.classes_len, cords[1], cords[2]])
             l['category_id'] = class_id
             box_center = first_target[cords[0]+3, cords[1], cords[2]], first_target[cords[0]+4, cords[1], cords[2]]
             box_size = first_target[cords[0]+1, cords[1], cords[2]], first_target[cords[0]+2, cords[1], cords[2]]

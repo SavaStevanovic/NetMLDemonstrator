@@ -15,24 +15,25 @@ def metrics( net, dataloader, box_transform, epoch=1):
     with torch.no_grad():
         for i, data in enumerate(dataloader):
             image, labels = data
-            outputs = torch.sigmoid(net(image.cuda())).cpu()
-            boxes_pr = box_transform(outputs)
-            # if len(boxes_pr)>0:
-            #     print('Alaljulja')
+            outputs = net(image.cuda()).cpu()
             boxes_tr = box_transform(labels)
+            boxes_pr = box_transform(outputs.cpu().detach())
             metched =[False for x in boxes_tr]
             true_positives = 0
-
             for b in boxes_pr:
                 for i, true_b in enumerate(boxes_tr):  
-                    if b['category_id'] != true_b['category_id']:
-                        continue
-                    if IoU(b['bbox'], true_b['bbox'])>0.5:
+                    # if b['category_id'] != true_b['category_id']:
+                    #     continue
+                    if IoU(b['bbox'], true_b['bbox'])>0.1:
                         metched[i]=True
                         true_positives+=1
             average_precision.append(true_positives/(len(boxes_pr)+0.1**9))
-
+            
             if i>len(dataloader)-5:
+                object_range = 5*len(net.ratios)+net.classes
+                outputs[:, ::object_range] = torch.sigmoid(outputs[:, ::object_range])
+                boxes_pr = box_transform(outputs.cpu().detach())
+                boxes_tr = box_transform(labels.cpu().detach())
                 pilImage = torchvision.transforms.ToPILImage()(image[0,...])
                 draw = ImageDraw.Draw(pilImage)
                 for l in boxes_pr:
@@ -44,6 +45,7 @@ def metrics( net, dataloader, box_transform, epoch=1):
                     draw.rectangle(((bbox[0], bbox[1]), (bbox[0]+bbox[2], bbox[1]+bbox[3])), outline = 'blue')
                     draw.text((bbox[0], bbox[1]-10), dataloader.cats[l['category_id']][1], outline = 'blue')
                 images.append(np.array(pilImage))
+                
     return sum(average_precision)/len(average_precision), images
 
 

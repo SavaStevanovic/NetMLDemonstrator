@@ -18,7 +18,7 @@ def convUp(in_planes, out_planes):
 class PreActivationBlock(nn.Module):
     expansion = 1
 
-    def __init__(self, inplanes, planes, stride=1, downsample=None, groups=1, norm_layer=nn.BatchNorm2d):
+    def __init__(self, inplanes, planes, stride=1, downsample=None, groups=1, norm_layer=nn.InstanceNorm2d):
         super(PreActivationBlock, self).__init__()
         self.bn1 = norm_layer(inplanes)
         self.relu = nn.ReLU(inplace=True)
@@ -51,7 +51,7 @@ class PreActivationBlock(nn.Module):
 
 class ResNetBackbone(nn.Module):
 
-    def __init__(self, block, layers, norm_layer=nn.BatchNorm2d, multiplier=2):
+    def __init__(self, block, layers, norm_layer=nn.InstanceNorm2d, multiplier=2):
         super(ResNetBackbone, self).__init__()
 
         self.groups = 1

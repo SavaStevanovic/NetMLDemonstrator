@@ -12,28 +12,51 @@ from pycocotools.cocoeval import COCOeval
 from PIL import Image, ImageFont, ImageDraw, ImageEnhance
 import torchvision
 import random
+import numpy as np
 
-def fit_epoch(net, trainloader, writer, lr_rate, box_transform, epoch=1):
+def fit_epoch(net, dataloader, writer, lr_rate, box_transform, epoch=1):
     net.train()
     optimizer = optim.Adam(net.parameters(), lr_rate)
     criterion = YoloLoss(classes_len = net.classes, ratios = net.ratios)
-    loss = 0.0
+    losses = 0.0
     objectness_f1s = 0.0
-    for i, data in enumerate(tqdm(trainloader)):
+    total_objectness_loss = 0.0
+    total_size_loss = 0.0
+    images = []
+    for i, data in enumerate(tqdm(dataloader)):
         # get the inputs; data is a list of [inputs, labels]
         image, labels = data
         # zero the parameter gradients
         optimizer.zero_grad()
         # forward + backward + optimize
         outputs = net(image.cuda())
-        loss, objectness_f1 = criterion(outputs, labels.cuda())
+        loss, objectness_f1, objectness_loss, size_loss = criterion(outputs, labels.cuda())
         loss.backward()
         optimizer.step()
-
-        loss += loss.item()
+        total_objectness_loss += objectness_loss.item()
+        total_size_loss += size_loss.item()
+        losses += loss.item()
         objectness_f1s +=objectness_f1
 
-    return loss/len(trainloader), objectness_f1s/len(trainloader)
+        if i>len(dataloader)-5:
+            object_range = 5*len(net.ratios)+net.classes
+            outputs[:, ::object_range] = torch.sigmoid(outputs[:, ::object_range])
+            boxes_pr = box_transform(outputs.cpu().detach())
+            boxes_tr = box_transform(labels.cpu().detach())
+            pilImage = torchvision.transforms.ToPILImage()(image[0,...])
+            draw = ImageDraw.Draw(pilImage)
+            for l in boxes_pr:
+                bbox = l['bbox']
+                draw.rectangle(((bbox[0], bbox[1]), (bbox[0]+bbox[2], bbox[1]+bbox[3])), outline = 'red')
+                draw.text((bbox[0], bbox[1]-10), dataloader.cats[l['category_id']][1], outline = 'red')
+            for l in boxes_tr:
+                bbox = l['bbox']
+                draw.rectangle(((bbox[0], bbox[1]), (bbox[0]+bbox[2], bbox[1]+bbox[3])), outline = 'blue')
+                draw.text((bbox[0], bbox[1]-10), dataloader.cats[l['category_id']][1], outline = 'blue')
+            images.append(np.array(pilImage))
+
+    data_len = len(dataloader)
+    return losses/data_len, objectness_f1s/data_len, total_objectness_loss/data_len, total_size_loss/data_len, images
 
 def fit(net, trainloader, validationloader, chp_prefix, box_transform, epochs=1000, lower_learning_period=10):
     log_datatime = str(datetime.now().time())
@@ -42,10 +65,10 @@ def fit(net, trainloader, validationloader, chp_prefix, box_transform, epochs=10
     i = 0
     lr_rate = 0.0001
     for epoch in range(epochs):
-        loss, objectness_f1 = fit_epoch(net, trainloader, writer, lr_rate, box_transform, epoch=epoch)
-        train_map, train_samples = metrics(net, trainloader, box_transform, epoch)
+        loss, objectness_f1, objectness_loss, size_loss, train_samples = fit_epoch(net, trainloader, writer, lr_rate, box_transform, epoch=epoch)
+        # train_map, train_samples = metrics(net, trainloader, box_transform, epoch)
         validation_map, validation_samples = metrics(net, validationloader, box_transform, epoch)
-        writer.add_scalars('metrics', {'train_map':train_map, 'validation_map':validation_map, 'train_loss':loss, 'objectness_f1':objectness_f1}, epoch)
+        writer.add_scalars('metrics', {'validation_map':validation_map, 'train_loss':loss, 'objectness_f1':objectness_f1, 'objectness_loss': objectness_loss, 'size_loss':size_loss}, epoch)
         for sample in train_samples:
             writer.add_images('train_sample', sample, epoch, dataformats='HWC')
         for sample in validation_samples:

@@ -28,4 +28,4 @@ backbone = ResNetBackbone(block = PreActivationBlock, layers = [2, 2, 2, 2])
 net = YoloNet(backbone, classes = len(trainset.coco.cats), ratios=ratios)
 net.cuda()
 
-fit(net, trainloader, validationloader, chp_prefix="coco", box_transform = TargetTransformToBoxes(prior_box_size=32, classes=classes, ratios=ratios, stride=32), epochs=1000, lower_learning_period=100)
+fit(net, trainloader, validationloader, chp_prefix="coco", box_transform = TargetTransformToBoxes(prior_box_size=32, classes=classes, ratios=ratios, stride=32), epochs=1000, lower_learning_period=20)
