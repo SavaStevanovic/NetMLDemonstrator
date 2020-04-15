@@ -53,7 +53,7 @@ class TargetTransform(object):
         self.stride = stride
 
     def __call__(self, image, labels):
-        target = np.zeros((len(self.ratios)*5 + self.classes_len, image.size[1]//self.stride, image.size[0]//self.stride), dtype=np.float)
+        target = np.zeros((len(self.ratios)*5 + self.classes_len, image.size[1]//self.stride, image.size[0]//self.stride), dtype=np.float32)
         for l in labels:
             id = self.classes.index(l['category_id']) + 5
             bbox = l['bbox']
@@ -61,8 +61,8 @@ class TargetTransform(object):
             box_position = np.floor(box_center[0]).astype(np.int), np.floor(box_center[1]).astype(np.int)
             i = min(range(len(self.ratios)), key=lambda i: abs(self.ratios[i]-bbox[2]/(bbox[3]+1e-9)))
             target[i * (len(self.ratios)*5+self.classes_len)+ 0, box_position[1], box_position[0]] = 1
-            target[i * (len(self.ratios)*5+self.classes_len)+ 1, box_position[1], box_position[0]] = np.log(np.max(bbox[2], 1)/self.prior_box_size*self.ratios[i])
-            target[i * (len(self.ratios)*5+self.classes_len)+ 2, box_position[1], box_position[0]] = np.log(np.max(bbox[3], 1)/self.prior_box_size)
+            target[i * (len(self.ratios)*5+self.classes_len)+ 1, box_position[1], box_position[0]] = np.log(max(bbox[2], 1)/self.prior_box_size*self.ratios[i])
+            target[i * (len(self.ratios)*5+self.classes_len)+ 2, box_position[1], box_position[0]] = np.log(max(bbox[3], 1)/self.prior_box_size)
             target[i * (len(self.ratios)*5+self.classes_len)+ 3, box_position[1], box_position[0]] = box_center[0] - box_position[0]
             target[i * (len(self.ratios)*5+self.classes_len)+ 4, box_position[1], box_position[0]] = box_center[1] - box_position[1]
             target[i * (len(self.ratios)*5+self.classes_len)+id, box_position[1], box_position[0]] = 1

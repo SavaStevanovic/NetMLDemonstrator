@@ -27,14 +27,18 @@ class YoloLoss(torch.nn.Module):
         self.ratios = ratios
         self.l1_loss = torch.nn.L1Loss(reduction='none')
         self.l2_loss = torch.nn.MSELoss(reduction='none')
+        self.softmax = torch.nn.LogSoftmax(dim=1)
+        self.class_loss = torch.nn.NLLLoss(reduction='none')
         self.size_scale = 0.1 
         self.offset_scale = 0.1 
+        self.class_scale = 1.0
 
     def forward(self, outputs, labels):
         loss = 0
         total_objectness_loss = 0
         total_size_loss = 0
         total_offset_loss = 0
+        total_class_loss = 0
         objectnes_f1_scores = []
         for batch in range(labels.size()[0]):
             output, label = outputs[batch], labels[batch]
@@ -62,9 +66,19 @@ class YoloLoss(torch.nn.Module):
             lab_offset = torch.flatten(lab_offset)
             lab_offset_objectness = torch.cat([lab_objectness for _ in offset_range], 0)
             total_offset_loss += self.offset_scale * lab_offset_objectness.dot(self.l1_loss(obj_offset, lab_offset))
+
+            class_range = range(5,object_range)
+            box_class_range = [i for i in range(label.shape[0]) if i%object_range in class_range]
+            obj_class = self.softmax(output[box_class_range].unsqueeze(0))
+            lab_class = label[box_class_range].unsqueeze(0)
+            # obj_class = torch.flatten(obj_class)
+            # lab_class = torch.flatten(lab_class)
+            lab_class_objectness = lab_objectness
+            total_class_loss += self.class_scale * lab_class_objectness.dot(torch.flatten(self.class_loss(obj_class, lab_class.argmax(1))))
+
         objectnes_f1_score = np.average(objectnes_f1_scores)
-        loss = total_objectness_loss + total_size_loss + total_offset_loss
-        return loss, objectnes_f1_score, total_objectness_loss, total_size_loss, total_offset_loss
+        loss = total_objectness_loss + total_size_loss + total_offset_loss + total_class_loss
+        return loss, objectnes_f1_score, total_objectness_loss, total_size_loss, total_offset_loss, total_class_loss
 
     def focal_loss(self, x, y):
         alpha = 1
