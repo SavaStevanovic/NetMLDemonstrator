@@ -16,8 +16,17 @@ def metrics( net, dataloader, box_transform, epoch=1):
         for i, data in enumerate(dataloader):
             image, labels = data
             outputs = net(image.cuda()).cpu()
-            boxes_tr = box_transform(labels)
+
+            object_range = 5*len(net.ratios)+net.classes
+            outputs[:, ::object_range] = torch.sigmoid(outputs[:, ::object_range])
+
+            offset_range = [3,4]
+            box_offset_range = [i for i in range(labels.shape[1]) if i%object_range in offset_range]
+            outputs[:,box_offset_range] = torch.sigmoid(outputs[:,box_offset_range])
+
             boxes_pr = box_transform(outputs.cpu().detach())
+            boxes_tr = box_transform(labels.cpu().detach())
+
             metched =[False for x in boxes_tr]
             true_positives = 0
             for b in boxes_pr:
@@ -30,10 +39,7 @@ def metrics( net, dataloader, box_transform, epoch=1):
             average_precision.append(true_positives/(len(boxes_pr)+0.1**9))
             
             if i>len(dataloader)-5:
-                object_range = 5*len(net.ratios)+net.classes
-                outputs[:, ::object_range] = torch.sigmoid(outputs[:, ::object_range])
-                boxes_pr = box_transform(outputs.cpu().detach())
-                boxes_tr = box_transform(labels.cpu().detach())
+
                 pilImage = torchvision.transforms.ToPILImage()(image[0,...])
                 draw = ImageDraw.Draw(pilImage)
                 for l in boxes_pr:

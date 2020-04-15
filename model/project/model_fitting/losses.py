@@ -26,15 +26,20 @@ class YoloLoss(torch.nn.Module):
         self.classes_len = classes_len
         self.ratios = ratios
         self.l1_loss = torch.nn.L1Loss(reduction='none')
+        self.l2_loss = torch.nn.MSELoss(reduction='none')
+        self.size_scale = 0.1 
+        self.offset_scale = 0.1 
 
     def forward(self, outputs, labels):
         loss = 0
         total_objectness_loss = 0
         total_size_loss = 0
+        total_offset_loss = 0
         objectnes_f1_scores = []
         for batch in range(labels.size()[0]):
             output, label = outputs[batch], labels[batch]
             object_range = 5*len(self.ratios)+self.classes_len
+
             obj_objectness = torch.sigmoid(output[::object_range])
             lab_objectness = label[::object_range]
             obj_objectness = torch.flatten(obj_objectness)
@@ -46,11 +51,20 @@ class YoloLoss(torch.nn.Module):
             obj_box_size = torch.flatten(output[box_size_range])
             lab_box_size = torch.flatten(label[box_size_range])
             lab_size_objectness = torch.cat([lab_objectness for _ in size_range], 0)
-            total_size_loss += torch.sum(lab_size_objectness * self.l1_loss(obj_box_size, lab_box_size))
+            total_size_loss += self.size_scale * lab_size_objectness.dot(self.l1_loss(obj_box_size, lab_box_size))
             objectnes_f1_scores.append(f1_score(lab_objectness.cpu(), obj_objectness.cpu()>0.5))
+
+            offset_range = [3,4]
+            box_offset_range = [i for i in range(label.shape[0]) if i%object_range in offset_range]
+            obj_offset = torch.sigmoid(output[box_offset_range])
+            lab_offset = label[box_offset_range]
+            obj_offset = torch.flatten(obj_offset)
+            lab_offset = torch.flatten(lab_offset)
+            lab_offset_objectness = torch.cat([lab_objectness for _ in offset_range], 0)
+            total_offset_loss += self.offset_scale * lab_offset_objectness.dot(self.l1_loss(obj_offset, lab_offset))
         objectnes_f1_score = np.average(objectnes_f1_scores)
-        loss = total_objectness_loss + total_size_loss
-        return loss, objectnes_f1_score, total_objectness_loss, total_size_loss
+        loss = total_objectness_loss + total_size_loss + total_offset_loss
+        return loss, objectnes_f1_score, total_objectness_loss, total_size_loss, total_offset_loss
 
     def focal_loss(self, x, y):
         alpha = 1

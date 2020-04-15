@@ -22,6 +22,7 @@ def fit_epoch(net, dataloader, writer, lr_rate, box_transform, epoch=1):
     objectness_f1s = 0.0
     total_objectness_loss = 0.0
     total_size_loss = 0.0
+    total_offset_loss = 0.0
     images = []
     for i, data in enumerate(tqdm(dataloader)):
         # get the inputs; data is a list of [inputs, labels]
@@ -30,17 +31,23 @@ def fit_epoch(net, dataloader, writer, lr_rate, box_transform, epoch=1):
         optimizer.zero_grad()
         # forward + backward + optimize
         outputs = net(image.cuda())
-        loss, objectness_f1, objectness_loss, size_loss = criterion(outputs, labels.cuda())
+        loss, objectness_f1, objectness_loss, size_loss, offset_loss = criterion(outputs, labels.cuda())
         loss.backward()
         optimizer.step()
         total_objectness_loss += objectness_loss.item()
         total_size_loss += size_loss.item()
         losses += loss.item()
+        total_offset_loss += offset_loss.item()
         objectness_f1s +=objectness_f1
 
         if i>len(dataloader)-5:
             object_range = 5*len(net.ratios)+net.classes
             outputs[:, ::object_range] = torch.sigmoid(outputs[:, ::object_range])
+
+            offset_range = [3,4]
+            box_offset_range = [i for i in range(labels.shape[1]) if i%object_range in offset_range]
+            outputs[:,box_offset_range] = torch.sigmoid(outputs[:,box_offset_range])
+
             boxes_pr = box_transform(outputs.cpu().detach())
             boxes_tr = box_transform(labels.cpu().detach())
             pilImage = torchvision.transforms.ToPILImage()(image[0,...])
@@ -56,7 +63,7 @@ def fit_epoch(net, dataloader, writer, lr_rate, box_transform, epoch=1):
             images.append(np.array(pilImage))
 
     data_len = len(dataloader)
-    return losses/data_len, objectness_f1s/data_len, total_objectness_loss/data_len, total_size_loss/data_len, images
+    return losses/data_len, objectness_f1s/data_len, total_objectness_loss/data_len, total_size_loss/data_len, total_offset_loss/data_len, images
 
 def fit(net, trainloader, validationloader, chp_prefix, box_transform, epochs=1000, lower_learning_period=10):
     log_datatime = str(datetime.now().time())
@@ -65,10 +72,10 @@ def fit(net, trainloader, validationloader, chp_prefix, box_transform, epochs=10
     i = 0
     lr_rate = 0.0001
     for epoch in range(epochs):
-        loss, objectness_f1, objectness_loss, size_loss, train_samples = fit_epoch(net, trainloader, writer, lr_rate, box_transform, epoch=epoch)
+        loss, objectness_f1, objectness_loss, size_loss, offset_loss, train_samples = fit_epoch(net, trainloader, writer, lr_rate, box_transform, epoch=epoch)
         # train_map, train_samples = metrics(net, trainloader, box_transform, epoch)
         validation_map, validation_samples = metrics(net, validationloader, box_transform, epoch)
-        writer.add_scalars('metrics', {'validation_map':validation_map, 'train_loss':loss, 'objectness_f1':objectness_f1, 'objectness_loss': objectness_loss, 'size_loss':size_loss}, epoch)
+        writer.add_scalars('metrics', {'validation_map':validation_map, 'train_loss':loss, 'objectness_f1':objectness_f1, 'objectness_loss': objectness_loss, 'size_loss':size_loss, 'offset_loss':offset_loss}, epoch)
         for sample in train_samples:
             writer.add_images('train_sample', sample, epoch, dataformats='HWC')
         for sample in validation_samples:
