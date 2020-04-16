@@ -21,20 +21,17 @@ class ContrastiveLoss(torch.nn.Module):
 
 class YoloLoss(torch.nn.Module):
 
-    def __init__(self, classes, ratios):
+    def __init__(self, ranges):
         super(YoloLoss, self).__init__()
-        self.classes = classes
-        self.ratios = ratios
         self.l1_loss = torch.nn.L1Loss(reduction='none')
         self.l2_loss = torch.nn.MSELoss(reduction='none')
-        self.softmax = torch.nn.LogSoftmax(dim=1)
         self.class_loss = torch.nn.NLLLoss(reduction='none')
         self.size_scale = 0.1 
         self.offset_scale = 0.1 
         self.class_scale = 1.0
+        self.ranges = ranges
 
     def forward(self, outputs, labels):
-        loss = 0
         total_objectness_loss = 0
         total_size_loss = 0
         total_offset_loss = 0
@@ -42,35 +39,24 @@ class YoloLoss(torch.nn.Module):
         objectnes_f1_scores = []
         for batch in range(labels.size()[0]):
             output, label = outputs[batch], labels[batch]
-            object_range = 5*len(self.ratios)+len(self.classes)
 
-            obj_objectness = output[::object_range]
-            lab_objectness = label[::object_range]
-            obj_objectness = torch.flatten(obj_objectness)
-            lab_objectness = torch.flatten(lab_objectness)
+            obj_objectness = torch.flatten(output[self.ranges.objectness])
+            lab_objectness = torch.flatten(label[self.ranges.objectness])
             total_objectness_loss+= self.focal_loss(obj_objectness, lab_objectness)
 
-            size_range = [1,2]
-            box_size_range = [i for i in range(label.shape[0]) if i%object_range in size_range]
-            obj_box_size = torch.flatten(output[box_size_range])
-            lab_box_size = torch.flatten(label[box_size_range])
-            lab_size_objectness = torch.cat([lab_objectness for _ in size_range], 0)
+            obj_box_size = torch.flatten(output[self.ranges.size])
+            lab_box_size = torch.flatten(label[self.ranges.size])
+            lab_size_objectness = torch.cat([lab_objectness for _ in self.ranges.size], 0)
             total_size_loss += self.size_scale * lab_size_objectness.dot(self.l1_loss(obj_box_size, lab_box_size))
             objectnes_f1_scores.append(f1_score(lab_objectness.cpu(), obj_objectness.cpu()>0.5))
 
-            offset_range = [3,4]
-            box_offset_range = [i for i in range(label.shape[0]) if i%object_range in offset_range]
-            obj_offset = output[box_offset_range]
-            lab_offset = label[box_offset_range]
-            obj_offset = torch.flatten(obj_offset)
-            lab_offset = torch.flatten(lab_offset)
-            lab_offset_objectness = torch.cat([lab_objectness for _ in offset_range], 0)
+            obj_offset = torch.flatten(output[self.ranges.offset])
+            lab_offset = torch.flatten(label[self.ranges.offset])
+            lab_offset_objectness = torch.cat([lab_objectness for _ in self.ranges.offset], 0)
             total_offset_loss += self.offset_scale * lab_offset_objectness.dot(self.l1_loss(obj_offset, lab_offset))
 
-            class_range = range(5,object_range)
-            box_class_range = [i for i in range(label.shape[0]) if i%object_range in class_range]
-            obj_class = output[box_class_range].unsqueeze(0)
-            lab_class = label[box_class_range].unsqueeze(0).argmax(1)
+            obj_class = output[self.ranges.classes].unsqueeze(0)
+            lab_class = label[self.ranges.classes].unsqueeze(0).argmax(1)
             lab_class_objectness = lab_objectness
             total_class_loss += self.class_scale * lab_class_objectness.dot(torch.flatten(self.class_loss(obj_class, lab_class)))
 

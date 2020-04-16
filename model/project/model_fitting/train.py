@@ -17,7 +17,7 @@ import numpy as np
 def fit_epoch(net, dataloader, writer, lr_rate, box_transform, epoch=1):
     net.train()
     optimizer = optim.Adam(net.parameters(), lr_rate)
-    criterion = YoloLoss(classes = net.classes, ratios = net.ratios)
+    criterion = YoloLoss(ranges = net.ranges)
     losses = 0.0
     objectness_f1s = 0.0
     total_objectness_loss = 0.0

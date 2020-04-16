@@ -161,25 +161,27 @@ class YoloNet(nn.Module):
         self.classes = classes
         self.ratios = ratios
         self.object_range = 5*len(self.ratios)+len(self.classes)
-        self.objectness_range = [0]
-        self.offset_range = [3,4]
-        self.class_range = range(5, self.object_range)
+        self.ranges = YoloRanges(objectness = [0], size = [1,2], offset = [3,4], classes = range(5, self.object_range))
+        self.objectness_range = [i for i in range(self.object_range) if i % self.object_range in self.ranges.objectness]
+        self.box_size_range = [i for i in range(self.object_range) if i % self.object_range in self.ranges.size]
+        self.offset_range = [i for i in range(self.object_range) if i % self.object_range in self.ranges.offset]
+        self.class_range = [i for i in range(self.object_range) if i % self.object_range in self.ranges.classes]
         self.toplayer = nn.Conv2d(self.inplanes, len(ratios)*(5 + len(classes)), kernel_size=1)  
 
     def output_actrivations(self, x):
-        prediction_range = x.shape[1]
-        objectness_range = [i for i in range(prediction_range) if i % self.object_range in self.objectness_range]
-        x[:, objectness_range] = x[:, objectness_range].sigmoid()
-
-        box_offset_range = [i for i in range(prediction_range) if i % self.object_range in self.offset_range]
-        x[:, box_offset_range] = x[:, box_offset_range].sigmoid()
-
-        box_class_range =  [i for i in range(prediction_range) if i % self.object_range in self.class_range]
-        x[:, box_class_range] = x[:, box_class_range].log_softmax(1)
-        
+        x[:, self.ranges.objectness] = x[:, self.ranges.objectness].sigmoid()
+        x[:, self.ranges.offset] = x[:, self.ranges.offset].sigmoid()
+        x[:, self.ranges.classes] = x[:, self.ranges.classes].log_softmax(1)
         return x
 
     def forward(self, x):
         _, _, _, boutput = self.backbone(x)
         output = self.toplayer(boutput)
         return self.output_actrivations(output)
+
+class YoloRanges(object):
+    def __init__(self, objectness, size, offset, classes):
+        self.objectness = objectness
+        self.size = size
+        self.offset = offset
+        self.classes = classes
