@@ -1,5 +1,5 @@
 import torch
-from model.resnet import YoloNet, ResNetBackbone, PreActivationBlock
+from model.networks import YoloNet, ResNetBackbone, PreActivationBlock
 from model_fitting.train import fit
 from data_loader.coco_dataset import CocoDetectionDatasetProvider
 

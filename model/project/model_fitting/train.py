@@ -26,11 +26,8 @@ def fit_epoch(net, dataloader, writer, lr_rate, box_transform, epoch=1):
     total_class_loss = 0
     images = []
     for i, data in enumerate(tqdm(dataloader)):
-        # get the inputs; data is a list of [inputs, labels]
         image, labels = data
-        # zero the parameter gradients
         optimizer.zero_grad()
-        # forward + backward + optimize
         outputs = net(image.cuda())
         loss, objectness_f1, objectness_loss, size_loss, offset_loss, class_loss = criterion(outputs, labels.cuda())
         loss.backward()
@@ -68,7 +65,6 @@ def fit(net, trainloader, validationloader, chp_prefix, box_transform, epochs=10
     lr_rate = 0.0001
     for epoch in range(epochs):
         loss, objectness_f1, objectness_loss, size_loss, offset_loss, class_loss, train_samples = fit_epoch(net, trainloader, writer, lr_rate, box_transform, epoch=epoch)
-        # train_map, train_samples = metrics(net, trainloader, box_transform, epoch)
         validation_map, validation_samples = metrics(net, validationloader, box_transform, epoch)
         writer.add_scalars('metrics', {'validation_map':validation_map, 'train_loss':loss, 'objectness_f1':objectness_f1, 'objectness_loss': objectness_loss, 'size_loss':size_loss, 'offset_loss':offset_loss, 'class_loss':class_loss}, epoch)
         for sample in train_samples:
