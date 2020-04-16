@@ -43,13 +43,6 @@ def fit_epoch(net, dataloader, writer, lr_rate, box_transform, epoch=1):
         objectness_f1s +=objectness_f1
 
         if i>len(dataloader)-5:
-            object_range = 5*len(net.ratios)+len(net.classes)
-            outputs[:, ::object_range] = torch.sigmoid(outputs[:, ::object_range])
-
-            offset_range = [3,4]
-            box_offset_range = [i for i in range(labels.shape[1]) if i%object_range in offset_range]
-            outputs[:,box_offset_range] = torch.sigmoid(outputs[:,box_offset_range])
-
             boxes_pr = box_transform(outputs.cpu().detach())
             boxes_tr = box_transform(labels.cpu().detach())
             pilImage = torchvision.transforms.ToPILImage()(image[0,...])

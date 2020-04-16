@@ -17,13 +17,6 @@ def metrics( net, dataloader, box_transform, epoch=1):
             image, labels = data
             outputs = net(image.cuda()).cpu()
 
-            object_range = 5*len(net.ratios)+len(net.classes)
-            outputs[:, ::object_range] = torch.sigmoid(outputs[:, ::object_range])
-
-            offset_range = [3,4]
-            box_offset_range = [i for i in range(labels.shape[1]) if i%object_range in offset_range]
-            outputs[:,box_offset_range] = torch.sigmoid(outputs[:,box_offset_range])
-
             boxes_pr = box_transform(outputs.cpu().detach())
             boxes_tr = box_transform(labels.cpu().detach())
 

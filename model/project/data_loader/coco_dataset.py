@@ -25,8 +25,8 @@ class CocoDetectionDatasetProvider():
         self.validationset  = CocoDetection(root = validation_dir, annFile = validation_add_file, transforms=transforms)
 
         if th_count==1:
-            self.trainset.ids      = self.trainset.ids[:1000]
-            self.validationset.ids = self.validationset.ids[:1000]
+            self.trainset.ids      = self.trainset.ids[:100]
+            self.validationset.ids = self.validationset.ids[:100]
 
         self.trainloader      = torch.utils.data.DataLoader(self.trainset,      batch_size=1,   shuffle=True,  num_workers=th_count, pin_memory=True)
         self.validationloader = torch.utils.data.DataLoader(self.validationset, batch_size=1,   shuffle=False, num_workers=th_count, pin_memory=True)

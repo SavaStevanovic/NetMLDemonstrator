@@ -44,7 +44,7 @@ class YoloLoss(torch.nn.Module):
             output, label = outputs[batch], labels[batch]
             object_range = 5*len(self.ratios)+len(self.classes)
 
-            obj_objectness = torch.sigmoid(output[::object_range])
+            obj_objectness = output[::object_range]
             lab_objectness = label[::object_range]
             obj_objectness = torch.flatten(obj_objectness)
             lab_objectness = torch.flatten(lab_objectness)
@@ -60,7 +60,7 @@ class YoloLoss(torch.nn.Module):
 
             offset_range = [3,4]
             box_offset_range = [i for i in range(label.shape[0]) if i%object_range in offset_range]
-            obj_offset = torch.sigmoid(output[box_offset_range])
+            obj_offset = output[box_offset_range]
             lab_offset = label[box_offset_range]
             obj_offset = torch.flatten(obj_offset)
             lab_offset = torch.flatten(lab_offset)
@@ -69,10 +69,10 @@ class YoloLoss(torch.nn.Module):
 
             class_range = range(5,object_range)
             box_class_range = [i for i in range(label.shape[0]) if i%object_range in class_range]
-            obj_class = self.softmax(output[box_class_range].unsqueeze(0))
-            lab_class = label[box_class_range].unsqueeze(0)
+            obj_class = output[box_class_range].unsqueeze(0)
+            lab_class = label[box_class_range].unsqueeze(0).argmax(1)
             lab_class_objectness = lab_objectness
-            total_class_loss += self.class_scale * lab_class_objectness.dot(torch.flatten(self.class_loss(obj_class, lab_class.argmax(1))))
+            total_class_loss += self.class_scale * lab_class_objectness.dot(torch.flatten(self.class_loss(obj_class, lab_class)))
 
         objectnes_f1_score = np.average(objectnes_f1_scores)
         loss = total_objectness_loss + total_size_loss + total_offset_loss + total_class_loss

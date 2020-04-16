@@ -160,12 +160,26 @@ class YoloNet(nn.Module):
         self.inplanes = backbone.inplanes
         self.classes = classes
         self.ratios = ratios
-
+        self.object_range = 5*len(self.ratios)+len(self.classes)
+        self.objectness_range = [0]
+        self.offset_range = [3,4]
+        self.class_range = range(5, self.object_range)
         self.toplayer = nn.Conv2d(self.inplanes, len(ratios)*(5 + len(classes)), kernel_size=1)  
 
+    def output_actrivations(self, x):
+        prediction_range = x.shape[1]
+        objectness_range = [i for i in range(prediction_range) if i % self.object_range in self.objectness_range]
+        x[:, objectness_range] = x[:, objectness_range].sigmoid()
 
+        box_offset_range = [i for i in range(prediction_range) if i % self.object_range in self.offset_range]
+        x[:, box_offset_range] = x[:, box_offset_range].sigmoid()
+
+        box_class_range =  [i for i in range(prediction_range) if i % self.object_range in self.class_range]
+        x[:, box_class_range] = x[:, box_class_range].log_softmax(1)
+        
+        return x
 
     def forward(self, x):
         _, _, _, boutput = self.backbone(x)
         output = self.toplayer(boutput)
-        return output
+        return self.output_actrivations(output)
