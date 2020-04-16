@@ -21,9 +21,9 @@ class ContrastiveLoss(torch.nn.Module):
 
 class YoloLoss(torch.nn.Module):
 
-    def __init__(self, classes_len, ratios):
+    def __init__(self, classes, ratios):
         super(YoloLoss, self).__init__()
-        self.classes_len = classes_len
+        self.classes = classes
         self.ratios = ratios
         self.l1_loss = torch.nn.L1Loss(reduction='none')
         self.l2_loss = torch.nn.MSELoss(reduction='none')
@@ -42,7 +42,7 @@ class YoloLoss(torch.nn.Module):
         objectnes_f1_scores = []
         for batch in range(labels.size()[0]):
             output, label = outputs[batch], labels[batch]
-            object_range = 5*len(self.ratios)+self.classes_len
+            object_range = 5*len(self.ratios)+len(self.classes)
 
             obj_objectness = torch.sigmoid(output[::object_range])
             lab_objectness = label[::object_range]
@@ -71,8 +71,6 @@ class YoloLoss(torch.nn.Module):
             box_class_range = [i for i in range(label.shape[0]) if i%object_range in class_range]
             obj_class = self.softmax(output[box_class_range].unsqueeze(0))
             lab_class = label[box_class_range].unsqueeze(0)
-            # obj_class = torch.flatten(obj_class)
-            # lab_class = torch.flatten(lab_class)
             lab_class_objectness = lab_objectness
             total_class_loss += self.class_scale * lab_class_objectness.dot(torch.flatten(self.class_loss(obj_class, lab_class.argmax(1))))
 

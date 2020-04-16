@@ -153,21 +153,19 @@ class RetinaNet(nn.Module):
         return p1, p2, p3
 
 class YoloNet(nn.Module):
-    def __init__(self, backbone, classes = 80, ratios=[1.0]):
+    def __init__(self, backbone, classes, ratios=[1.0]):
         super(YoloNet, self).__init__()
 
         self.backbone = backbone
         self.inplanes = backbone.inplanes
         self.classes = classes
         self.ratios = ratios
-        # Top layer
-        self.toplayer = nn.Conv2d(self.inplanes, len(ratios)*(5 + classes), kernel_size=1)  # Reduce channels
+
+        self.toplayer = nn.Conv2d(self.inplanes, len(ratios)*(5 + len(classes)), kernel_size=1)  
 
 
 
     def forward(self, x):
-        # Bottom-up
         _, _, _, boutput = self.backbone(x)
-        # Top-down
         output = self.toplayer(boutput)
         return output

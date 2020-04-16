@@ -17,7 +17,7 @@ import numpy as np
 def fit_epoch(net, dataloader, writer, lr_rate, box_transform, epoch=1):
     net.train()
     optimizer = optim.Adam(net.parameters(), lr_rate)
-    criterion = YoloLoss(classes_len = net.classes, ratios = net.ratios)
+    criterion = YoloLoss(classes = net.classes, ratios = net.ratios)
     losses = 0.0
     objectness_f1s = 0.0
     total_objectness_loss = 0.0
@@ -43,7 +43,7 @@ def fit_epoch(net, dataloader, writer, lr_rate, box_transform, epoch=1):
         objectness_f1s +=objectness_f1
 
         if i>len(dataloader)-5:
-            object_range = 5*len(net.ratios)+net.classes
+            object_range = 5*len(net.ratios)+len(net.classes)
             outputs[:, ::object_range] = torch.sigmoid(outputs[:, ::object_range])
 
             offset_range = [3,4]
