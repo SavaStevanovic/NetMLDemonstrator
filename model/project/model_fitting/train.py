@@ -31,12 +31,12 @@ def fit_epoch(net, dataloader, writer, lr_rate, box_transform, epoch=1):
         losses += loss.item()
         total_offset_loss += offset_loss.item()
         total_class_loss += class_loss.item()
-        objectness_f1s +=objectness_f1
+        objectness_f1s +=objectness_f1.item()
 
         if i>len(dataloader)-5:
             pilImage = apply_detections(box_transform, outputs.cpu().detach(), labels.cpu().detach(), image[0,...], dataloader.cats)
             images.append(pilImage)
-
+        
     data_len = len(dataloader)
     return losses/data_len, objectness_f1s/data_len, total_objectness_loss/data_len, total_size_loss/data_len, total_offset_loss/data_len, total_class_loss/data_len, images
 
