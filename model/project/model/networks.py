@@ -15,6 +15,17 @@ def convUp(in_planes, out_planes):
     """deconvolution convolution"""
     return nn.ConvTranspose2d(in_channels , out_planes, kernel_size=2, stride=2)
 
+
+class Identifier(object):
+    def __init__(self):
+        pass
+
+    def get_identifier(self):
+        idt = self.__class__.__name__
+        if hasattr(self, 'backbone') and hasattr(self.backbone, 'get_identifier'): 
+            idt+='/'+self.backbone.get_identifier() 
+        return idt
+
 class PreActivationBlock(nn.Module):
     expansion = 1
 
@@ -49,7 +60,7 @@ class PreActivationBlock(nn.Module):
 
         return out
 
-class ResNetBackbone(nn.Module):
+class ResNetBackbone(nn.Module, Identifier):
 
     def __init__(self, block, layers, norm_layer=nn.InstanceNorm2d, multiplier=2):
         super(ResNetBackbone, self).__init__()
@@ -94,7 +105,7 @@ class ResNetBackbone(nn.Module):
 
         return x1, x2, x3, x4
 
-class FPN(nn.Module):
+class FPN(nn.Module, Identifier):
     def __init__(self, backbone):
         super(FPN, self).__init__()
 
@@ -119,7 +130,7 @@ class FPN(nn.Module):
         p1 = p2 + self.smooth1(l1)
         return p1, p2, p3
 
-class RetinaNet(nn.Module):
+class RetinaNet(nn.Module, Identifier):
     def __init__(self, backbone, classes = 80, ratios=[0.5, 1.0, 2.0], scales=[2 ** (i / 3) for i in range(3)]):
         super(FPN, self).__init__()
 
@@ -152,7 +163,7 @@ class RetinaNet(nn.Module):
         p1 = p2 + self.smooth1(l1)
         return p1, p2, p3
 
-class YoloNet(nn.Module):
+class YoloNet(nn.Module, Identifier):
     def __init__(self, backbone, classes, ratios=[1.0]):
         super(YoloNet, self).__init__()
 
@@ -185,3 +196,4 @@ class YoloRanges(object):
         self.size = size
         self.offset = offset
         self.classes = classes
+
