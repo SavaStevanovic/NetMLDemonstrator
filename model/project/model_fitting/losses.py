@@ -20,7 +20,6 @@ class YoloLoss(torch.nn.Module):
         total_size_loss = 0
         total_offset_loss = 0
         total_class_loss = 0
-        objectnes_f1_scores = []
         for batch in range(labels.size()[0]):
             output, label = outputs[batch], labels[batch]
 
@@ -32,7 +31,6 @@ class YoloLoss(torch.nn.Module):
             lab_box_size = torch.flatten(label[self.ranges.size])
             lab_size_objectness = torch.cat([lab_objectness for _ in self.ranges.size], 0)
             total_size_loss += self.size_scale * lab_size_objectness.dot(self.l1_loss(obj_box_size, lab_box_size))
-            objectnes_f1_scores.append(f1_score(lab_objectness.cpu(), obj_objectness.cpu()>0.5))
 
             obj_offset = torch.flatten(output[self.ranges.offset])
             lab_offset = torch.flatten(label[self.ranges.offset])
@@ -44,9 +42,8 @@ class YoloLoss(torch.nn.Module):
             lab_class_objectness = lab_objectness
             total_class_loss += self.class_scale * lab_class_objectness.dot(torch.flatten(self.class_loss(obj_class, lab_class)))
 
-        objectnes_f1_score = np.average(objectnes_f1_scores)
         loss = total_objectness_loss + total_size_loss + total_offset_loss + total_class_loss
-        return loss, objectnes_f1_score, total_objectness_loss, total_size_loss, total_offset_loss, total_class_loss
+        return loss, total_objectness_loss, total_size_loss, total_offset_loss, total_class_loss
 
     def focal_loss(self, x, y):
         alpha = 1
