@@ -90,5 +90,6 @@ class TargetTransformToBoxes(object):
             box_size = box_size[0]/self.ratios[cords[0]], box_size[1]
             bbox = (cords[2]+box_center[0])*self.stride - box_size[0]/2, (cords[1]+box_center[1])*self.stride - box_size[1]/2, box_size[0], box_size[1]
             l['bbox'] = bbox
+            l['confidence'] = first_target[cords[0], cords[1], cords[2]]
             labels.append(l)
         return labels

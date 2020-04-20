@@ -1,11 +1,12 @@
 import torch
 from visualization.display_detection import apply_detections
+from pycocotools.cocoeval import COCOeval
 
 def metrics( net, dataloader, box_transform, epoch=1):
     net.eval()
     correct = 0
     total = 0
-    average_precision = []
+    metric = []
     images = []
     with torch.no_grad():
         for i, data in enumerate(dataloader):
@@ -14,23 +15,30 @@ def metrics( net, dataloader, box_transform, epoch=1):
 
             boxes_pr = box_transform(outputs.cpu().detach())
             boxes_tr = box_transform(labels.cpu().detach())
-
             metched =[False for x in boxes_tr]
+            boxes_pr = sorted(boxes_pr, key= lambda x: -x['confidence'])
             true_positives = 0
             for b in boxes_pr:
+                box_matched = False
                 for j, true_b in enumerate(boxes_tr):  
-                    # if b['category_id'] != true_b['category_id']:
-                    #     continue
-                    if IoU(b['bbox'], true_b['bbox'])>0.1:
+                    if b['category_id'] == true_b['category_id'] and IoU(b['bbox'], true_b['bbox'])>0.5:
+                        box_matched=True
                         metched[j]=True
-                        true_positives+=1
-            average_precision.append(true_positives/(len(boxes_pr)+0.1**9))
+                        break
+                true_positives+=box_matched
+            recall = sum(metched)/(len(boxes_tr)+0.1**9)
+            precision = true_positives/(len(boxes_pr)+0.1**9)
+            if precision+recall==0:
+                metric.append(1.0)
+            else:
+                f1 = 2*recall*precision/(recall+precision)
+                metric.append(f1)
             
             if i>len(dataloader)-5:
                 pilImage = apply_detections(box_transform, outputs.cpu().detach(), labels.cpu().detach(), image[0,...], dataloader.cats)
                 images.append(pilImage)
                 
-    return sum(average_precision)/len(average_precision), images
+    return sum(metric)/len(metric), images
 
 
 
