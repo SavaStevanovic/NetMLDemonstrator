@@ -16,33 +16,42 @@ class YoloLoss(torch.nn.Module):
         self.ranges = ranges
 
     def forward(self, outputs, labels):
-        total_objectness_loss = 0
-        total_size_loss = 0
-        total_offset_loss = 0
-        total_class_loss = 0
+        total_objectness_loss = 0.0
+        total_size_loss = 0.0
+        total_offset_loss = 0.0
+        total_class_loss = 0.0
+        loss = 0.0
         for batch in range(labels.size()[0]):
             output, label = outputs[batch], labels[batch]
 
             obj_objectness = torch.flatten(output[self.ranges.objectness])
             lab_objectness = torch.flatten(label[self.ranges.objectness])
-            total_objectness_loss+= self.focal_loss(obj_objectness, lab_objectness)
+            objectness_loss = self.focal_loss(obj_objectness, lab_objectness)
+            loss += objectness_loss
+            total_objectness_loss += objectness_loss.item()
 
             obj_box_size = torch.flatten(output[self.ranges.size])
             lab_box_size = torch.flatten(label[self.ranges.size])
             lab_size_objectness = torch.cat([lab_objectness for _ in self.ranges.size], 0)
-            total_size_loss += self.size_scale * lab_size_objectness.dot(self.l1_loss(obj_box_size, lab_box_size))
+            size_loss = self.size_scale * lab_size_objectness.dot(self.l1_loss(obj_box_size, lab_box_size))
+            loss += size_loss
+            total_size_loss += size_loss.item()
 
             obj_offset = torch.flatten(output[self.ranges.offset])
             lab_offset = torch.flatten(label[self.ranges.offset])
             lab_offset_objectness = torch.cat([lab_objectness for _ in self.ranges.offset], 0)
-            total_offset_loss += self.offset_scale * lab_offset_objectness.dot(self.l1_loss(obj_offset, lab_offset))
+            offset_loss = self.offset_scale * lab_offset_objectness.dot(self.l1_loss(obj_offset, lab_offset))
+            loss += offset_loss
+            total_offset_loss += offset_loss.item()
 
             obj_class = output[self.ranges.classes].unsqueeze(0)
             lab_class = label[self.ranges.classes].unsqueeze(0).argmax(1)
             lab_class_objectness = lab_objectness
-            total_class_loss += self.class_scale * lab_class_objectness.dot(torch.flatten(self.class_loss(obj_class, lab_class)))
+            class_loss = self.class_scale * lab_class_objectness.dot(torch.flatten(self.class_loss(obj_class, lab_class)))
+            loss += class_loss
+            total_class_loss += class_loss.item()
 
-        loss = total_objectness_loss + total_size_loss + total_offset_loss + total_class_loss
+        # loss = total_objectness_loss + total_size_loss + total_offset_loss + total_class_loss
         return loss, total_objectness_loss, total_size_loss, total_offset_loss, total_class_loss
 
     def focal_loss(self, x, y):

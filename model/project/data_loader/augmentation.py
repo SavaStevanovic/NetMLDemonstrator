@@ -82,14 +82,12 @@ class TargetTransformToBoxes(object):
         labels = []
         for cords in objects:
             l = {}
-            class_id = np.argmax(first_target[cords[0]+5:cords[0]+len(self.ratios)*5+self.classes_len, cords[1], cords[2]])
-            l['category_id'] = class_id
+            l['category_id'] = np.argmax(first_target[cords[0]+5:cords[0]+len(self.ratios)*5+self.classes_len, cords[1], cords[2]]).item()
             box_center = first_target[cords[0]+3, cords[1], cords[2]], first_target[cords[0]+4, cords[1], cords[2]]
             box_size = first_target[cords[0]+1, cords[1], cords[2]], first_target[cords[0]+2, cords[1], cords[2]]
             box_size = np.exp(box_size)*self.prior_box_size
             box_size = box_size[0]/self.ratios[cords[0]], box_size[1]
-            bbox = (cords[2]+box_center[0])*self.stride - box_size[0]/2, (cords[1]+box_center[1])*self.stride - box_size[1]/2, box_size[0], box_size[1]
-            l['bbox'] = bbox
-            l['confidence'] = first_target[cords[0], cords[1], cords[2]]
+            l['bbox'] = ((cords[2]+box_center[0])*self.stride - box_size[0]/2).item(), ((cords[1]+box_center[1])*self.stride - box_size[1]/2).item(), box_size[0], box_size[1]
+            l['confidence'] = first_target[cords[0], cords[1], cords[2]].item()
             labels.append(l)
         return labels

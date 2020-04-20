@@ -15,32 +15,32 @@ def fit_epoch(net, dataloader, writer, lr_rate, box_transform, epoch=1):
     optimizer = torch.optim.Adam(net.parameters(), lr_rate)
     criterion = YoloLoss(ranges = net.ranges)
     losses = 0.0
-    objectness_f1s = 0.0
     total_objectness_loss = 0.0
     total_size_loss = 0.0
     total_offset_loss = 0.0
-    total_class_loss = 0
+    total_class_loss = 0.0
     images = []
     for i, data in enumerate(tqdm(dataloader)):
         image, labels = data
         optimizer.zero_grad()
-        outputs = net(image.cuda())
-        loss, objectness_f1, objectness_loss, size_loss, offset_loss, class_loss = criterion(outputs, labels.cuda())
+        image_cuda = image.cuda()
+        outputs = net(image_cuda)
+        labels_cuda = labels.cuda()
+        loss, objectness_loss, size_loss, offset_loss, class_loss = criterion(outputs, labels_cuda)
         loss.backward()
         optimizer.step()
-        total_objectness_loss += objectness_loss.item()
-        total_size_loss += size_loss.item()
+        total_objectness_loss += objectness_loss
+        total_size_loss += size_loss
         losses += loss.item()
-        total_offset_loss += offset_loss.item()
-        total_class_loss += class_loss.item()
-        objectness_f1s +=objectness_f1.item()
+        total_offset_loss += offset_loss
+        total_class_loss += class_loss
 
         if i>len(dataloader)-5:
-            pilImage = apply_detections(box_transform, outputs.cpu().detach(), labels.cpu().detach(), image[0,...], dataloader.cats)
+            pilImage = apply_detections(box_transform, outputs.detach().cpu(), labels.detach().cpu(), image[0,...], dataloader.cats)
             images.append(pilImage)
         
     data_len = len(dataloader)
-    return losses/data_len, objectness_f1s/data_len, total_objectness_loss/data_len, total_size_loss/data_len, total_offset_loss/data_len, total_class_loss/data_len, images
+    return losses/data_len, total_objectness_loss/data_len, total_size_loss/data_len, total_offset_loss/data_len, total_class_loss/data_len, images
 
 def fit(net, trainloader, validationloader, dataset_name, box_transform, epochs=1000, lower_learning_period=10):
     model_dir_header = net.get_identifier()
@@ -51,14 +51,14 @@ def fit(net, trainloader, validationloader, dataset_name, box_transform, epochs=
     if os.path.exists(chp_dir):
         net = torch.load(checkpoint_name_path)
         train_config.load(checkpoint_conf_path)
+    net.cuda()
     writer = SummaryWriter(os.path.join('logs', model_dir_header))
     for epoch in range(train_config.epoch, epochs):
         train_config.epoch = epoch+1
-        loss, objectness_f1, objectness_loss, size_loss, offset_loss, class_loss, train_samples = fit_epoch(net, trainloader, writer, train_config.learning_rate, box_transform, epoch=epoch)
+        loss, objectness_loss, size_loss, offset_loss, class_loss, train_samples = fit_epoch(net, trainloader, writer, train_config.learning_rate, box_transform, epoch=epoch)
         validation_map, validation_samples = metrics(net, validationloader, box_transform, epoch)
         writer.add_scalars('Train/Metrics', {'objectness_loss': objectness_loss, 'size_loss':size_loss, 'offset_loss':offset_loss, 'class_loss':class_loss}, epoch)
         writer.add_scalar('Train/Metrics/loss', loss, epoch)
-        writer.add_scalar('Train/Metrics/objectness_f1', objectness_f1, epoch)
         writer.add_scalar('Validation/Metrics/validation_map', validation_map, epoch)
 
         grid = join_images(train_samples)
