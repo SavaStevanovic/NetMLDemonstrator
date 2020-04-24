@@ -1,7 +1,7 @@
 import random                     
 import torchvision.transforms as transforms
 import numpy as np
-
+from PIL import Image
 class PairCompose(object):
     def __init__(self, transforms):
         self.transforms = transforms
@@ -18,6 +18,38 @@ class PairCompose(object):
             format_string += '    {0}'.format(t)
         format_string += '\n)'
         return format_string
+
+class RandomHorizontalFlipTransform(object):
+    def __call__(self, image, label):
+        p = random.random()
+        if p>0.5:
+            image = transforms.functional.hflip(image)
+            for i, l in enumerate(label):
+                bbox = l['bbox']
+                bbox_center = bbox[0]+bbox[2]/2, bbox[1]+bbox[3]/2
+                bbox_center = image.size[0]-bbox_center[0], bbox_center[1]
+                bbox = [bbox_center[0]-bbox[2]/2, bbox_center[1]-bbox[3]/2, bbox[2], bbox[3]]
+                label[i]['bbox'] = bbox
+        return image, label
+
+class RandomResizeTransform(object):
+    def __call__(self, image, label):
+        p = random.random()/2+0.5
+        new_size = [np.round(s*p).astype(np.int32) for s in list(image.size)[::-1]]
+        image = transforms.functional.resize(image, new_size, Image.ANTIALIAS)
+        for i, l in enumerate(label):
+            bbox = l['bbox']
+            bbox = [b*p for b in bbox]
+            label[i]['bbox'] = bbox
+        return image, label
+
+class ImageTransform(object):
+    def __init__(self, transform):
+        self.transform = transform
+
+    def __call__(self, image, label):
+        image = self.transform(image)
+        return image, label
 
 class PaddTransform(object):
     def __init__(self, pad_size = 32):
@@ -36,12 +68,7 @@ class OutputTransform(object):
         pass
 
     def __call__(self, image, label):
-        padding_x = 32-image.size[0]%32
-        padding_x = (padding_x!=32) * padding_x
-        padding_y = 32-image.size[1]%32
-        padding_y = (padding_y!=32) * padding_y
-        image_padded = transforms.Pad((0, 0, padding_x, padding_y))(image)
-        image_padded = transforms.ToTensor()(image_padded)
+        image_padded = transforms.ToTensor()(image)
         return image_padded, label
 
 class TargetTransform(object):

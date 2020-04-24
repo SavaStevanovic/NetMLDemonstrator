@@ -10,7 +10,7 @@ from visualization.images_display import join_images
 from model_fitting.configuration import TrainingConfiguration
 import json
 
-def fit_epoch(net, dataloader, writer, lr_rate, box_transform, epoch=1):
+def fit_epoch(net, dataloader, lr_rate, box_transform, epoch=1):
     net.train()
     optimizer = torch.optim.Adam(net.parameters(), lr_rate)
     criterion = YoloLoss(ranges = net.ranges)
@@ -55,7 +55,7 @@ def fit(net, trainloader, validationloader, dataset_name, box_transform, epochs=
     writer = SummaryWriter(os.path.join('logs', model_dir_header))
     for epoch in range(train_config.epoch, epochs):
         train_config.epoch = epoch+1
-        loss, objectness_loss, size_loss, offset_loss, class_loss, samples = fit_epoch(net, trainloader, writer, train_config.learning_rate, box_transform, epoch=epoch)
+        loss, objectness_loss, size_loss, offset_loss, class_loss, samples = fit_epoch(net, trainloader, train_config.learning_rate, box_transform, epoch=epoch)
         writer.add_scalars('Train/Metrics', {'objectness_loss': objectness_loss, 'size_loss':size_loss, 'offset_loss':offset_loss, 'class_loss':class_loss}, epoch)
         writer.add_scalar('Train/Metrics/loss', loss, epoch)
         grid = join_images(samples)
