@@ -1,11 +1,16 @@
 import torch
 from visualization.display_detection import apply_detections
 from pycocotools.cocoeval import COCOeval
+from model_fitting.losses import YoloLoss
 
 def metrics( net, dataloader, box_transform, epoch=1):
     net.eval()
-    correct = 0
-    total = 0
+    criterion = YoloLoss(ranges = net.ranges)
+    losses = 0.0
+    total_objectness_loss = 0.0
+    total_size_loss = 0.0
+    total_offset_loss = 0.0
+    total_class_loss = 0.0
     true_boxes_count = 0
     images = []
     det_boxes = []
@@ -13,10 +18,18 @@ def metrics( net, dataloader, box_transform, epoch=1):
     with torch.no_grad():
         for i, data in enumerate(dataloader):
             image, labels = data
-            outputs = net(image.cuda()).cpu()
+            outputs_cuda = net(image.cuda())
+            labels_cuda = labels.cuda()
+            loss, objectness_loss, size_loss, offset_loss, class_loss = criterion(outputs_cuda, labels_cuda)
+            total_objectness_loss += objectness_loss
+            total_size_loss += size_loss
+            losses += loss.item()
+            total_offset_loss += offset_loss
+            total_class_loss += class_loss
+            outputs = outputs_cuda.detach().cpu()
 
-            boxes_pr = box_transform(outputs.cpu().detach(), 0.5)
-            boxes_tr = box_transform(labels.cpu().detach())
+            boxes_pr = box_transform(outputs, 0.5)
+            boxes_tr = box_transform(labels.detach())
             true_boxes_count+=len(boxes_tr)
             for x in boxes_pr:
                 x['image'] = i
@@ -26,7 +39,7 @@ def metrics( net, dataloader, box_transform, epoch=1):
             ref_boxes[i]=boxes_tr
             
             if i>=len(dataloader)-5:
-                pilImage = apply_detections(box_transform, outputs.cpu().detach(), labels.cpu().detach(), image[0,...], dataloader.cats)
+                pilImage = apply_detections(box_transform, outputs, labels, image[0,...], dataloader.cats)
                 images.append(pilImage)
     predicted_boxes_count = len(det_boxes)
     det_boxes = sorted(det_boxes, key = lambda x: -x['confidence'])
@@ -67,8 +80,10 @@ def metrics( net, dataloader, box_transform, epoch=1):
             start+=period
         else:
             i+=1
+
     metric = sum(indeces)/(1/period+1)
-    return metric, images
+    data_len = len(dataloader)
+    return metric, losses/data_len, total_objectness_loss/data_len, total_size_loss/data_len, total_offset_loss/data_len, total_class_loss/data_len, images
 
 
 

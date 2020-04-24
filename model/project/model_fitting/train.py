@@ -55,25 +55,28 @@ def fit(net, trainloader, validationloader, dataset_name, box_transform, epochs=
     writer = SummaryWriter(os.path.join('logs', model_dir_header))
     for epoch in range(train_config.epoch, epochs):
         train_config.epoch = epoch+1
-        loss, objectness_loss, size_loss, offset_loss, class_loss, train_samples = fit_epoch(net, trainloader, writer, train_config.learning_rate, box_transform, epoch=epoch)
-        validation_map, validation_samples = metrics(net, validationloader, box_transform, epoch)
+        loss, objectness_loss, size_loss, offset_loss, class_loss, samples = fit_epoch(net, trainloader, writer, train_config.learning_rate, box_transform, epoch=epoch)
         writer.add_scalars('Train/Metrics', {'objectness_loss': objectness_loss, 'size_loss':size_loss, 'offset_loss':offset_loss, 'class_loss':class_loss}, epoch)
         writer.add_scalar('Train/Metrics/loss', loss, epoch)
-        writer.add_scalar('Validation/Metrics/validation_map', validation_map, epoch)
-
-        grid = join_images(train_samples)
+        grid = join_images(samples)
         writer.add_images('train_sample', grid, epoch, dataformats='HWC')
-        grid = join_images(validation_samples)
+        
+        validation_map, loss, objectness_loss, size_loss, offset_loss, class_loss, samples = metrics(net, validationloader, box_transform, epoch)
+        writer.add_scalars('Validation/Metrics', {'objectness_loss': objectness_loss, 'size_loss':size_loss, 'offset_loss':offset_loss, 'class_loss':class_loss}, epoch)
+        writer.add_scalar('Validation/Metrics/loss', loss, epoch)
+        writer.add_scalar('Validation/Metrics/validation_map', validation_map, epoch)
+        grid = join_images(samples)
         writer.add_images('validation_sample', grid, epoch, dataformats='HWC')
+
         os.makedirs((chp_dir), exist_ok=True)
-        if train_config.best_metric < validation_map:
+        if train_config.best_metric > loss:
             train_config.iteration_age = 0
-            train_config.best_metric = validation_map
-            print('Epoch {}. Saving model with mAP: {}'.format(epoch, validation_map))
+            train_config.best_metric = loss
+            print('Epoch {}. Saving model with metric: {}'.format(epoch, loss))
             torch.save(net, checkpoint_name_path)
         else:
             train_config.iteration_age+=1
-            print('Epoch {} mAP: {}'.format(epoch, validation_map))
+            print('Epoch {} metric: {}'.format(epoch, loss))
         if train_config.iteration_age==lower_learning_period:
             train_config.learning_rate*=0.5
             train_config.iteration_age=0
