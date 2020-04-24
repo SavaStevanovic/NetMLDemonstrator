@@ -15,7 +15,7 @@ def metrics( net, dataloader, box_transform, epoch=1):
             image, labels = data
             outputs = net(image.cuda()).cpu()
 
-            boxes_pr = box_transform(outputs.cpu().detach(), 0.1)
+            boxes_pr = box_transform(outputs.cpu().detach(), 0.5)
             boxes_tr = box_transform(labels.cpu().detach())
             true_boxes_count+=len(boxes_tr)
             for x in boxes_pr:
@@ -25,7 +25,7 @@ def metrics( net, dataloader, box_transform, epoch=1):
             det_boxes+=boxes_pr
             ref_boxes[i]=boxes_tr
             
-            if i>len(dataloader)-5:
+            if i>=len(dataloader)-5:
                 pilImage = apply_detections(box_transform, outputs.cpu().detach(), labels.cpu().detach(), image[0,...], dataloader.cats)
                 images.append(pilImage)
     predicted_boxes_count = len(det_boxes)
@@ -35,10 +35,11 @@ def metrics( net, dataloader, box_transform, epoch=1):
     for i, x in enumerate(det_boxes):
         for l in ref_boxes[x['image']]:
             if x['category_id'] == l['category_id'] and IoU(x['bbox'], l['bbox'])>0.5:
-                true_prediction[i]=1
                 if l['seen']==0:
                     l['seen']=1
                     predicted[i]+=1
+                    true_prediction[i]=1
+                    break
     precision = [0 for _ in range(predicted_boxes_count)]
     s=0
     for i, p in enumerate(true_prediction):
