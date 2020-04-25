@@ -3,7 +3,7 @@ from visualization.display_detection import apply_detections
 from pycocotools.cocoeval import COCOeval
 from model_fitting.losses import YoloLoss
 
-def metrics( net, dataloader, box_transform, epoch=1):
+def metrics(net, dataloader, box_transform, epoch=1):
     net.eval()
     criterion = YoloLoss(ranges = net.ranges)
     losses = 0.0
@@ -11,7 +11,6 @@ def metrics( net, dataloader, box_transform, epoch=1):
     total_size_loss = 0.0
     total_offset_loss = 0.0
     total_class_loss = 0.0
-    true_boxes_count = 0
     images = []
     det_boxes = []
     ref_boxes = [[] for _ in range(len(dataloader))]
@@ -30,7 +29,6 @@ def metrics( net, dataloader, box_transform, epoch=1):
 
             boxes_pr = box_transform(outputs, 0.5)
             boxes_tr = box_transform(labels.detach())
-            true_boxes_count+=len(boxes_tr)
             for x in boxes_pr:
                 x['image'] = i
             for x in boxes_tr:
@@ -41,6 +39,21 @@ def metrics( net, dataloader, box_transform, epoch=1):
             if i>=len(dataloader)-5:
                 pilImage = apply_detections(box_transform, outputs, labels, image[0,...], dataloader.cats)
                 images.append(pilImage)
+    metric, _ = calculateMAP(det_boxes, ref_boxes, net.classes)
+    data_len = len(dataloader)
+    
+    return metric, losses/data_len, total_objectness_loss/data_len, total_size_loss/data_len, total_offset_loss/data_len, total_class_loss/data_len, images
+
+
+def calculateMAP(det_boxes, ref_boxes, classes):
+    class_det_boxes = [[] for _ in classes]
+    for x in det_boxes:
+        class_det_boxes[x['category_id']].append(x)
+    class_average_precision = [calculateAP(class_det_boxes[i], ref_boxes) for i in range(len(classes))]
+    mean_average_precision = sum(class_average_precision)/len(class_average_precision)
+    return mean_average_precision, class_average_precision
+
+def calculateAP(det_boxes, ref_boxes):
     predicted_boxes_count = len(det_boxes)
     det_boxes = sorted(det_boxes, key = lambda x: -x['confidence'])
     true_prediction = [0 for _ in range(len(det_boxes))]
@@ -65,6 +78,7 @@ def metrics( net, dataloader, box_transform, epoch=1):
         maxs = max(maxs, p)
         interpolated_precision[-i-1]=maxs
 
+    true_boxes_count = sum([len(x) for x in ref_boxes])
     recall = [0 for _ in range(predicted_boxes_count)]
     for i, p in enumerate(predicted):
         s+=p
@@ -82,8 +96,7 @@ def metrics( net, dataloader, box_transform, epoch=1):
             i+=1
 
     metric = sum(indeces)/(1/period+1)
-    data_len = len(dataloader)
-    return metric, losses/data_len, total_objectness_loss/data_len, total_size_loss/data_len, total_offset_loss/data_len, total_class_loss/data_len, images
+    return metric
 
 
 

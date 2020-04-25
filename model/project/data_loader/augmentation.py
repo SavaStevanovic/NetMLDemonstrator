@@ -132,7 +132,7 @@ class TargetTransformToBoxes(object):
 
     def __call__(self, target, threshold = 0.5):
         first_target = target[0,...]
-        objects = np.argwhere(first_target[::(len(self.ratios)*5+self.classes_len)]>threshold).T
+        objects = np.argwhere(first_target[::(len(self.ratios)*5+self.classes_len)]>=threshold).T
         labels = []
         for cords in objects:
             l = {}
