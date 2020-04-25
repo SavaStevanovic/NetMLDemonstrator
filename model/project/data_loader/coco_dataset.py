@@ -1,7 +1,7 @@
 import torch
 from torchvision.datasets import CocoDetection
 import torchvision.transforms as transforms
-from data_loader.augmentation import PairCompose, OutputTransform, TargetTransform, PaddTransform, TargetTransformToBoxes, RandomHorizontalFlipTransform, RandomResizeTransform
+from data_loader.augmentation import PairCompose, OutputTransform, TargetTransform, PaddTransform, TargetTransformToBoxes, RandomHorizontalFlipTransform, RandomResizeTransform, RandomCropTransform
 import multiprocessing as mu
 import os
 
@@ -12,8 +12,10 @@ class CocoDetectionDatasetProvider():
         self.classes = classes
         self.prior_box_size = 32
         if train_transforms is None:
-            train_transforms = PairCompose([RandomResizeTransform(),
+            train_transforms = PairCompose([
+                                            RandomResizeTransform(),
                                             RandomHorizontalFlipTransform(),
+                                            RandomCropTransform((224, 224)),
                                             PaddTransform(pad_size=32), 
                                             TargetTransform(prior_box_size=self.prior_box_size, classes=classes, ratios=ratios, stride=32), 
                                             OutputTransform()])
