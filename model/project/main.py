@@ -14,4 +14,4 @@ backbone = ResNetBackbone(block = PreActivationBlock, layers = [2, 2, 2, 2])
 
 net = YoloNet(backbone, classes = coco_provider.classes, ratios=ratios)
 
-fit(net, coco_provider.trainloader, coco_provider.validationloader, dataset_name = dataset_name, box_transform = coco_provider.target_to_box_transform, epochs=1000, lower_learning_period=10)
+fit(net, coco_provider.trainloader, coco_provider.validationloader, dataset_name = dataset_name, box_transform = coco_provider.target_to_box_transform, epochs=1000, lower_learning_period=20)

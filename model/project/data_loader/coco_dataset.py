@@ -15,7 +15,7 @@ class CocoDetectionDatasetProvider():
             train_transforms = PairCompose([
                                             RandomResizeTransform(),
                                             RandomHorizontalFlipTransform(),
-                                            RandomCropTransform((224, 224)),
+                                            RandomCropTransform((544, 544)),
                                             PaddTransform(pad_size=32), 
                                             TargetTransform(prior_box_size=self.prior_box_size, classes=classes, ratios=ratios, stride=32), 
                                             OutputTransform()])
@@ -35,7 +35,7 @@ class CocoDetectionDatasetProvider():
 
         if th_count==1:
             self.trainset.ids      = self.trainset.ids[:100]
-            self.validationset.ids = self.validationset.ids[:100]
+            self.validationset.ids = self.validationset.ids
 
         self.trainloader      = torch.utils.data.DataLoader(self.trainset,      batch_size=batch_size,   shuffle=True,  num_workers=th_count, pin_memory=True)
         self.validationloader = torch.utils.data.DataLoader(self.validationset, batch_size=1,   shuffle=False, num_workers=th_count, pin_memory=True)

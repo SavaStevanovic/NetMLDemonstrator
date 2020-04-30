@@ -49,23 +49,23 @@ def calculateMAP(det_boxes, ref_boxes, classes):
     class_det_boxes = [[] for _ in classes]
     for x in det_boxes:
         class_det_boxes[x['category_id']].append(x)
-    class_average_precision = [calculateAP(class_det_boxes[i], ref_boxes) for i in range(len(classes))]
+    class_average_precision = [calculateAP(class_det_boxes[i], ref_boxes, i) for i in range(len(classes))]
     mean_average_precision = sum(class_average_precision)/len(class_average_precision)
     return mean_average_precision, class_average_precision
 
-def calculateAP(det_boxes, ref_boxes):
+def calculateAP(det_boxes, ref_boxes, class_id):
+    ref_boxes = [[x for x in image_boxes if x['category_id'] == class_id] for image_boxes in ref_boxes]
+
     predicted_boxes_count = len(det_boxes)
     det_boxes = sorted(det_boxes, key = lambda x: -x['confidence'])
-    true_prediction = [0 for _ in range(len(det_boxes))]
-    predicted = [0 for _ in range(len(det_boxes))]
+    true_prediction = [0 for _ in range(predicted_boxes_count)]
     for i, x in enumerate(det_boxes):
-        for l in ref_boxes[x['image']]:
-            if x['category_id'] == l['category_id'] and IoU(x['bbox'], l['bbox'])>0.5:
-                if l['seen']==0:
-                    l['seen']=1
-                    predicted[i]+=1
-                    true_prediction[i]=1
-                    break
+        image_boxes = ref_boxes[x['image']]
+        for l in image_boxes:
+            if l['seen']==0 and IoU(x['bbox'], l['bbox'])>0.5:
+                l['seen']=1
+                true_prediction[i]=1
+                break
     precision = [0 for _ in range(predicted_boxes_count)]
     s=0
     for i, p in enumerate(true_prediction):
@@ -80,7 +80,7 @@ def calculateAP(det_boxes, ref_boxes):
 
     true_boxes_count = sum([len(x) for x in ref_boxes])
     recall = [0 for _ in range(predicted_boxes_count)]
-    for i, p in enumerate(predicted):
+    for i, p in enumerate(true_prediction):
         s+=p
         recall[i]=s/true_boxes_count
 
@@ -98,6 +98,26 @@ def calculateAP(det_boxes, ref_boxes):
     metric = sum(indeces)/(1/period+1)
     return metric
 
+def voc_ap(rec, prec):
+    rec.insert(0, 0.0) # insert 0.0 at begining of list
+    rec.append(1.0) # insert 1.0 at end of list
+    mrec = rec[:]
+    prec.insert(0, 0.0) # insert 0.0 at begining of list
+    prec.append(0.0) # insert 0.0 at end of list
+    mpre = prec[:]
+    
+    for i in range(len(mpre)-2, -1, -1):
+        mpre[i] = max(mpre[i], mpre[i+1])
+   
+    i_list = []
+    for i in range(1, len(mrec)):
+        if mrec[i] != mrec[i-1]:
+            i_list.append(i) # if it was matlab would be i + 1
+    
+    ap = 0.0
+    for i in i_list:
+        ap += ((mrec[i]-mrec[i-1])*mpre[i])
+    return ap, mrec, mpre
 
 
 def IoU(bboxDT, bboxGT):
