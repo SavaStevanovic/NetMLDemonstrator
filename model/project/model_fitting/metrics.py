@@ -28,6 +28,7 @@ def metrics(net, dataloader, box_transform, epoch=1):
             outputs = outputs_cuda.detach().cpu()
 
             boxes_pr = box_transform(outputs.squeeze(0), 0.5)
+            boxes_pr = non_max_suppression(boxes_pr)
             boxes_tr = box_transform(labels.squeeze(0))
             for x in boxes_pr:
                 x['image'] = i
@@ -44,6 +45,14 @@ def metrics(net, dataloader, box_transform, epoch=1):
     
     return metric, losses/data_len, total_objectness_loss/data_len, total_size_loss/data_len, total_offset_loss/data_len, total_class_loss/data_len, images
 
+def non_max_suppression(boxes):
+    boxes = sorted(boxes, key = lambda x: -x['confidence'])
+    filtered_boxes = []
+    for b in boxes:
+        suppress = len([0 for fb in filtered_boxes if fb['category_id']==b['category_id'] and IoU(fb['bbox'], b['bbox'])>0.5])
+        if suppress==0:
+            filtered_boxes.append(b)
+    return filtered_boxes
 
 def calculateMAP(det_boxes, ref_boxes, classes):
     class_det_boxes = [[] for _ in classes]
@@ -97,28 +106,6 @@ def calculateAP(det_boxes, ref_boxes, class_id):
 
     metric = sum(indeces)/(1/period+1)
     return metric
-
-def voc_ap(rec, prec):
-    rec.insert(0, 0.0) # insert 0.0 at begining of list
-    rec.append(1.0) # insert 1.0 at end of list
-    mrec = rec[:]
-    prec.insert(0, 0.0) # insert 0.0 at begining of list
-    prec.append(0.0) # insert 0.0 at end of list
-    mpre = prec[:]
-    
-    for i in range(len(mpre)-2, -1, -1):
-        mpre[i] = max(mpre[i], mpre[i+1])
-   
-    i_list = []
-    for i in range(1, len(mrec)):
-        if mrec[i] != mrec[i-1]:
-            i_list.append(i) # if it was matlab would be i + 1
-    
-    ap = 0.0
-    for i in i_list:
-        ap += ((mrec[i]-mrec[i-1])*mpre[i])
-    return ap, mrec, mpre
-
 
 def IoU(bboxDT, bboxGT):
     xA = max(bboxDT[0], bboxGT[0])
