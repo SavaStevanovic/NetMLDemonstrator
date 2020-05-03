@@ -171,18 +171,18 @@ class YoloNet(nn.Module, Identifier):
         self.inplanes = backbone.inplanes
         self.classes = classes
         self.ratios = ratios
-        self.object_range = 5*len(self.ratios)+len(self.classes)
-        self.ranges = YoloRanges(objectness = [0], size = [1,2], offset = [3,4], classes = range(5, self.object_range))
-        self.objectness_range = [i for i in range(self.object_range) if i % self.object_range in self.ranges.objectness]
-        self.box_size_range = [i for i in range(self.object_range) if i % self.object_range in self.ranges.size]
-        self.offset_range = [i for i in range(self.object_range) if i % self.object_range in self.ranges.offset]
-        self.class_range = [i for i in range(self.object_range) if i % self.object_range in self.ranges.classes]
-        self.toplayer = nn.Conv2d(self.inplanes, len(ratios)*(5 + len(classes)), kernel_size=1)  
+        self.object_per_cell = len(ratios)
+        self.object_range = 5+len(self.classes)
+        classes_range = range(5, self.object_range)
+        self.output_size = self.object_per_cell * self.object_range
+        self.ranges = YoloRanges(objectness = [0], size = [1,2], offset = [3,4], classes = classes_range, object_range = self.object_range)
+        self.toplayer = nn.Conv2d(self.inplanes, self.output_size, kernel_size=1)  
 
     def output_actrivations(self, x):
-        x[:, self.ranges.objectness] = x[:, self.ranges.objectness].sigmoid()
-        x[:, self.ranges.offset] = x[:, self.ranges.offset].sigmoid()
-        x[:, self.ranges.classes] = x[:, self.ranges.classes].log_softmax(1)
+        x = x.view(x.shape[0], self.object_per_cell, self.object_range, x.shape[2], x.shape[3])
+        x[:, :, self.ranges.objectness] = x[:, :, self.ranges.objectness].sigmoid()
+        x[:, :, self.ranges.offset] = x[:, :,self.ranges.offset].sigmoid()
+        x[:, :, self.ranges.classes] = x[:, :,self.ranges.classes].log_softmax(2)
         return x
 
     def forward(self, x):
@@ -191,9 +191,10 @@ class YoloNet(nn.Module, Identifier):
         return self.output_actrivations(output)
 
 class YoloRanges(object):
-    def __init__(self, objectness, size, offset, classes):
+    def __init__(self, objectness, size, offset, classes, object_range):
         self.objectness = objectness
-        self.size = size
-        self.offset = offset
-        self.classes = classes
+        self.size       = size
+        self.offset     = offset
+        self.classes    = classes
+        self.object_range = object_range
 

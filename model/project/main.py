@@ -5,12 +5,12 @@ from data_loader.coco_dataset import CocoDetectionDatasetProvider
 import os
 
 th_count = 12
-ratios = [1.0]
+ratios = [0.5, 1.0, 2.0]
 dataset_name = 'Coco'
 
 coco_provider = CocoDetectionDatasetProvider(annDir=os.path.join('/Data', dataset_name), batch_size=24, th_count=th_count, ratios=ratios)
 
-backbone = ResNetBackbone(block = PreActivationBlock, layers = [2, 2, 2, 2])
+backbone = ResNetBackbone(block = PreActivationBlock, layers = [3, 4, 6, 3])
 
 net = YoloNet(backbone, classes = coco_provider.classes, ratios=ratios)
 

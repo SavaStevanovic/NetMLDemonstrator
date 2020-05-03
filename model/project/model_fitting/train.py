@@ -36,7 +36,7 @@ def fit_epoch(net, dataloader, lr_rate, box_transform, epoch=1):
         total_class_loss += class_loss
 
         if i>=len(dataloader)-5:
-            pilImage = apply_detections(box_transform, outputs.detach().cpu(), labels.detach().cpu(), image[0,...], dataloader.cats)
+            pilImage = apply_detections(box_transform, outputs.detach().cpu()[0], labels.detach().cpu()[0], image[0], dataloader.cats)
             images.append(pilImage)
         
     data_len = len(dataloader)

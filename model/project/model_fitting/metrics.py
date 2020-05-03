@@ -27,8 +27,8 @@ def metrics(net, dataloader, box_transform, epoch=1):
             total_class_loss += class_loss
             outputs = outputs_cuda.detach().cpu()
 
-            boxes_pr = box_transform(outputs, 0.5)
-            boxes_tr = box_transform(labels.detach())
+            boxes_pr = box_transform(outputs.squeeze(0), 0.5)
+            boxes_tr = box_transform(labels.squeeze(0))
             for x in boxes_pr:
                 x['image'] = i
             for x in boxes_tr:
@@ -37,7 +37,7 @@ def metrics(net, dataloader, box_transform, epoch=1):
             ref_boxes[i]=boxes_tr
             
             if i>=len(dataloader)-5:
-                pilImage = apply_detections(box_transform, outputs, labels, image[0,...], dataloader.cats)
+                pilImage = apply_detections(box_transform, outputs[0], labels[0], image[0], dataloader.cats)
                 images.append(pilImage)
     metric, _ = calculateMAP(det_boxes, ref_boxes, net.classes)
     data_len = len(dataloader)
@@ -82,7 +82,7 @@ def calculateAP(det_boxes, ref_boxes, class_id):
     recall = [0 for _ in range(predicted_boxes_count)]
     for i, p in enumerate(true_prediction):
         s+=p
-        recall[i]=s/true_boxes_count
+        recall[i]=s/max(true_boxes_count, 1)
 
     period = 0.01
     start = 0    
