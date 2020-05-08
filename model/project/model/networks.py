@@ -22,6 +22,10 @@ class Identifier(object):
 
     def get_identifier(self):
         idt = self.__class__.__name__
+        if hasattr(self, 'inplanes'): 
+            idt+='/'+str(self.inplanes)
+        if hasattr(self, 'ratios'): 
+            idt+='/'+'-'.join([str(x).replace('.',',') for x in self.ratios])
         if hasattr(self, 'backbone') and hasattr(self.backbone, 'get_identifier'): 
             idt+='/'+self.backbone.get_identifier() 
         return idt
@@ -67,8 +71,7 @@ class ResNetBackbone(nn.Module, Identifier):
 
         self.groups = 1
         self._norm_layer = norm_layer
-        self.dilation = 1
-        self.inplanes = 32
+        self.inplanes = 16
         self.multiplier = multiplier
         self.conv1 = nn.Conv2d(3, self.inplanes, kernel_size=7, stride=2, padding=3, bias=False)
         self.bn1 = norm_layer(self.inplanes)

@@ -31,7 +31,7 @@ def fit_epoch(net, dataloader, lr_rate, box_transform, epoch=1):
         optimizer.step()
         total_objectness_loss += objectness_loss
         total_size_loss += size_loss
-        losses += loss.item()
+        losses += loss.detach().item()
         total_offset_loss += offset_loss
         total_class_loss += class_loss
 
@@ -54,7 +54,6 @@ def fit(net, trainloader, validationloader, dataset_name, box_transform, epochs=
     net.cuda()
     writer = SummaryWriter(os.path.join('logs', model_dir_header))
     for epoch in range(train_config.epoch, epochs):
-        train_config.epoch = epoch+1
         loss, objectness_loss, size_loss, offset_loss, class_loss, samples = fit_epoch(net, trainloader, train_config.learning_rate, box_transform, epoch=epoch)
         writer.add_scalars('Train/Metrics', {'objectness_loss': objectness_loss, 'size_loss':size_loss, 'offset_loss':offset_loss, 'class_loss':class_loss}, epoch)
         writer.add_scalar('Train/Metrics/loss', loss, epoch)
@@ -73,7 +72,7 @@ def fit(net, trainloader, validationloader, dataset_name, box_transform, epochs=
             train_config.iteration_age = 0
             train_config.best_metric = loss
             print('Epoch {}. Saving model with metric: {}'.format(epoch, loss))
-            torch.save(net, checkpoint_name_path)
+            torch.save(net, checkpoint_name_path.replace('.pth', '_final.pth'))
         else:
             train_config.iteration_age+=1
             print('Epoch {} metric: {}'.format(epoch, loss))
@@ -81,6 +80,8 @@ def fit(net, trainloader, validationloader, dataset_name, box_transform, epochs=
             train_config.learning_rate*=0.5
             train_config.iteration_age=0
             print("Learning rate lowered to {}".format(train_config.learning_rate))
+        train_config.epoch = epoch+1
         train_config.save(checkpoint_conf_path)
+        torch.save(net, checkpoint_name_path)
     print('Finished Training')
     return best_map

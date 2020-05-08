@@ -1,7 +1,7 @@
 import torch
 from torchvision.datasets import CocoDetection
 import torchvision.transforms as transforms
-from data_loader.augmentation import PairCompose, OutputTransform, TargetTransform, PaddTransform, TargetTransformToBoxes, RandomHorizontalFlipTransform, RandomResizeTransform, RandomCropTransform
+from data_loader import augmentation
 import multiprocessing as mu
 import os
 
@@ -12,19 +12,22 @@ class CocoDetectionDatasetProvider():
         self.classes = classes
         self.prior_box_size = 32
         if train_transforms is None:
-            train_transforms = PairCompose([
-                                            RandomResizeTransform(),
-                                            RandomHorizontalFlipTransform(),
-                                            RandomCropTransform((224, 224)),
-                                            PaddTransform(pad_size=32), 
-                                            TargetTransform(prior_box_size=self.prior_box_size, classes=classes, ratios=ratios, stride=32), 
-                                            OutputTransform()])
+            train_transforms = augmentation.PairCompose([
+                                            augmentation.RandomResizeTransform(),
+                                            augmentation.RandomHorizontalFlipTransform(),
+                                            augmentation.RandomCropTransform((416, 416)),
+                                            augmentation.RandomNoiseTransform(),
+                                            augmentation.RandomColorJitterTransform(),
+                                            augmentation.RandomBlurTransform(),
+                                            augmentation.TargetTransform(prior_box_size=self.prior_box_size, classes=classes, ratios=ratios, stride=32), 
+                                            augmentation.OutputTransform()])
         if val_transforms is None:
-            val_transforms = PairCompose([PaddTransform(pad_size=32), 
-                                          TargetTransform(prior_box_size=self.prior_box_size, classes=classes, ratios=ratios, stride=32), 
-                                          OutputTransform()])
+            val_transforms = augmentation.PairCompose([
+                                          augmentation.PaddTransform(pad_size=32), 
+                                          augmentation.TargetTransform(prior_box_size=self.prior_box_size, classes=classes, ratios=ratios, stride=32), 
+                                          augmentation.OutputTransform()])
 
-        self.target_to_box_transform = TargetTransformToBoxes(prior_box_size=self.prior_box_size, classes=classes, ratios=ratios, stride=32)
+        self.target_to_box_transform = augmentation.TargetTransformToBoxes(prior_box_size=self.prior_box_size, classes=classes, ratios=ratios, stride=32)
 
         train_dir           = os.path.join(annDir, 'train2017')  
         train_ann_file      = os.path.join(annDir, 'annotations_trainval2017/annotations/instances_train2017.json')

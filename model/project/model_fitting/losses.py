@@ -10,8 +10,8 @@ class YoloLoss(torch.nn.Module):
         self.l1_loss = torch.nn.L1Loss(reduction='none')
         self.l2_loss = torch.nn.MSELoss(reduction='none')
         self.class_loss = torch.nn.NLLLoss(reduction='none')
-        self.size_scale = 0.5 
-        self.offset_scale = 1.0 
+        self.size_scale = 2.5 
+        self.offset_scale = 5.0 
         self.class_scale = 1.0
         self.ranges = ranges
 

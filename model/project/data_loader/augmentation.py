@@ -1,7 +1,8 @@
 import random                     
 import torchvision.transforms as transforms
 import numpy as np
-from PIL import Image
+from PIL import Image, ImageFilter
+from skimage import util
 
 class PairCompose(object):
     def __init__(self, transforms):
@@ -27,7 +28,7 @@ class RandomCropTransform(object):
     def __call__(self, image, label):
         padding_x = max(self.crop_size[0]-image.size[0],0)
         padding_y = max(self.crop_size[1]-image.size[1],0)
-        image = transforms.Pad((0, 0, padding_x, padding_y))(image)
+        image = transforms.functional.pad(image, (0, 0, padding_x, padding_y))
         x = random.randint(self.crop_size[0]//2, image.size[0]-self.crop_size[0]//2)
         y = random.randint(self.crop_size[1]//2, image.size[1]-self.crop_size[1]//2)
         image = image.crop((x-self.crop_size[0]//2, y-self.crop_size[1]//2, x+self.crop_size[0]//2, y+self.crop_size[1]//2))
@@ -69,12 +70,40 @@ class RandomResizeTransform(object):
             label[i]['bbox'] = bbox
         return image, label
 
-class ImageTransform(object):
-    def __init__(self, transform):
-        self.transform = transform
+class RandomBlurTransform(object):
+    def __init__(self):
+        self.blur = ImageFilter.GaussianBlur(2)
 
     def __call__(self, image, label):
-        image = self.transform(image)
+        p = random.random()
+        if p>0.75:
+            image = image.filter(self.blur)
+        return image, label
+
+class RandomColorJitterTransform(object):
+    def __init__(self):
+        self.jitt = transforms.ColorJitter(
+            brightness=0.2,
+            contrast=0.2,
+            saturation=0.2,
+        )
+
+    def __call__(self, image, label):
+        p = random.random()
+        if p>0.75:
+            image = self.jitt(image)
+        return image, label
+
+class RandomNoiseTransform(object):
+    def __init__(self):
+        pass
+
+    def __call__(self, image, label):
+        p = random.random()
+        if p>0.75:
+            image = np.array(image)
+            image = util.random_noise(image, mode='gaussian', seed=None, clip=True)*255
+            image = Image.fromarray(image.astype(np.uint8))
         return image, label
 
 class PaddTransform(object):
@@ -86,15 +115,15 @@ class PaddTransform(object):
         padding_x = (padding_x!=self.pad_size) * padding_x
         padding_y = self.pad_size-image.size[1]%self.pad_size
         padding_y = (padding_y!=self.pad_size) * padding_y
-        image_padded = transforms.Pad((0, 0, padding_x, padding_y))(image)
+        image_padded = transforms.functional.pad(image, (0, 0, padding_x, padding_y))
         return image_padded, label
 
 class OutputTransform(object):
     def __init__(self):
-        pass
+        self.toTensor = transforms.ToTensor()
 
     def __call__(self, image, label):
-        image_padded = transforms.ToTensor()(image)
+        image_padded = self.toTensor(image)
         return image_padded, label
 
 class TargetTransform(object):

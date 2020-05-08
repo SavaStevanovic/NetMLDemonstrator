@@ -5,7 +5,7 @@ import numpy as np
 def apply_detections(box_transform, outputs, labels, image, cats):
     boxes_pr = box_transform(outputs)
     boxes_tr = box_transform(labels)
-    pil_image = torchvision.transforms.ToPILImage()(image)
+    pil_image = torchvision.transforms.functional.to_pil_image(image)
     draw = ImageDraw.Draw(pil_image)
     for l in boxes_pr:
         draw_box(draw, l['bbox'], cats[l['category_id']][1], 'red', 3)
