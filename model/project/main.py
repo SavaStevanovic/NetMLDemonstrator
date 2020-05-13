@@ -11,7 +11,7 @@ dataset_name = 'Coco'
 
 coco_provider = CocoDetectionDatasetProvider(annDir=os.path.join('/Data', dataset_name), batch_size=16, th_count=th_count, ratios=ratios)
 
-backbone = networks.ResNetBackbone(block = blocks.EfficientNetBlock, layers = [2, 2, 2, 2])
+backbone = networks.ResNetBackbone(block_wrapper = blocks.ResidualBlock, block = blocks.EfficientNetBlock, layers = [2, 2, 2, 2])
 
 net = networks.YoloNet(backbone, classes = coco_provider.classes, ratios=ratios)
 

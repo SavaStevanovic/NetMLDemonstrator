@@ -4,10 +4,11 @@ from model import utils
 
 class ResNetBackbone(nn.Module, utils.Identifier):
 
-    def __init__(self, block, layers, norm_layer=nn.InstanceNorm2d, multiplier=2):
+    def __init__(self, block_wrapper, block, layers, norm_layer=nn.InstanceNorm2d, multiplier=2):
         super(ResNetBackbone, self).__init__()
 
         self.groups = 1
+        self.block_wrapper = block_wrapper
         self.block = block
         self._norm_layer = norm_layer
         self.inplanes = 16
@@ -16,21 +17,21 @@ class ResNetBackbone(nn.Module, utils.Identifier):
         self.bn1 = norm_layer(self.inplanes)
         self.relu = nn.ReLU(inplace=True)
         self.maxpool = nn.MaxPool2d(kernel_size=2, stride=2)
-        self.layer1 = self._make_layer(block, self.inplanes * 2, layers[0])
-        self.layer2 = self._make_layer(block, self.inplanes * 2, layers[1], stride=2)
-        self.layer3 = self._make_layer(block, self.inplanes * 2, layers[2], stride=2)
-        self.layer4 = self._make_layer(block, self.inplanes * 2, layers[3], stride=2)
+        self.layer1 = self._make_layer(block_wrapper, block, self.inplanes * 2, layers[0])
+        self.layer2 = self._make_layer(block_wrapper, block, self.inplanes * 2, layers[1], stride=2)
+        self.layer3 = self._make_layer(block_wrapper, block, self.inplanes * 2, layers[2], stride=2)
+        self.layer4 = self._make_layer(block_wrapper, block, self.inplanes * 2, layers[3], stride=2)
 
-    def _make_layer(self, block, planes, blocks, stride=1, dilate=False):
+    def _make_layer(self, block_wrapper, block, planes, blocks, stride=1, dilate=False):
         norm_layer = self._norm_layer
         downsample = None
-        if stride != 1 or self.inplanes != planes * block.expansion:
-            downsample = nn.Sequential(utils.conv1x1(self.inplanes, planes * block.expansion, stride), norm_layer(planes * block.expansion),)
+        if stride != 1 or self.inplanes != planes * block_wrapper.expansion:
+            downsample = nn.Sequential(utils.conv1x1(self.inplanes, planes * block_wrapper.expansion, stride), norm_layer(planes * block_wrapper.expansion),)
         layers = []
-        layers.append(block(self.inplanes, planes, stride, downsample, self.groups, norm_layer))
-        self.inplanes = planes * block.expansion
+        layers.append(block_wrapper(block(self.inplanes, planes, stride, norm_layer), downsample=downsample))
+        self.inplanes = planes * block_wrapper.expansion
         for _ in range(1, blocks):
-            layers.append(block(self.inplanes, planes, groups=self.groups, norm_layer=norm_layer))
+            layers.append(block_wrapper(block(self.inplanes, planes, norm_layer=norm_layer)))
 
         return nn.Sequential(*layers)
 
