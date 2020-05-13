@@ -64,12 +64,74 @@ class InvertedResidualBlock(nn.Module, utils.Identifier):
         out = self.bn1(out)
         out = self.relu(out)
 
-        out = self.conv2(x)
+        out = self.conv2(out)
         out = self.bn2(out)
         out = self.relu(out)
 
         out = self.conv3(out)
         out = self.bn3(out)
+
+        if self.downsample is not None and self.use_res_connect:
+            identity = self.downsample(x)
+            out += identity
+
+        return out
+
+class SqueezeExcitationBlock(nn.Module, utils.Identifier):
+
+    def __init__(self, channel, reduction=16):
+        super(SqueezeExcitationBlock, self).__init__()
+        self.avg_pool = nn.AdaptiveAvgPool2d(1)
+        self.fc = nn.Sequential(
+            nn.Conv2d(channel, channel // reduction, kernel_size=1),
+            nn.ReLU(inplace=True),
+            nn.Conv2d(channel // reduction, channel, kernel_size=1),
+            nn.Sigmoid()
+        )
+
+    def forward(self, x):
+        y = self.avg_pool(x)
+        y = self.fc(y)
+        return x * y
+
+class EfficientNetBlock(nn.Module, utils.Identifier):
+    expansion = 1
+
+    def __init__(self, inplanes, planes, stride=1, downsample=None, groups=1, norm_layer=nn.InstanceNorm2d, expand_ratio=6):
+        super(EfficientNetBlock, self).__init__()
+        self.expanded_dim = inplanes * expand_ratio
+        self.stride = stride
+        self.planes = planes
+        self.downsample = downsample
+        self.use_res_connect = self.stride == 1 and inplanes == planes
+
+        self.conv1 = utils.conv1x1(inplanes, self.expanded_dim)
+        self.bn1 = norm_layer(self.expanded_dim)
+        self.relu = nn.ReLU6(inplace=True)
+
+        self.conv2 = utils.conv3x3(self.expanded_dim,  self.expanded_dim, stride, groups=self.expanded_dim)
+        self.bn2 = norm_layer(self.expanded_dim)
+
+        self.conv3 = utils.conv1x1(self.expanded_dim, planes)
+        self.bn3 = norm_layer(planes)
+
+        self.sne_block = SqueezeExcitationBlock(planes, reduction=16)
+
+
+    def forward(self, x):
+        identity = x
+
+        out = self.conv1(x)
+        out = self.bn1(out)
+        out = self.relu(out)
+
+        out = self.conv2(out)
+        out = self.bn2(out)
+        out = self.relu(out)
+
+        out = self.conv3(out)
+        out = self.bn3(out)
+        out = self.sne_block(out)
 
         if self.downsample is not None and self.use_res_connect:
             identity = self.downsample(x)

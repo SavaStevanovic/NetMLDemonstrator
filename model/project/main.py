@@ -5,13 +5,13 @@ from model_fitting.train import fit
 from data_loader.coco_dataset import CocoDetectionDatasetProvider
 import os
 
-th_count = 12
+th_count = 1
 ratios = [0.5, 1.0, 2.0]
 dataset_name = 'Coco'
 
 coco_provider = CocoDetectionDatasetProvider(annDir=os.path.join('/Data', dataset_name), batch_size=16, th_count=th_count, ratios=ratios)
 
-backbone = networks.ResNetBackbone(block = blocks.InvertedResidualBlock, layers = [2, 2, 2, 2])
+backbone = networks.ResNetBackbone(block = blocks.EfficientNetBlock, layers = [2, 2, 2, 2])
 
 net = networks.YoloNet(backbone, classes = coco_provider.classes, ratios=ratios)
 
