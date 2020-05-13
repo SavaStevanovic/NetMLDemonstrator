@@ -1,75 +1,14 @@
 import torch
 import torch.nn as nn
+from model import utils
 
-def conv3x3(in_planes, out_planes, stride=1, groups=1, dilation=1):
-    """3x3 convolution with padding"""
-    return nn.Conv2d(in_planes, out_planes, kernel_size=3, stride=stride,
-                     padding=dilation, groups=groups, bias=False, dilation=dilation)
-
-
-def conv1x1(in_planes, out_planes, stride=1):
-    """1x1 convolution"""
-    return nn.Conv2d(in_planes, out_planes, kernel_size=1, stride=stride, bias=False)
-
-def convUp(in_planes, out_planes):
-    """deconvolution convolution"""
-    return nn.ConvTranspose2d(in_channels , out_planes, kernel_size=2, stride=2)
-
-
-class Identifier(object):
-    def __init__(self):
-        pass
-
-    def get_identifier(self):
-        idt = self.__class__.__name__
-        if hasattr(self, 'inplanes'): 
-            idt+='/'+str(self.inplanes)
-        if hasattr(self, 'ratios'): 
-            idt+='/'+'-'.join([str(x).replace('.',',') for x in self.ratios])
-        if hasattr(self, 'backbone') and hasattr(self.backbone, 'get_identifier'): 
-            idt+='/'+self.backbone.get_identifier() 
-        return idt
-
-class PreActivationBlock(nn.Module):
-    expansion = 1
-
-    def __init__(self, inplanes, planes, stride=1, downsample=None, groups=1, norm_layer=nn.InstanceNorm2d):
-        super(PreActivationBlock, self).__init__()
-        self.bn1 = norm_layer(inplanes)
-        self.relu = nn.ReLU(inplace=True)
-        self.conv1 = conv3x3(inplanes, planes, stride)
-
-        self.bn2 = norm_layer(planes)
-        self.conv2 = conv3x3(planes, planes)
-
-        self.downsample = downsample
-        self.stride = stride
-        self.planes = planes
-
-    def forward(self, x):
-        identity = x
-
-        out = self.bn1(x)
-        out = self.relu(out)
-        out = self.conv1(out)
-
-        out = self.bn2(out)
-        out = self.relu(out)
-        out = self.conv2(out)
-
-        if self.downsample is not None:
-            identity = self.downsample(x)
-
-        out += identity
-
-        return out
-
-class ResNetBackbone(nn.Module, Identifier):
+class ResNetBackbone(nn.Module, utils.Identifier):
 
     def __init__(self, block, layers, norm_layer=nn.InstanceNorm2d, multiplier=2):
         super(ResNetBackbone, self).__init__()
 
         self.groups = 1
+        self.block = block
         self._norm_layer = norm_layer
         self.inplanes = 16
         self.multiplier = multiplier
@@ -86,7 +25,7 @@ class ResNetBackbone(nn.Module, Identifier):
         norm_layer = self._norm_layer
         downsample = None
         if stride != 1 or self.inplanes != planes * block.expansion:
-            downsample = nn.Sequential(conv1x1(self.inplanes, planes * block.expansion, stride), norm_layer(planes * block.expansion),)
+            downsample = nn.Sequential(utils.conv1x1(self.inplanes, planes * block.expansion, stride), norm_layer(planes * block.expansion),)
         layers = []
         layers.append(block(self.inplanes, planes, stride, downsample, self.groups, norm_layer))
         self.inplanes = planes * block.expansion
@@ -108,7 +47,7 @@ class ResNetBackbone(nn.Module, Identifier):
 
         return x1, x2, x3, x4
 
-class FPN(nn.Module, Identifier):
+class FPN(nn.Module, utils.Identifier):
     def __init__(self, backbone):
         super(FPN, self).__init__()
 
@@ -119,9 +58,9 @@ class FPN(nn.Module, Identifier):
         self.toplayer = nn.Conv2d(self.inplanes * 8 * multiplier, 256, kernel_size=1)  # Reduce channels
 
         # Smooth layers
-        self.smooth1 = convUp(self.inplanes * 1 * multiplier, 256)
-        self.smooth2 = convUp(self.inplanes * 2 * multiplier, 256)
-        self.smooth3 = convUp(self.inplanes * 4 * multiplier, 256)
+        self.smooth1 = utils.convUp(self.inplanes * 1 * multiplier, 256)
+        self.smooth2 = utils.convUp(self.inplanes * 2 * multiplier, 256)
+        self.smooth3 = utils.convUp(self.inplanes * 4 * multiplier, 256)
 
     def forward(self, x):
         # Bottom-up
@@ -133,7 +72,7 @@ class FPN(nn.Module, Identifier):
         p1 = p2 + self.smooth1(l1)
         return p1, p2, p3
 
-class RetinaNet(nn.Module, Identifier):
+class RetinaNet(nn.Module, utils.Identifier):
     def __init__(self, backbone, classes = 80, ratios=[0.5, 1.0, 2.0], scales=[2 ** (i / 3) for i in range(3)]):
         super(FPN, self).__init__()
 
@@ -144,9 +83,9 @@ class RetinaNet(nn.Module, Identifier):
         self.toplayer = nn.Conv2d(self.inplanes * 8 * multiplier, 256, kernel_size=1)  # Reduce channels
 
         # Smooth layers
-        self.smooth1 = convUp(self.inplanes * 1 * multiplier, 256)
-        self.smooth2 = convUp(self.inplanes * 2 * multiplier, 256)
-        self.smooth3 = convUp(self.inplanes * 4 * multiplier, 256)
+        self.smooth1 = utils.convUp(self.inplanes * 1 * multiplier, 256)
+        self.smooth2 = utils.convUp(self.inplanes * 2 * multiplier, 256)
+        self.smooth3 = utils.convUp(self.inplanes * 4 * multiplier, 256)
 
     def _make_layer(self, block, planes, num_blocks, stride):
         strides = [stride] + [1]*(num_blocks-1)
@@ -166,7 +105,7 @@ class RetinaNet(nn.Module, Identifier):
         p1 = p2 + self.smooth1(l1)
         return p1, p2, p3
 
-class YoloNet(nn.Module, Identifier):
+class YoloNet(nn.Module, utils.Identifier):
     def __init__(self, backbone, classes, ratios=[1.0]):
         super(YoloNet, self).__init__()
 

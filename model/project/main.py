@@ -1,5 +1,6 @@
 import torch
-from model.networks import YoloNet, ResNetBackbone, PreActivationBlock
+from model import blocks
+from model import networks
 from model_fitting.train import fit
 from data_loader.coco_dataset import CocoDetectionDatasetProvider
 import os
@@ -10,8 +11,12 @@ dataset_name = 'Coco'
 
 coco_provider = CocoDetectionDatasetProvider(annDir=os.path.join('/Data', dataset_name), batch_size=16, th_count=th_count, ratios=ratios)
 
-backbone = ResNetBackbone(block = PreActivationBlock, layers = [2, 2, 2, 2])
+backbone = networks.ResNetBackbone(block = blocks.InvertedResidualBlock, layers = [2, 2, 2, 2])
 
-net = YoloNet(backbone, classes = coco_provider.classes, ratios=ratios)
+net = networks.YoloNet(backbone, classes = coco_provider.classes, ratios=ratios)
 
-fit(net, coco_provider.trainloader, coco_provider.validationloader, dataset_name = dataset_name, box_transform = coco_provider.target_to_box_transform, epochs=1000, lower_learning_period=10)
+fit(net, coco_provider.trainloader, coco_provider.validationloader, 
+    dataset_name = dataset_name, 
+    box_transform = coco_provider.target_to_box_transform, 
+    epochs=1000, 
+    lower_learning_period=10)
