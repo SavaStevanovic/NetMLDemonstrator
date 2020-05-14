@@ -2,6 +2,7 @@ import torch
 from visualization.display_detection import apply_detections
 from pycocotools.cocoeval import COCOeval
 from model_fitting.losses import YoloLoss
+from tqdm import tqdm
 
 def metrics(net, dataloader, box_transform, epoch=1):
     net.eval()
@@ -15,7 +16,7 @@ def metrics(net, dataloader, box_transform, epoch=1):
     det_boxes = []
     ref_boxes = [[] for _ in range(len(dataloader))]
     with torch.no_grad():
-        for i, data in enumerate(dataloader):
+        for i, data in enumerate(tqdm(dataloader)):
             image, labels = data
             outputs_cuda = net(image.cuda())
             labels_cuda = labels.cuda()
