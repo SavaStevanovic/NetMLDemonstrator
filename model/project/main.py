@@ -5,7 +5,7 @@ from model_fitting.train import fit
 from data_loader.coco_dataset import CocoDetectionDatasetProvider
 import os
 
-th_count = 1
+th_count = 12
 ratios = [0.5, 1.0, 2.0]
 dataset_name = 'Coco'
 
