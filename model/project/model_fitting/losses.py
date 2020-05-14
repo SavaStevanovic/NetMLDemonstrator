@@ -22,30 +22,30 @@ class YoloLoss(torch.nn.Module):
         total_class_loss = 0.0
         loss = 0.0
 
-        obj_objectness = output[:, :, self.ranges.objectness].flatten(2)
-        lab_objectness = label[:, :, self.ranges.objectness].flatten(2)
+        obj_objectness = output[:, :, self.ranges.objectness]
+        lab_objectness = label[:, :, self.ranges.objectness]
         objectness_loss = self.focal_loss(obj_objectness, lab_objectness)
         loss += objectness_loss
         total_objectness_loss += objectness_loss.item()
 
-        obj_box_size = output[:, :, self.ranges.size].flatten(3)
-        lab_box_size = label[:, :, self.ranges.size].flatten(3)
-        size_loss = self.size_scale * lab_objectness.unsqueeze(2)*self.l1_loss(obj_box_size, lab_box_size)
+        obj_box_size = output[:, :, self.ranges.size]
+        lab_box_size = label[:, :, self.ranges.size]
+        size_loss = self.size_scale * lab_objectness*self.l1_loss(obj_box_size, lab_box_size)
         size_loss = size_loss.sum()
         loss += size_loss
         total_size_loss += size_loss.item()
 
-        obj_offset = output[:, :, self.ranges.offset].flatten(3)
-        lab_offset = label[:, :, self.ranges.offset].flatten(3)
-        offset_loss = self.offset_scale * lab_objectness.unsqueeze(2)*self.l1_loss(obj_offset, lab_offset)
+        obj_offset = output[:, :, self.ranges.offset]
+        lab_offset = label[:, :, self.ranges.offset]
+        offset_loss = self.offset_scale * lab_objectness*self.l1_loss(obj_offset, lab_offset)
         offset_loss = offset_loss.sum()
         loss += offset_loss
         total_offset_loss += offset_loss.item()
 
-        obj_class = output[:, :, self.ranges.classes].flatten(3).flatten(0,1)
-        lab_class = label[:, :, self.ranges.classes].flatten(3).argmax(2).flatten(0,1)
-        lab_class_objectness = lab_objectness.flatten(0,1)
-        class_loss = self.class_scale * lab_class_objectness.flatten().dot(self.class_loss(obj_class, lab_class).flatten())
+        obj_class = output[:, :, self.ranges.classes].transpose(1,2)
+        lab_class = label[:, :, self.ranges.classes].transpose(1,2).argmax(1)
+        class_loss = self.class_scale * lab_objectness.squeeze(2) * self.class_loss(obj_class, lab_class)
+        class_loss = class_loss.sum()
         loss += class_loss
         total_class_loss += class_loss.item()
 
