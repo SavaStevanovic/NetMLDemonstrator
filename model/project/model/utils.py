@@ -9,10 +9,6 @@ def conv1x1(in_planes, out_planes, stride=1):
     """1x1 convolution"""
     return nn.Conv2d(in_planes, out_planes, kernel_size=1, stride=stride, bias=False)
 
-def convUp(in_planes, out_planes):
-    """deconvolution convolution"""
-    return nn.ConvTranspose2d(in_channels , out_planes, kernel_size=2, stride=2)
-
 class Identifier(object):
     def __init__(self):
         pass

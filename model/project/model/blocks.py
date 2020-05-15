@@ -3,7 +3,6 @@ from model import utils
 
 
 class ResidualBlock(nn.Module, utils.Identifier):
-    expansion = 1
 
     def __init__(self, block, downsample=None):
         super(ResidualBlock, self).__init__()
@@ -26,7 +25,10 @@ class PreActivationBlock(nn.Module, utils.Identifier):
 
     def __init__(self, inplanes, planes, stride=1, norm_layer=nn.InstanceNorm2d):
         super(PreActivationBlock, self).__init__()
-
+        self.planes = planes
+        self.inplanes = inplanes
+        self.stride = stride
+        
         self.sequential = nn.Sequential(
             norm_layer(inplanes),
             nn.ReLU(inplace=True),

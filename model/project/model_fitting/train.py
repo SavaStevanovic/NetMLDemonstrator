@@ -9,6 +9,8 @@ from visualization.display_detection import apply_detections
 from visualization.images_display import join_images
 from model_fitting.configuration import TrainingConfiguration
 import json
+from functools import reduce
+from torchsummary import summary
 
 def fit_epoch(net, dataloader, lr_rate, box_transform, epoch=1):
     net.train()
@@ -23,10 +25,9 @@ def fit_epoch(net, dataloader, lr_rate, box_transform, epoch=1):
     for i, data in enumerate(tqdm(dataloader)):
         image, labels = data
         optimizer.zero_grad()
-        image_cuda = image.cuda()
-        outputs = net(image_cuda)
-        labels_cuda = labels.cuda()
-        loss, objectness_loss, size_loss, offset_loss, class_loss = criterion(outputs, labels_cuda)
+        outputs = net(image.cuda())
+        criterions = [criterion(outputs[i], labels[i].cuda()) for i in range(len(outputs))]
+        loss, objectness_loss, size_loss, offset_loss, class_loss = reduce(lambda x, y: (x[i] + y[i] for i in range(len(x[0]))), criterions)
         loss.backward()
         optimizer.step()
         total_objectness_loss += objectness_loss
@@ -36,7 +37,9 @@ def fit_epoch(net, dataloader, lr_rate, box_transform, epoch=1):
         total_class_loss += class_loss
 
         if i>=len(dataloader)-5:
-            pilImage = apply_detections(box_transform, outputs.detach().cpu()[0], labels.detach().cpu()[0], image[0], dataloader.cats)
+            outs = [out.detach().cpu()[0] for out in outputs]
+            labs = [lab.detach().cpu()[0] for lab in labels]
+            pilImage = apply_detections(box_transform, outs, labs, image[0], dataloader.cats)
             images.append(pilImage)
         
     data_len = len(dataloader)
@@ -52,6 +55,7 @@ def fit(net, trainloader, validationloader, dataset_name, box_transform, epochs=
         net = torch.load(checkpoint_name_path)
         train_config.load(checkpoint_conf_path)
     net.cuda()
+    summary(net, (3, 224, 224))
     writer = SummaryWriter(os.path.join('logs', model_dir_header))
     for epoch in range(train_config.epoch, epochs):
         loss, objectness_loss, size_loss, offset_loss, class_loss, samples = fit_epoch(net, trainloader, train_config.learning_rate, box_transform, epoch=epoch)

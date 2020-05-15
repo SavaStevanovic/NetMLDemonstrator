@@ -3,6 +3,7 @@ from visualization.display_detection import apply_detections
 from pycocotools.cocoeval import COCOeval
 from model_fitting.losses import YoloLoss
 from tqdm import tqdm
+from functools import reduce
 
 def metrics(net, dataloader, box_transform, epoch=1):
     net.eval()
@@ -18,19 +19,20 @@ def metrics(net, dataloader, box_transform, epoch=1):
     with torch.no_grad():
         for i, data in enumerate(tqdm(dataloader)):
             image, labels = data
-            outputs_cuda = net(image.cuda())
-            labels_cuda = labels.cuda()
-            loss, objectness_loss, size_loss, offset_loss, class_loss = criterion(outputs_cuda, labels_cuda)
+            outputs = net(image.cuda())
+            criterions = [criterion(outputs[i], labels[i].cuda()) for i in range(len(outputs))]
+            loss, objectness_loss, size_loss, offset_loss, class_loss = reduce(lambda x, y: (x[i] + y[i] for i in range(len(x[0]))), criterions)
             total_objectness_loss += objectness_loss
             total_size_loss += size_loss
             losses += loss.item()
             total_offset_loss += offset_loss
             total_class_loss += class_loss
-            outputs = outputs_cuda.detach().cpu()
+            outs = [out.detach().cpu()[0] for out in outputs]
+            labs = [lab.detach().cpu()[0] for lab in labels]
 
-            boxes_pr = box_transform(outputs.squeeze(0), 0.5)
+            boxes_pr = box_transform(outs, 0.5)
             boxes_pr = non_max_suppression(boxes_pr)
-            boxes_tr = box_transform(labels.squeeze(0))
+            boxes_tr = box_transform(labs)
             for x in boxes_pr:
                 x['image'] = i
             for x in boxes_tr:
@@ -39,7 +41,7 @@ def metrics(net, dataloader, box_transform, epoch=1):
             ref_boxes[i]=boxes_tr
             
             if i>=len(dataloader)-5:
-                pilImage = apply_detections(box_transform, outputs[0], labels[0], image[0], dataloader.cats)
+                pilImage = apply_detections(box_transform, outs, labs, image[0], dataloader.cats)
                 images.append(pilImage)
     metric, _ = calculateMAP(det_boxes, ref_boxes, net.classes)
     data_len = len(dataloader)
