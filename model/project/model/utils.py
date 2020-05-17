@@ -17,6 +17,8 @@ class Identifier(object):
         idt = self.__class__.__name__
         if hasattr(self, 'inplanes'): 
             idt+='/'+str(self.inplanes)
+        if hasattr(self, 'block_counts'): 
+            idt+='/'+'-'.join([str(x) for x in self.block_counts])
         if hasattr(self, 'ratios'): 
             idt+='/'+'-'.join([str(x).replace('.',',') for x in self.ratios])
         if hasattr(self, 'block') and hasattr(self.block, 'get_identifier'): 

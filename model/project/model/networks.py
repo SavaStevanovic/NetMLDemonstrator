@@ -4,11 +4,13 @@ from model import utils
 
 class ResNetBackbone(nn.Module, utils.Identifier):
 
-    def __init__(self, block_wrapper, block, layers, inplanes, norm_layer=nn.InstanceNorm2d):
+    def __init__(self, block_wrapper, block, block_counts, inplanes, norm_layer=nn.InstanceNorm2d):
         super(ResNetBackbone, self).__init__()
 
-        self.feature_count = len(layers)
-        self.depth = 1 + self.feature_count
+        self.feature_count = len(block_counts)
+        self.block_counts = block_counts
+        self.feature_start_layer = 1
+        self.depth = self.feature_start_layer + self.feature_count
         self.block_wrapper = block_wrapper
         self.block = block
         self._norm_layer = norm_layer
@@ -20,7 +22,7 @@ class ResNetBackbone(nn.Module, utils.Identifier):
             nn.MaxPool2d(kernel_size=2, stride=2)
         )
 
-        self.layers = nn.ModuleList([self._make_layer(block_wrapper, block, int(i>0)+1, layer_count, int(i>0)+1) for i, layer_count in enumerate(layers)])
+        self.layers = nn.ModuleList([self._make_layer(block_wrapper, block, int(i>0)+1, layer_count, int(i>0)+1) for i, layer_count in enumerate(block_counts)])
            
     def _make_layer(self, block_wrapper, block, expansion, blocks, stride=1):
         downsample = None
@@ -56,7 +58,8 @@ class FeaturePyramidNet(nn.Module, utils.Identifier):
         self.backbone = backbone
         self.inplanes = backbone.inplanes
         self.feature_count = backbone.feature_count - 1
-        self.depth = backbone.feature_count
+        self.feature_start_layer = backbone.feature_start_layer
+        self.depth = backbone.depth
         # Top layer
         self.toplayer = nn.Conv2d(self.inplanes, 256, kernel_size=1)  # Reduce channels
 
@@ -70,7 +73,7 @@ class FeaturePyramidNet(nn.Module, utils.Identifier):
         self.head=None
         if classes is not None and ratios is not None:
             self.ranges = DetectionRanges(len(classes), len(ratios))
-            self.head = nn.Conv2d(self.inplanes, self.ranges.output_size, kernel_size=1)  
+            self.head = nn.Conv2d(256, self.ranges.output_size, kernel_size=1)  
 
     def forward(self, x):
         boutputs = self.backbone(x)
@@ -124,9 +127,10 @@ class RetinaNet(nn.Module, utils.Identifier):
 class YoloNet(nn.Module, utils.Identifier):
     def __init__(self, backbone, classes, ratios=[1.0]):
         super(YoloNet, self).__init__()
-
+        
         self.feature_count = 1
         self.depth = backbone.depth
+        self.feature_start_layer = backbone.feature_start_layer + backbone.feature_count - self.feature_count
         self.backbone = backbone
         self.inplanes = backbone.inplanes
         self.classes = classes
@@ -155,4 +159,3 @@ class DetectionRanges(object):
         x[:, :, self.offset] = x[:, :,self.offset].sigmoid()
         x[:, :, self.classes] = x[:, :,self.classes].log_softmax(2)
         return x
-

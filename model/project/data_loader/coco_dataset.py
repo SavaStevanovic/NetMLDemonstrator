@@ -6,10 +6,11 @@ import multiprocessing as mu
 import os
 
 class CocoDetectionDatasetProvider():
-    def __init__(self, depth, feature_count, classes=None, annDir='/Data/Coco/', batch_size=1, train_transforms=None, val_transforms=None, th_count=mu.cpu_count(), ratios=[1.0]):
+    def __init__(self, depth, feature_count, feature_start_layer, classes=None, annDir='/Data/Coco/', batch_size=1, train_transforms=None, val_transforms=None, th_count=mu.cpu_count(), ratios=[1.0]):
         self.classes = classes
-        self.prior_box_sizes = [32*2**i for i in range(depth-feature_count, depth)]
-        self.strides = [2**(i+1) for i in range(depth-feature_count, depth)]
+        feature_range = range(feature_start_layer, feature_start_layer + feature_count)
+        self.prior_box_sizes = [32*2**i for i in feature_range]
+        self.strides = [2**(i+1) for i in feature_range]
         if train_transforms is None:
             train_transforms = augmentation.PairCompose([
                                             augmentation.RandomResizeTransform(),
@@ -22,7 +23,7 @@ class CocoDetectionDatasetProvider():
                                             augmentation.OutputTransform()])
         if val_transforms is None:
             val_transforms = augmentation.PairCompose([
-                                          augmentation.PaddTransform(pad_size=32), 
+                                          augmentation.PaddTransform(pad_size=2**depth), 
                                           augmentation.TargetTransform(prior_box_sizes=self.prior_box_sizes, classes=classes, ratios=ratios, strides=self.strides), 
                                           augmentation.OutputTransform()])
 
