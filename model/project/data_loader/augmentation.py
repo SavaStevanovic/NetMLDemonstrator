@@ -171,7 +171,7 @@ class TargetTransformToBoxes(object):
             prior_box_size = self.prior_box_sizes[i]
             target = targets[i]
             for i, first_target in enumerate(target):
-                objects = np.argwhere(first_target[::(5+self.classes_len)]>=threshold).T
+                objects = np.argwhere(first_target[::(5+self.classes_len)]>=threshold)
                 for cords in objects:
                     l = {}
                     l['category_id'] = np.argmax(first_target[cords[0]+5:cords[0]+5+self.classes_len, cords[1], cords[2]]).item()

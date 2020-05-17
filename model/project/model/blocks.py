@@ -65,10 +65,10 @@ class InvertedBlock(nn.Module, utils.Identifier):
         return self.sequential(x)
 
 
-class SqueezeExcitationBlock(nn.Module, utils.Identifier):
+class SqueezeExcitationLayer(nn.Module, utils.Identifier):
 
     def __init__(self, channel, reduction=16):
-        super(SqueezeExcitationBlock, self).__init__()
+        super(SqueezeExcitationLayer, self).__init__()
         self.sequential = nn.Sequential(
             nn.AdaptiveAvgPool2d(1),
             nn.Conv2d(channel, channel // reduction, kernel_size=1),
@@ -82,14 +82,28 @@ class SqueezeExcitationBlock(nn.Module, utils.Identifier):
         return x * out
 
 
-class EfficientNetBlock(nn.Module, utils.Identifier):
+class SqueezeExcitationBlock(nn.Module, utils.Identifier):
 
-    def __init__(self, inplanes, planes, stride=1, norm_layer=nn.InstanceNorm2d, expand_ratio=6, reduction=16):
-        super(EfficientNetBlock, self).__init__()
+    def __init__(self, inplanes, planes, stride=1, norm_layer=nn.InstanceNorm2d, reduction=16):
+        super(SqueezeExcitationBlock, self).__init__()
 
         self.sequential = nn.Sequential(
             PreActivationBlock(inplanes, planes, stride, norm_layer),
-            SqueezeExcitationBlock(planes, reduction)
+            SqueezeExcitationLayer(planes, reduction)
+        )
+
+    def forward(self, x):
+        return self.sequential(x)
+
+
+class EfficientNetBlock(nn.Module, utils.Identifier):
+
+    def __init__(self, inplanes, planes, stride=1, norm_layer=nn.InstanceNorm2d, reduction=16, expand_ratio=6):
+        super(EfficientNetBlock, self).__init__()
+
+        self.sequential = nn.Sequential(
+            InvertedBlock(inplanes, planes, stride, norm_layer, expand_ratio=6),
+            SqueezeExcitationLayer(planes, reduction)
         )
 
     def forward(self, x):

@@ -27,8 +27,8 @@ def metrics(net, dataloader, box_transform, epoch=1):
             losses += loss.item()
             total_offset_loss += offset_loss
             total_class_loss += class_loss
-            outs = [out.detach().cpu()[0] for out in outputs]
-            labs = [labels[0].detach().cpu()[0]]
+            outs = [out.cpu()[0].numpy() for out in outputs]
+            labs = [labels[0].cpu()[0].numpy()]
 
             boxes_pr = box_transform(outs, 0.5)
             boxes_pr = non_max_suppression(boxes_pr)

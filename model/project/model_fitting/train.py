@@ -32,13 +32,13 @@ def fit_epoch(net, dataloader, lr_rate, box_transform, epoch=1):
         optimizer.step()
         total_objectness_loss += objectness_loss
         total_size_loss += size_loss
-        losses += loss.detach().item()
+        losses += loss.item()
         total_offset_loss += offset_loss
         total_class_loss += class_loss
 
         if i>=len(dataloader)-5:
-            outs = [out.detach().cpu()[0] for out in outputs]
-            labs = [labels[0].detach().cpu()[0]]
+            outs = [out.detach().cpu()[0].numpy() for out in outputs]
+            labs = [labels[0].cpu()[0].numpy()]
             pilImage = apply_detections(box_transform, outs, labs, image[0], dataloader.cats)
             images.append(pilImage)
         
