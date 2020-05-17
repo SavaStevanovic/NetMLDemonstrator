@@ -28,7 +28,7 @@ class PreActivationBlock(nn.Module, utils.Identifier):
         self.planes = planes
         self.inplanes = inplanes
         self.stride = stride
-        
+
         self.sequential = nn.Sequential(
             norm_layer(inplanes),
             nn.ReLU(inplace=True),
@@ -88,7 +88,7 @@ class EfficientNetBlock(nn.Module, utils.Identifier):
         super(EfficientNetBlock, self).__init__()
 
         self.sequential = nn.Sequential(
-            InvertedBlock(inplanes, planes, stride, norm_layer, expand_ratio),
+            PreActivationBlock(inplanes, planes, stride, norm_layer),
             SqueezeExcitationBlock(planes, reduction)
         )
 

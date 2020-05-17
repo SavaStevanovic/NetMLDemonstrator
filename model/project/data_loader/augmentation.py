@@ -166,7 +166,7 @@ class TargetTransformToBoxes(object):
 
     def __call__(self, targets, threshold = 0.5):
         labels = []
-        for i in range(min(len(self.strides), len(self.prior_box_sizes))):
+        for i in range(min(len(targets), len(self.strides), len(self.prior_box_sizes))):
             stride = self.strides[i]
             prior_box_size = self.prior_box_sizes[i]
             target = targets[i]

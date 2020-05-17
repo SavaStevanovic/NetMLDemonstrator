@@ -8,8 +8,8 @@ import os
 class CocoDetectionDatasetProvider():
     def __init__(self, depth, feature_count, classes=None, annDir='/Data/Coco/', batch_size=1, train_transforms=None, val_transforms=None, th_count=mu.cpu_count(), ratios=[1.0]):
         self.classes = classes
-        self.prior_box_sizes = [16*2**i for i in range(depth, depth-feature_count, -1)]
-        self.strides = [2**i for i in range(depth, depth-feature_count, -1)]
+        self.prior_box_sizes = [32*2**i for i in range(depth-feature_count, depth)]
+        self.strides = [2**(i+1) for i in range(depth-feature_count, depth)]
         if train_transforms is None:
             train_transforms = augmentation.PairCompose([
                                             augmentation.RandomResizeTransform(),

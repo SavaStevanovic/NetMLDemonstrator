@@ -27,7 +27,7 @@ def fit_epoch(net, dataloader, lr_rate, box_transform, epoch=1):
         optimizer.zero_grad()
         outputs = net(image.cuda())
         criterions = [criterion(outputs[i], labels[i].cuda()) for i in range(len(outputs))]
-        loss, objectness_loss, size_loss, offset_loss, class_loss = reduce(lambda x, y: (x[i] + y[i] for i in range(len(x[0]))), criterions)
+        loss, objectness_loss, size_loss, offset_loss, class_loss = (sum(x) for x in zip(*criterions))
         loss.backward()
         optimizer.step()
         total_objectness_loss += objectness_loss
@@ -38,7 +38,7 @@ def fit_epoch(net, dataloader, lr_rate, box_transform, epoch=1):
 
         if i>=len(dataloader)-5:
             outs = [out.detach().cpu()[0] for out in outputs]
-            labs = [lab.detach().cpu()[0] for lab in labels]
+            labs = [labels[0].detach().cpu()[0]]
             pilImage = apply_detections(box_transform, outs, labs, image[0], dataloader.cats)
             images.append(pilImage)
         

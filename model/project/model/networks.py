@@ -41,32 +41,31 @@ class ResNetBackbone(nn.Module, utils.Identifier):
     def forward(self, x):
         x = self.first_layer(x)
 
-        x1 = self.layers[0](x)
-        x2 = self.layers[1](x1)
-        x3 = self.layers[2](x2)
-        x4 = self.layers[3](x3)
+        outputs = [x]
+        for l in self.layers:
+            outputs.append(l(outputs[-1]))
 
-        return x1, x2, x3, x4
+        return tuple(outputs[1:])
 
-class FeaturePyramidBackbone(nn.Module, utils.Identifier):
+class FeaturePyramidNet(nn.Module, utils.Identifier):
     def __init__(self, backbone, classes=None, ratios=None):
-        super(FeaturePyramidBackbone, self).__init__()
+        super(FeaturePyramidNet, self).__init__()
 
+        self.classes = classes
+        self.ratios = ratios
         self.backbone = backbone
         self.inplanes = backbone.inplanes
+        self.feature_count = backbone.feature_count - 1
+        self.depth = backbone.feature_count
         # Top layer
         self.toplayer = nn.Conv2d(self.inplanes, 256, kernel_size=1)  # Reduce channels
 
         self.up = nn.Upsample(scale_factor=2)
 
-        self.latlayer1 = nn.Conv2d(self.inplanes // 8, 256, kernel_size=1)
-        self.latlayer2 = nn.Conv2d(self.inplanes // 4, 256, kernel_size=1)
-        self.latlayer3 = nn.Conv2d(self.inplanes // 2, 256, kernel_size=1)
 
-        # Smooth layers
-        self.smooth1 = nn.Conv2d(256, 256, kernel_size=1)
-        self.smooth2 = nn.Conv2d(256, 256, kernel_size=1)
-        self.smooth3 = nn.Conv2d(256, 256, kernel_size=1)
+        self.lat_layers = nn.ModuleList([nn.Conv2d(self.inplanes // 2**i, 256, kernel_size=1) for i in range(self.feature_count, 0, -1)])
+
+        self.smooth_layers = nn.ModuleList([nn.Conv2d(256, 256, kernel_size=1) for i in range(self.feature_count, 0, -1)]) 
         
         self.head=None
         if classes is not None and ratios is not None:
@@ -74,24 +73,20 @@ class FeaturePyramidBackbone(nn.Module, utils.Identifier):
             self.head = nn.Conv2d(self.inplanes, self.ranges.output_size, kernel_size=1)  
 
     def forward(self, x):
-        # Bottom-up
-        l1, l2, l3, l4 = self.backbone(x)
-        # Top-down
-        p4 = self.toplayer(l4)
-        p3 = self.latlayer3(l3) + self.up(p4)
-        p2 = self.latlayer2(l2) + self.up(p3)
-        p1 = self.latlayer1(l1) + self.up(p2)
+        boutputs = self.backbone(x)
+        top_layer = self.toplayer(boutputs[-1])
 
-        p3 = self.smooth1(p3)
-        p2 = self.smooth2(p2)
-        p1 = self.smooth3(p1)
+        features = [top_layer]
+        for i in range(self.feature_count-1, -1 , -1):
+            features.append(self.lat_layers[i](boutputs[i]) + self.up(features[-1]))
+        features.pop(0)
+
+        features = [self.smooth_layers[i](features[i]) for i in range(self.feature_count)]
 
         if self.head is not None:
-            p1 = self.ranges.activate_output(self.head(p1))
-            p2 = self.ranges.activate_output(self.head(p2))
-            p3 = self.ranges.activate_output(self.head(p3))
+            features = [self.ranges.activate_output(self.head(features[i])) for i in range(self.feature_count)]
 
-        return p1, p2, p3
+        return tuple(features[::-1])
 
 class RetinaNet(nn.Module, utils.Identifier):
     def __init__(self, backbone, classes = 80, ratios=[0.5, 1.0, 2.0], scales=[2 ** (i / 3) for i in range(3)]):
@@ -140,7 +135,7 @@ class YoloNet(nn.Module, utils.Identifier):
         self.head = nn.Conv2d(self.inplanes, self.ranges.output_size, kernel_size=1)  
 
     def forward(self, x):
-        _, _, _, boutput = self.backbone(x)
+        boutput = self.backbone(x)[-1]
         output = self.head(boutput)
         return self.ranges.activate_output(output),
 

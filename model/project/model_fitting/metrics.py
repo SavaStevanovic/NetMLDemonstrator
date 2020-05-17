@@ -21,14 +21,14 @@ def metrics(net, dataloader, box_transform, epoch=1):
             image, labels = data
             outputs = net(image.cuda())
             criterions = [criterion(outputs[i], labels[i].cuda()) for i in range(len(outputs))]
-            loss, objectness_loss, size_loss, offset_loss, class_loss = reduce(lambda x, y: (x[i] + y[i] for i in range(len(x[0]))), criterions)
+            loss, objectness_loss, size_loss, offset_loss, class_loss = (sum(x) for x in zip(*criterions))
             total_objectness_loss += objectness_loss
             total_size_loss += size_loss
             losses += loss.item()
             total_offset_loss += offset_loss
             total_class_loss += class_loss
             outs = [out.detach().cpu()[0] for out in outputs]
-            labs = [lab.detach().cpu()[0] for lab in labels]
+            labs = [labels[0].detach().cpu()[0]]
 
             boxes_pr = box_transform(outs, 0.5)
             boxes_pr = non_max_suppression(boxes_pr)
