@@ -1,6 +1,8 @@
 import torch.nn as nn
 from model import utils
-import functools 
+import itertools
+import functools
+import torch
 
 
 class ResNetBackbone(nn.Module, utils.Identifier):
@@ -75,36 +77,45 @@ class FeaturePyramidNet(nn.Module, utils.Identifier):
 
 class RetinaNet(nn.Module, utils.Identifier):
     def __init__(self, backbone, classes, ratios, scales=[2 ** (i / 3) for i in range(3)]):
-        super(FPN, self).__init__()
+        super(RetinaNet, self).__init__()
 
-        self.backbone = backbone
-        self.multiplier = backbone.multiplier
-        self.inplanes = backbone.inplanes
-        # Top layer
-        self.toplayer = nn.Conv2d(self.inplanes * 8 * multiplier, 256, kernel_size=1)  # Reduce channels
+        self.classes = classes
+        self.ratios = ratios
+        self.backbone = functools.reduce(lambda b,m : m(b),backbone[::-1])
+        self.inplanes = self.backbone.inplanes
+        self.feature_count = self.backbone.feature_count
+        self.feature_start_layer = self.backbone.feature_start_layer
+        self.depth = self.backbone.depth
 
-        # Smooth layers
-        self.smooth1 = utils.convUp(self.inplanes * 1 * multiplier, 256)
-        self.smooth2 = utils.convUp(self.inplanes * 2 * multiplier, 256)
-        self.smooth3 = utils.convUp(self.inplanes * 4 * multiplier, 256)
+        self.ranges = DetectionRanges(len(classes), len(ratios))
+        regression_layers = list(itertools.chain.from_iterable([[nn.Conv2d(256, 256, kernel_size=3, padding=1),nn.ReLU(inplace=True)] for _ in range(4)]))
+        classification_layers = list(itertools.chain.from_iterable([[nn.Conv2d(256, 256, kernel_size=3, padding=1),nn.ReLU(inplace=True)] for _ in range(4)]))
 
-    def _make_layer(self, block, planes, num_blocks, stride):
-        strides = [stride] + [1]*(num_blocks-1)
-        layers = []
-        for stride in strides:
-            layers.append(block(self.in_planes, planes, stride))
-            self.in_planes = planes * block.expansion
-        return nn.Sequential(*layers)
+        self.regression_head = nn.Sequential(
+            *regression_layers,
+            nn.Conv2d(256, self.ranges.object_per_cell * len(self.ranges.size + self.ranges.offset), kernel_size=3, padding=1),
+        )
+
+        self.classification_head = nn.Sequential(
+            *classification_layers,
+            nn.Conv2d(256, self.ranges.object_per_cell * len(self.ranges.objectness + self.ranges.classes), kernel_size=3, padding=1),
+        )
 
     def forward(self, x):
-        # Bottom-up
-        l1, l2, l3, l4 = self.backbone(x)
-        # Top-down
-        p4 = self.toplayer(l4)
-        p3 = p4 + self.smooth3(l3)
-        p2 = p3 + self.smooth2(l2)
-        p1 = p2 + self.smooth1(l1)
-        return p1, p2, p3
+        features = self.backbone(x)
+        
+        regression_features = tuple(self.regression_head(feature) for feature in features)
+        regression_features = tuple(x.view(x.shape[0], self.ranges.object_per_cell, -1, x.shape[2], x.shape[3]) for x in regression_features)
+        classification_features = tuple(self.classification_head(feature) for feature in features)
+        classification_features = tuple(x.view(x.shape[0], self.ranges.object_per_cell, -1, x.shape[2], x.shape[3]) for x in classification_features)
+        features = tuple(torch.cat(
+            (classification_features[i][:, :, :len(self.ranges.objectness)], 
+            regression_features[i], 
+            classification_features[i][:, :, len(self.ranges.objectness):]), 2) for i in range(len(features)))
+
+        features = tuple(self.ranges.activate_output(feature) for feature in features)
+
+        return features
 
 
 class YoloNet(nn.Module, utils.Identifier):
@@ -167,10 +178,11 @@ class DetectionRanges(object):
         self.objectness = [0]
         self.size       = [1,2]
         self.offset     = [3,4]
-        self.classes    = range(5, self.object_range)
+        self.classes    = list(range(5, self.object_range))
 
     def activate_output(self, x):
-        x = x.view(x.shape[0], self.object_per_cell, self.object_range, x.shape[2], x.shape[3])
+        if len(x.size())==4:
+            x = x.view(x.shape[0], self.object_per_cell, self.object_range, x.shape[2], x.shape[3])
         x[:, :, self.objectness] = x[:, :, self.objectness].sigmoid()
         x[:, :, self.offset] = x[:, :,self.offset].sigmoid()
         x[:, :, self.classes] = x[:, :,self.classes].log_softmax(2)
