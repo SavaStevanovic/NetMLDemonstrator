@@ -5,12 +5,14 @@ from model_fitting.metrics import metrics
 from datetime import datetime
 from torch.utils.tensorboard import SummaryWriter
 from tqdm import tqdm
-from visualization.display_detection import apply_detections
+from network_output_processor.apply_output import apply_detections
 from visualization.images_display import join_images
 from model_fitting.configuration import TrainingConfiguration
 import json
 from functools import reduce
 from torchsummary import summary
+from torchvision.transforms.functional import to_pil_image
+
 
 def fit_epoch(net, dataloader, lr_rate, box_transform, epoch=1):
     net.train()
@@ -39,7 +41,7 @@ def fit_epoch(net, dataloader, lr_rate, box_transform, epoch=1):
         if i>=len(dataloader)-5:
             outs = [out.detach().cpu()[0].numpy() for out in outputs]
             labs = [labels[0].cpu()[0].numpy()]
-            pilImage = apply_detections(box_transform, outs, labs, image[0], dataloader.cats)
+            pilImage = apply_detections(box_transform, outs, labs, to_pil_image(image[0]), dataloader.cats)
             images.append(pilImage)
         
     data_len = len(dataloader)

@@ -1,9 +1,10 @@
 import torch
-from visualization.display_detection import apply_detections
+from network_output_processor import apply_output
 from pycocotools.cocoeval import COCOeval
 from model_fitting.losses import YoloLoss
 from tqdm import tqdm
 from functools import reduce
+from torchvision.transforms.functional import to_pil_image
 
 def metrics(net, dataloader, box_transform, epoch=1):
     net.eval()
@@ -41,7 +42,7 @@ def metrics(net, dataloader, box_transform, epoch=1):
             ref_boxes[i]=boxes_tr
             
             if i>=len(dataloader)-5:
-                pilImage = apply_detections(box_transform, outs, labs, image[0], dataloader.cats)
+                pilImage = apply_output.apply_detections(box_transform, outs, labs, to_pil_image(image[0]), dataloader.cats)
                 images.append(pilImage)
     metric, _ = calculateMAP(det_boxes, ref_boxes, net.classes)
     data_len = len(dataloader)

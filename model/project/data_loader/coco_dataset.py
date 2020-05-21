@@ -2,6 +2,7 @@ import torch
 from torchvision.datasets import CocoDetection
 import torchvision.transforms as transforms
 from data_loader import augmentation
+from network_output_processor import output_transform
 import multiprocessing as mu
 import os
 
@@ -27,7 +28,7 @@ class CocoDetectionDatasetProvider():
                                           augmentation.TargetTransform(prior_box_sizes=self.prior_box_sizes, classes=classes, ratios=ratios, strides=self.strides), 
                                           augmentation.OutputTransform()])
 
-        self.target_to_box_transform = augmentation.TargetTransformToBoxes(prior_box_sizes=self.prior_box_sizes, classes=classes, ratios=ratios, strides=self.strides)
+        self.target_to_box_transform = output_transform.TargetTransformToBoxes(prior_box_sizes=self.prior_box_sizes, classes=classes, ratios=ratios, strides=self.strides)
 
         train_dir           = os.path.join(annDir, 'train2017')  
         train_ann_file      = os.path.join(annDir, 'annotations_trainval2017/annotations/instances_train2017.json')
