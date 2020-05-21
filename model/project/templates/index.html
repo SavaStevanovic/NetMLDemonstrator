@@ -72,7 +72,7 @@
     }
 
     if (navigator.mediaDevices.getUserMedia) {
-      navigator.mediaDevices.getUserMedia({ video: { facingMode: "user" } })
+      navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } })
         .then(function (stream) {
           video.addEventListener('loadedmetadata', initCanvas, false);
           video.addEventListener('timeupdate', drawFrame, false);

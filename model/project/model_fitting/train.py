@@ -89,5 +89,6 @@ def fit(net, trainloader, validationloader, dataset_name, box_transform, epochs=
         train_config.epoch = epoch+1
         train_config.save(checkpoint_conf_path)
         torch.save(net, checkpoint_name_path)
+        torch.save(net.state_dict(), checkpoint_name_path.replace('.pth', '_final_state_dict.pth'))
     print('Finished Training')
     return best_map

@@ -1,8 +1,8 @@
 from PIL import ImageDraw
 import numpy as np
 
-def apply_detections(box_transform, outputs, labels, image, cats):
-    boxes_pr = box_transform(outputs)
+def apply_detections(box_transform, outputs, labels, image, cats, thresh = 0.5):
+    boxes_pr = box_transform(outputs, thresh)
     boxes_tr = box_transform(labels)
     draw = ImageDraw.Draw(image)
     for l in boxes_pr:
