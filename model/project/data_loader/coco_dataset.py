@@ -7,28 +7,24 @@ import multiprocessing as mu
 import os
 
 class CocoDetectionDatasetProvider():
-    def __init__(self, depth, feature_count, feature_start_layer, classes=None, annDir='/Data/Coco/', batch_size=1, train_transforms=None, val_transforms=None, th_count=mu.cpu_count(), ratios=[1.0]):
-        self.classes = classes
-        feature_range = range(feature_start_layer, feature_start_layer + feature_count)
-        self.prior_box_sizes = [32*2**i for i in feature_range]
-        self.strides = [2**(i+1) for i in feature_range]
+    def __init__(self, net, annDir='/Data/Coco/', batch_size=1, train_transforms=None, val_transforms=None, th_count=mu.cpu_count()):
         if train_transforms is None:
             train_transforms = augmentation.PairCompose([
                                             augmentation.RandomResizeTransform(),
                                             augmentation.RandomHorizontalFlipTransform(),
                                             augmentation.RandomCropTransform((416, 416)),
-                                            augmentation.RandomNoiseTransform(),
+                                            # augmentation.RandomNoiseTransform(),
                                             augmentation.RandomColorJitterTransform(),
-                                            augmentation.RandomBlurTransform(),
-                                            augmentation.TargetTransform(prior_box_sizes=self.prior_box_sizes, classes=classes, ratios=ratios, strides=self.strides), 
+                                            # augmentation.RandomBlurTransform(),
+                                            augmentation.TargetTransform(prior_box_sizes=net.prior_box_sizes, classes=net.classes, ratios=net.ratios, strides=net.strides), 
                                             augmentation.OutputTransform()])
         if val_transforms is None:
             val_transforms = augmentation.PairCompose([
-                                          augmentation.PaddTransform(pad_size=2**depth), 
-                                          augmentation.TargetTransform(prior_box_sizes=self.prior_box_sizes, classes=classes, ratios=ratios, strides=self.strides), 
+                                          augmentation.PaddTransform(pad_size=2**net.depth), 
+                                          augmentation.TargetTransform(prior_box_sizes=net.prior_box_sizes, classes=net.classes, ratios=net.ratios, strides=net.strides), 
                                           augmentation.OutputTransform()])
 
-        self.target_to_box_transform = output_transform.TargetTransformToBoxes(prior_box_sizes=self.prior_box_sizes, classes=classes, ratios=ratios, strides=self.strides)
+        self.target_to_box_transform = output_transform.TargetTransformToBoxes(prior_box_sizes=net.prior_box_sizes, classes=net.classes, ratios=net.ratios, strides=net.strides)
 
         train_dir           = os.path.join(annDir, 'train2017')  
         train_ann_file      = os.path.join(annDir, 'annotations_trainval2017/annotations/instances_train2017.json')
@@ -44,6 +40,5 @@ class CocoDetectionDatasetProvider():
         self.trainloader      = torch.utils.data.DataLoader(self.trainset,      batch_size=batch_size,   shuffle=True , num_workers=th_count, pin_memory=True)
         self.validationloader = torch.utils.data.DataLoader(self.validationset, batch_size=1,            shuffle=False, num_workers=th_count, pin_memory=True)
 
-        self.classes = classes
-        self.trainloader.cats = classes
-        self.validationloader.cats = classes
+        self.trainloader.cats = net.classes
+        self.validationloader.cats = net.classes

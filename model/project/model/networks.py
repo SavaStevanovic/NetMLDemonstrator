@@ -7,14 +7,13 @@ import torch
 
 class ResNetBackbone(nn.Module, utils.Identifier):
 
-    def __init__(self, block_wrapper, block, block_counts, inplanes, norm_layer=nn.InstanceNorm2d):
+    def __init__(self, block, block_counts, inplanes, norm_layer=nn.InstanceNorm2d):
         super(ResNetBackbone, self).__init__()
 
         self.feature_count = len(block_counts)
         self.block_counts = block_counts
         self.feature_start_layer = 1
         self.depth = self.feature_start_layer + self.feature_count
-        self.block_wrapper = block_wrapper
         self.block = block
         self._norm_layer = norm_layer
         self.inplanes = inplanes
@@ -25,21 +24,15 @@ class ResNetBackbone(nn.Module, utils.Identifier):
             nn.MaxPool2d(kernel_size=2, stride=2)
         )
 
-        self.layers = nn.ModuleList([self._make_layer(block_wrapper, block, int(i>0)+1, layer_count, int(i>0)+1) for i, layer_count in enumerate(block_counts)])
+        self.layers = nn.ModuleList([self._make_layer(block, int(i>0)+1, layer_count, int(i>0)+1) for i, layer_count in enumerate(block_counts)])
            
-    def _make_layer(self, block_wrapper, block, expansion, blocks, stride=1):
-        downsample = None
+    def _make_layer(self, block, expansion, blocks, stride=1):
         outplanes = self.inplanes*expansion
-        if stride != 1 or expansion != 1:
-            downsample = nn.Sequential(
-                utils.conv1x1(self.inplanes, outplanes, stride), 
-                self._norm_layer(outplanes)
-            )
         layers = []
-        layers.append(block_wrapper(block(self.inplanes, outplanes, stride, self._norm_layer), downsample=downsample))
+        layers.append(block(self.inplanes, outplanes, stride))
         self.inplanes *= expansion
         for _ in range(1, blocks):
-            layers.append(block_wrapper(block(outplanes, outplanes, norm_layer=self._norm_layer)))
+            layers.append(block(outplanes, outplanes))
 
         return nn.Sequential(*layers)
 
@@ -65,6 +58,10 @@ class FeaturePyramidNet(nn.Module, utils.Identifier):
         self.feature_start_layer = self.backbone.feature_start_layer
         self.depth = self.backbone.depth
 
+        feature_range = range(self.feature_start_layer, self.feature_start_layer + self.feature_count)
+        self.prior_box_sizes = [32*2**i for i in feature_range]
+        self.strides = [2**(i+1) for i in feature_range]
+
         self.ranges = DetectionRanges(len(classes), len(ratios))
         self.head = nn.Conv2d(256, self.ranges.output_size, kernel_size=1)  
 
@@ -86,6 +83,10 @@ class RetinaNet(nn.Module, utils.Identifier):
         self.feature_count = self.backbone.feature_count
         self.feature_start_layer = self.backbone.feature_start_layer
         self.depth = self.backbone.depth
+
+        feature_range = range(self.feature_start_layer, self.feature_start_layer + self.feature_count)
+        self.prior_box_sizes = [32*2**i for i in feature_range]
+        self.strides = [2**(i+1) for i in feature_range]
 
         self.ranges = DetectionRanges(len(classes), len(ratios))
         regression_layers = list(itertools.chain.from_iterable([[nn.Conv2d(256, 256, kernel_size=3, padding=1),nn.ReLU(inplace=True)] for _ in range(4)]))
@@ -129,6 +130,11 @@ class YoloNet(nn.Module, utils.Identifier):
         self.inplanes = self.backbone.inplanes
         self.classes = classes
         self.ratios = ratios
+
+        feature_range = range(self.feature_start_layer, self.feature_start_layer + self.feature_count)
+        self.prior_box_sizes = [32*2**i for i in feature_range]
+        self.strides = [2**(i+1) for i in feature_range]
+
         self.ranges = DetectionRanges(len(classes), len(ratios))
         self.head = nn.Conv2d(self.inplanes, self.ranges.output_size, kernel_size=1)  
 
