@@ -7,14 +7,15 @@ import torch
 from torch2trt import torch2trt, TRTModule
 from torchvision.models.alexnet import alexnet
 from torch2trt import TRTModule
-from network_output_processor import output_transform
-from network_output_processor import apply_output
+from visualization import output_transform
+from visualization import apply_output
 from PIL import Image
 from data_loader import augmentation
+import imutils
 
 app = Flask(__name__)
 
-model_path = 'checkpoints/YoloNet/256/0,5-1,0-2,0/ResNetBackbone/256/3-4-6-3/SqueezeExcitationBlock/Coco_checkpoints_final.pth'
+model_path = 'checkpoints/YoloNet/512/0,5-1,0-2,0/ResNetBackbone/512/3-4-6-3/EfficientNetBlock/Coco_checkpoints_final.pth'
 model = torch.load(model_path).eval().cuda()
 
 feature_range = range(model.feature_start_layer, model.feature_start_layer + model.feature_count)
@@ -33,8 +34,10 @@ def index():
 def frame_upload():
     nparr = np.fromstring(request.data, np.uint8)
     img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+    img = imutils.resize(img, height=416)
     padded_img, _ = padder(Image.fromarray(img), None)
-    # cv2.imwrite('samples/image.png',img)
+    # cv2.imshow("Display window",img)
+    # cv2.waitKey(1)
     model_key = '_'.join(str(x) for x in list(img.shape))
     img_tensor, _ = transfor(padded_img, None)
     img_tensor = img_tensor.unsqueeze(0).float().cuda()
@@ -43,7 +46,7 @@ def frame_upload():
     outputs = camera_models[model_key](img_tensor)
     outs = [out.cpu().numpy() for out in outputs]
 
-    pilImage = apply_output.apply_detections(target_to_box_transform, outs, [], Image.fromarray(img), model.classes)
+    pilImage = apply_output.apply_detections(target_to_box_transform, outs, [], Image.fromarray(img), model.classes, 0.5)
 
     img = np.array(pilImage)[:img.shape[0], :img.shape[1]]
     retval, buffer = cv2.imencode('.jpeg', img)
@@ -52,4 +55,4 @@ def frame_upload():
     return data
 
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', debug=False, port="5001", threaded=True)
+    app.run(host='0.0.0.0', debug=False, port="5001", threaded=False)

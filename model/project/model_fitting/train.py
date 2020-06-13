@@ -5,7 +5,7 @@ from model_fitting.metrics import metrics
 from datetime import datetime
 from torch.utils.tensorboard import SummaryWriter
 from tqdm import tqdm
-from network_output_processor.apply_output import apply_detections
+from visualization.apply_output import apply_detections
 from visualization.images_display import join_images
 from model_fitting.configuration import TrainingConfiguration
 import json

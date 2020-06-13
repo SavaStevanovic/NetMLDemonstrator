@@ -2,7 +2,7 @@ import torch
 from torchvision.datasets import CocoDetection
 import torchvision.transforms as transforms
 from data_loader import augmentation
-from network_output_processor import output_transform
+from visualization import output_transform
 import multiprocessing as mu
 import os
 

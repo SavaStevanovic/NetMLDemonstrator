@@ -1,5 +1,5 @@
 import torch
-from network_output_processor import apply_output
+from visualization import apply_output
 from pycocotools.cocoeval import COCOeval
 from model_fitting.losses import YoloLoss
 from tqdm import tqdm

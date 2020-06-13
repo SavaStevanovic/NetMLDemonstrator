@@ -164,6 +164,7 @@ class EfficientNetBlock(nn.Module, utils.Identifier):
 
     def __init__(self, inplanes, planes, stride=1, norm_layer=nn.InstanceNorm2d, reduction=16, expand_ratio=6):
         super(EfficientNetBlock, self).__init__()
+        self.expanded_dim = inplanes * expand_ratio
         self.sequential = nn.Sequential(
             nn.Conv2d(inplanes, self.expanded_dim, kernel_size=1, bias=False),
             nn.InstanceNorm2d(self.expanded_dim),
