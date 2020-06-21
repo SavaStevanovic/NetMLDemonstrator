@@ -72,7 +72,7 @@
     }
 
     if (navigator.mediaDevices.getUserMedia) {
-      navigator.mediaDevices.getUserMedia({ video: { height: { ideal: 2160 }, facingMode: "environment" } })
+      navigator.mediaDevices.getUserMedia({ video: { height: { ideal: 1080 }, facingMode: "environment" } })
         .then(function (stream) {
           video.addEventListener('loadedmetadata', initCanvas, false);
           video.addEventListener('timeupdate', drawFrame, false);

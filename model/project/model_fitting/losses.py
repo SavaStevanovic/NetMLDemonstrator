@@ -10,8 +10,8 @@ class YoloLoss(torch.nn.Module):
         self.l1_loss = torch.nn.L1Loss(reduction='none')
         self.l2_loss = torch.nn.MSELoss(reduction='none')
         self.class_loss = torch.nn.NLLLoss(reduction='none')
-        self.size_scale = 2.5 
-        self.offset_scale = 5.0 
+        self.size_scale = 1.25 
+        self.offset_scale = 2.25 
         self.class_scale = 1.0
         self.ranges = ranges
 
@@ -24,7 +24,7 @@ class YoloLoss(torch.nn.Module):
 
         obj_objectness = output[:, :, self.ranges.objectness]
         lab_objectness = label[:, :, self.ranges.objectness]
-        objectness_loss = self.focal_loss(obj_objectness, lab_objectness)
+        objectness_loss = 1.5 * self.focal_loss(obj_objectness, lab_objectness).sum()
         loss += objectness_loss
         total_objectness_loss += objectness_loss.item()
 
@@ -53,14 +53,15 @@ class YoloLoss(torch.nn.Module):
         return loss/batch_size, total_objectness_loss/batch_size, total_size_loss/batch_size, total_offset_loss/batch_size, total_class_loss/batch_size
 
     def focal_loss(self, x, y):
-        alpha = 1
-        gamma = 1
+        gamma = 2
+        alpha = 0.25
+
         y = y.unsqueeze(-1)
         x = x.unsqueeze(-1)
 
-        y = torch.cat([y, 1-y], -1)
+        y = torch.cat([(1-alpha) * y, alpha * (1-y)], -1)
         x = torch.cat([x, 1-x], -1).clamp(1e-8, 1. - 1e-8)
 
-        F_loss = -y * (1 - x) * torch.log(x)
+        F_loss = -y * (1 - x)**gamma * torch.log(x)
 
         return F_loss.sum()

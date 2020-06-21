@@ -119,5 +119,8 @@ def IoU(bboxDT, bboxGT):
     interArea = max(0, xB - xA) * max(0, yB - yA)
     boxAArea = bboxDT[2] * bboxDT[2]
     boxBArea = bboxGT[2] * bboxGT[2]
-    iou = interArea / float(boxAArea + boxBArea - interArea)
+    iou = 0
+    unionArea = float(boxAArea + boxBArea - interArea)
+    if unionArea>0:
+        iou = interArea / unionArea 
     return iou
