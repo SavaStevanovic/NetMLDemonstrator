@@ -1,9 +1,9 @@
-<h2>{{filter.name}} Details</h2>
-<div><span>id: </span>{{filter.id}}</div>
-<div><span>name: </span>{{filter.name | uppercase}}</div>
-<div><span>description: </span>{{filter.description}}</div>
-<div>
-  <span>selected: </span>
-  <input type="checkbox" [(ngModel)]="filter.selected" />
-  {{filter.selected}}
-</div>
+
+<h2>Filters</h2>
+<ul class="filters">
+  <li *ngFor="let filter of filters"
+    [class.selected]="filter.selected"
+    (click)="onSelect(filter)">
+    {{filter.name}}
+  </li>
+</ul>
