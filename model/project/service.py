@@ -26,9 +26,18 @@ padder = augmentation.PaddTransform(pad_size=2**model.depth)
 transfor = augmentation.OutputTransform()
 camera_models = {}
 
-@app.route('/')
-def index():
-    return render_template('index.html')
+model_paths  = [
+        {'name':"YoloV2", 'path':'checkpoints/YoloV2/64/0,5-1,0-2,0/Coco_checkpoints_final.pth'},
+        {'name':"Yolo", 'path':'checkpoints/YoloNet/512/0,5-1,0-2,0/ResNetBackbone/512/3-4-6-3/Coco_checkpoints_final.pth'},
+        {'name':"RetinaNet", 'path':'checkpoints/RetinaNet/512/0,5-1,0-2,0/FeaturePyramidBackbone/512/ResNetBackbone/512/3-4-6-3/Coco_checkpoints_final.pth'},
+        {'name':"FPN", 'path':'checkpoints/FeaturePyramidNet/2048/0,5-1,0-2,0/FeaturePyramidBackbone/2048/Coco_checkpoints_final.pth'},
+    ]
+
+@app.route('/get_models', methods=['GET', 'POST'])
+def get_models():
+    models = [d['name'] for d in model_paths]
+
+    return jsonify(models)
 
 @app.route('/frame_upload', methods=['GET', 'POST'])
 def frame_upload():
@@ -56,4 +65,4 @@ def frame_upload():
     return data
 
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', debug=False, port="5001", threaded=False)
+    app.run(host='0.0.0.0', debug=True, port="5001", threaded=False)

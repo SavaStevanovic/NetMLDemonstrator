@@ -1,6 +1,6 @@
 /* FiltersComponent's private CSS styles */
 .filters {
-  margin: 0 0 2em 0;
+  margin: 0 0 0 0;
   list-style-type: none;
   padding: 0;
   width: 10em;
@@ -8,10 +8,12 @@
 .filters li {
   cursor: pointer;
   position: relative;
-  left: 0;
+  left: 0em;
+  display: flex;
+  align-items: center;
   background-color: #EEE;
-  margin: .5em;
-  padding: .3em 0;
+  margin: .25em;
+  padding: .25em .25em;
   height: 1.6em;
   border-radius: 4px;
 }

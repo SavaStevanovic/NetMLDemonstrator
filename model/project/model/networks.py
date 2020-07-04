@@ -90,8 +90,8 @@ class RetinaNet(nn.Module, utils.Identifier):
         self.strides = [2**(i+1) for i in feature_range]
 
         self.ranges = DetectionRanges(len(classes), len(ratios))
-        regression_layers = list(itertools.chain.from_iterable([[nn.Conv2d(256, 256, kernel_size=3, padding=1),nn.ReLU(inplace=True)] for _ in range(4)]))
-        classification_layers = list(itertools.chain.from_iterable([[nn.Conv2d(256, 256, kernel_size=3, padding=1),nn.ReLU(inplace=True)] for _ in range(4)]))
+        regression_layers = list(itertools.chain.from_iterable([[nn.Conv2d(256, 256, kernel_size=3, padding=1), nn.BatchNorm2d(256), nn.ReLU(inplace=True)] for _ in range(4)]))
+        classification_layers = list(itertools.chain.from_iterable([[nn.Conv2d(256, 256, kernel_size=3, padding=1), nn.BatchNorm2d(256),nn.ReLU(inplace=True)] for _ in range(4)]))
 
         self.regression_head = nn.Sequential(
             *regression_layers,

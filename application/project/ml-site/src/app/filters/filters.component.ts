@@ -1,6 +1,8 @@
 import { Component, OnInit } from '@angular/core';
+import { Observable, of } from 'rxjs';
 import { Filter } from '../filter';
 import { FILTERS } from '../mock-filters';
+import { FilterService } from '../filter.service';
 
 @Component({
   selector: 'app-filters',
@@ -9,11 +11,17 @@ import { FILTERS } from '../mock-filters';
 })
 export class FiltersComponent implements OnInit {
 
-  filters = FILTERS;
+  filters: Filter[];
 
-  constructor() { }
+  constructor(private filterService:FilterService) { }
 
   ngOnInit(): void {
+    this.getHeroes();
+  }
+
+  getHeroes(): void {
+    this.filterService.getFilters()
+      .subscribe(filters => this.filters = filters);
   }
 
   onSelect(filter: Filter): void {

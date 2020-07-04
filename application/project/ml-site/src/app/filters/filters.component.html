@@ -5,5 +5,10 @@
     [class.selected]="filter.selected"
     (click)="onSelect(filter)">
     {{filter.name}}
+    <ul class="models" *ngIf="filter.selected">
+      <li *ngFor="let model of filter.models">
+        {{model}}
+      </li>
+    </ul>
   </li>
 </ul>
