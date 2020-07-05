@@ -1,39 +1,41 @@
-/* FiltersComponent's private CSS styles */
-.filters {
-  margin: 0 0 0 0;
+.capitalize {
+  text-transform: capitalize;
+}
+.models{
+  width: 7em;
+}
+ul{
+  margin: .25em;
+}
+li{
   list-style-type: none;
+  margin: .25em;
+}
+p {
   padding: 0;
   width: 10em;
-}
-.filters li {
   cursor: pointer;
-  position: relative;
   left: 0em;
-  display: flex;
-  align-items: center;
   background-color: #EEE;
   margin: .25em;
   padding: .25em .25em;
   height: 1.6em;
   border-radius: 4px;
 }
-.filters li:hover {
+p:hover {
   color: #607D8B;
   background-color: #DDD;
   left: .1em;
 }
-.filters li.selected {
+p.selected {
   background-color: #CFD8DC;
-  color: white;
 }
-.filters li.selected:hover {
+p.selected:hover {
   background-color: #BBD8DC;
-  color: white;
 }
-.filters .badge {
+.badge {
   display: inline-block;
   font-size: small;
-  color: white;
   padding: 0.8em 0.7em 0 0.7em;
   background-color:#405061;
   line-height: 1em;

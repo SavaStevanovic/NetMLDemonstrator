@@ -1,0 +1,13 @@
+<li>
+  <p
+    [class.selected]="filter.selected"
+    class="capitalize"
+    (click)="onSelect(filter)">
+    {{filter.name}}
+  </p>
+  <ul *ngIf="filter.selected">
+    <li *ngFor="let model of filter.models">
+      <p class="models">{{model}}</p>
+    </li>
+  </ul>
+</li>

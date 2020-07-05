@@ -1,14 +1,14 @@
 import { Component, OnInit } from '@angular/core';
 import { Observable, of } from 'rxjs';
-import { Filter } from '../filter';
-import { FILTERS } from '../mock-filters';
-import { FilterService } from '../filter.service';
+import { Filter } from '../../models/filter';
+import { FilterService } from '../../filter.service';
 
 @Component({
   selector: 'app-filters',
   templateUrl: './filters.component.html',
   styleUrls: ['./filters.component.css']
 })
+
 export class FiltersComponent implements OnInit {
 
   filters: Filter[];
@@ -16,15 +16,11 @@ export class FiltersComponent implements OnInit {
   constructor(private filterService:FilterService) { }
 
   ngOnInit(): void {
-    this.getHeroes();
+    this.getFilters();
   }
 
-  getHeroes(): void {
+  getFilters(): void {
     this.filterService.getFilters()
       .subscribe(filters => this.filters = filters);
-  }
-
-  onSelect(filter: Filter): void {
-    filter.selected = !filter.selected;
   }
 }
