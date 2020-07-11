@@ -14,7 +14,18 @@ export class FilterComponent implements OnInit {
   ngOnInit(): void {
   }
 
-  onSelect(filter: Filter): void {
+  showModels(filter: Filter): void {
     filter.selected = !filter.selected;
+  }
+
+  selectModels(model: string): void {
+    if (model == this.filter.selectedModel)
+    {
+      this.filter.selectedModel=null;
+    }
+    else
+    {
+    this.filter.selectedModel = model;
+    }
   }
 }

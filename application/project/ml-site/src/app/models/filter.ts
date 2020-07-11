@@ -4,4 +4,5 @@ export interface Filter {
   description: string;
   selected: boolean;
   models: string[];
+  selectedModel: string;
 }
