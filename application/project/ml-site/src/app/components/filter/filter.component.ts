@@ -26,6 +26,7 @@ export class FilterComponent implements OnInit {
     else
     {
     this.filter.selectedModel = model;
+    this.filter.selected = false;
     }
   }
 }

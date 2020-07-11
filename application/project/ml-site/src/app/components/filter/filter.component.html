@@ -4,6 +4,10 @@
     class="capitalize"
     (click)="showModels(filter)">
     {{filter.name}}
+    <span
+      [class.badge]="filter.selectedModel">
+      {{filter.selectedModel}}
+    </span>
   </p>
   <ul *ngIf="filter.selected">
     <li *ngFor="let model of filter.models">
