@@ -9,12 +9,13 @@
       {{filter.selectedModel}}
     </span>
   </p>
-  <ul *ngIf="filter.selected">
+  <ul *ngIf="filter.selected" class="models">
     <li *ngFor="let model of filter.models">
       <p
       [class.selected]="filter.selectedModel==model"
       (click)="selectModels(model)"
-      class="models">{{model}}
+      class="model">
+      {{model}}
     </p>
     </li>
   </ul>

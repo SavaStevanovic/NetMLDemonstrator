@@ -1,0 +1,42 @@
+.content {
+  position: relative;
+  display: flex;
+  /* background-color: #070504; */
+  clear: both;
+}
+.display {
+  float: left;
+  /* background-color: #0010f5; */
+}
+.menu {
+  /* background-color: #f7941d; */
+  float: left;
+}
+.toolbar {
+  position: relative;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 30px;
+  display: flex;
+  align-items: center;
+  background-color: #1976d2;
+  color: white;
+  font-weight: 600;
+  clear: both;
+}
+.toolbar img {
+  padding-top: 3px;
+  display: block;
+  margin:20px 6px;
+  width: 35px;
+}
+/* everywhere else */
+* {
+  font-family: Arial, Helvetica, sans-serif;
+}
+.spacer {
+  flex: 1;
+}
+
+

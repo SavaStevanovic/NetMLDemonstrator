@@ -7,12 +7,14 @@ import { FiltersComponent } from './components/filters/filters.component';
 import { FormsModule } from '@angular/forms';
 import { HttpClientModule }    from '@angular/common/http';
 import { FilterComponent } from './components/filter/filter.component';
+import { DisplayComponent } from './components/display/display.component';
 
 @NgModule({
   declarations: [
     AppComponent,
     FiltersComponent,
-    FilterComponent
+    FilterComponent,
+    DisplayComponent
   ],
   imports: [
     BrowserModule,
