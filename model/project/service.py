@@ -66,4 +66,4 @@ def frame_upload():
     return data
 
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', debug=True, port="5001", threaded=False)
+    app.run(host='0.0.0.0', debug=False, port="5001", threaded=False)

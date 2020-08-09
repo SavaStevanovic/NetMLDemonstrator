@@ -32,8 +32,11 @@ def get_filters():
 @app.route('/frame_upload', methods=['GET', 'POST'])
 @cross_origin()
 def frame_upload():
-    nparr = np.fromstring(request.data, np.uint8)
-    img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+    data = request.get_json()
+    image_data = data['frame'].replace('data:image/png;base64,', "")
+    byte_image = bytearray(base64.b64decode(image_data))
+    frame = cv2.imdecode(np.asarray(byte_image), cv2.IMREAD_COLOR)
+    # img = cv2.imdecode(data['frame'], cv2.IMREAD_COLOR)
     # padded_img, _ = padder(Image.fromarray(img), None)
     # # cv2.imwrite('samples/image.png',img)
     # model_key = '_'.join(str(x) for x in list(img.shape))

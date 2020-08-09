@@ -1,5 +1,6 @@
 import { Component, OnInit, Input } from '@angular/core';
 import { Filter } from 'src/app/models/filter';
+import { FilterService } from '../../services/filter/filter.service';
 
 @Component({
   selector: 'app-filter',
@@ -9,7 +10,7 @@ import { Filter } from 'src/app/models/filter';
 export class FilterComponent implements OnInit {
   @Input() filter: Filter;
 
-  constructor() { }
+  constructor(private filterService: FilterService) { }
 
   ngOnInit(): void {
   }
@@ -25,8 +26,9 @@ export class FilterComponent implements OnInit {
     }
     else
     {
-    this.filter.selectedModel = model;
-    this.filter.selected = false;
+      this.filter.selectedModel = model;
+      this.filter.selected = false;
+      // this.filterService.setActiveFilter(this.filter.name, this.filter.selectedModel);
     }
   }
 }
