@@ -1,5 +1,5 @@
 import { Injectable } from '@angular/core';
-import { Filter } from './models/filter';
+import { Filter } from '../../models/filter';
 import { Observable, of } from 'rxjs';
 import { HttpClient, HttpHeaders } from '@angular/common/http';
 

@@ -22,10 +22,10 @@ def get_filters():
     for i, d in enumerate(filter_data):
         try:
             response = requests.get(d['path'])
+            if response.status_code == 200:
+                filters.append({'name':d['name'], 'models':response.json()})
         except Exception as e:
             pass
-        if response.status_code == 200:
-            filters.append({'name':d['name'], 'models':response.json()})
 
     return jsonify(filters)
 

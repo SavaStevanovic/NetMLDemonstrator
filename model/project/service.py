@@ -41,6 +41,7 @@ def get_models():
 
 @app.route('/frame_upload', methods=['GET', 'POST'])
 def frame_upload():
+    dddd = request.data
     nparr = np.fromstring(request.data, np.uint8)
     img_input = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
     img = imutils.resize(img_input, height=416)

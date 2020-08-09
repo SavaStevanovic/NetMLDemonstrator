@@ -1,7 +1,6 @@
 import { Component, OnInit } from '@angular/core';
-import { Observable, of } from 'rxjs';
 import { Filter } from '../../models/filter';
-import { FilterService } from '../../filter.service';
+import { FilterService } from '../../services/filter/filter.service';
 
 @Component({
   selector: 'app-filters',

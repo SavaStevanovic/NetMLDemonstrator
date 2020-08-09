@@ -1,15 +1,20 @@
 <div id="container">
-  <video autoplay="true" id="video" class="videoElement">
-  </video>
-  <canvas id="unprocessed_canvas" class="videoElement">
-  </canvas>
+  <video #videoElement class="videoElement" (timeupdate)="capture()"></video>
+  <canvas #unprocessedCanvas id="unprocessedCanvas" class="videoElement"></canvas>
   <canvas id="processed_canvas" class="videoElement">
   </canvas>
 </div>
-<button id="stop">Stop Video</button>
 
+<div class="row">
+  <button (click)="start()" class="btn btn-primary">Play</button>
+  <button (click)="toggleControls()" class="btn btn-success">Toggle Controls</button>
+  <button (click)="pause()" class="btn btn-warning">Pause</button>
+  <button (click)="resume()" class="btn btn-info">Resume</button>
+  <button (click)="sound()" class="btn btn-danger">Play with Sound</button>
+  <button (click)="capture()" class="btn btn-danger">Capture</button>
+</div>
 
-<script>
+<!-- <script>
   var video = document.getElementById("video");
   var stopVideo = document.getElementById("stop");
   var unp_ctx = document.getElementById('unprocessed_canvas').getContext('2d');
@@ -99,4 +104,4 @@
     var img;
     URL.revokeObjectURL(this.src);
   }
-</script>
+</script> -->
