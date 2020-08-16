@@ -33,14 +33,14 @@ def get_filters():
 @cross_origin()
 def frame_upload():
     data = request.get_json()
-    used_models = [x for x in data['config'] if hasattr(x, 'selectedModel')]
+    used_models = [x for x in data['config'] if 'selectedModel' in x]
     for model_config in used_models:
         model_services = [x for x in filter_data if x['name']==model_config['name']]
         if len(model_services)>0:
             model_service = model_services[0]
-            image_data = data['frame'].replace('data:image/png;base64,', "")
-            r = requests.get(url = model_service['path'], params = image_data) 
-            return r
+            # image_data = data['frame'].replace('data:image/png;base64,', "")
+            r = requests.post(url = model_service['path'].replace('get_models', 'frame_upload'), json = {'frame': data['frame']}) 
+            return r.json()
 
     image_data = data['frame'].replace('data:image/png;base64,', "")
     byte_image = bytearray(base64.b64decode(image_data))

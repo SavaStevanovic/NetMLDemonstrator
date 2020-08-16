@@ -41,10 +41,12 @@ def get_models():
 
 @app.route('/frame_upload', methods=['GET', 'POST'])
 def frame_upload():
-    dddd = request.data
-    nparr = np.fromstring(request.data, np.uint8)
-    img_input = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
-    img = imutils.resize(img_input, height=416)
+    data = request.get_json()
+    image_data = data['frame'].replace('data:image/png;base64,', "")
+    byte_image = bytearray(base64.b64decode(image_data))
+    img_input = cv2.imdecode(np.asarray(byte_image), cv2.IMREAD_COLOR)
+    # img_input = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+    img = imutils.resize(img_input, height=256)
     padded_img, _ = padder(Image.fromarray(img), None)
     # cv2.imshow("Display window",img)
     # cv2.waitKey(1)
@@ -61,7 +63,7 @@ def frame_upload():
     img = np.array(pilImage)[:img.shape[0], :img.shape[1]]
     img = cv2.resize(img, dsize=img_input.shape[:2][::-1], interpolation=cv2.INTER_CUBIC)
     retval, buffer = cv2.imencode('.jpeg', img)
-    data = {'image':base64.b64encode(buffer).decode("utf-8") }
+    data = {'image': 'data:image/png;base64,' + base64.b64encode(buffer).decode("utf-8") }
 
     return data
 
