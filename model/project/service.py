@@ -50,15 +50,28 @@ def frame_upload():
     padded_img, _ = padder(Image.fromarray(img), None)
     # cv2.imshow("Display window",img)
     # cv2.waitKey(1)
-    model_key = '_'.join(str(x) for x in list(img.shape))
+    model_key = data['model_name'] + '_' + '_'.join(str(x) for x in list(img.shape))
     img_tensor, _ = transfor(padded_img, None)
     img_tensor = img_tensor.unsqueeze(0).float().cuda()
     if model_key not in camera_models:
-        camera_models[model_key] = torch2trt(model, [img_tensor])
-    outputs = camera_models[model_key](img_tensor),
-    outs = [model.ranges.activate_output(out).squeeze(0).cpu().numpy() for out in outputs]
+        model_path = [x for x in model_paths if x['name']==data['model_name']]
+        if len(model_path)>0:
+            model_path = model_path[0]['path']
+        else:
+            model_path = 'checkpoints/YoloV2/64/0,5-1,0-2,0/Coco_checkpoints.pth'
+        model = torch.load(model_path).eval().cuda()
+        trt_model = torch2trt(model, [img_tensor])
+        trt_model.classes = model.classes
+        trt_model.ranges =model.ranges
+        camera_models[model_key] = trt_model
+    outputs = camera_models[model_key](img_tensor)
+    if len(outputs)==1:
+        outputs = outputs,
+    # if len(outputs.shape)==5:
+    #     outputs = outputs.squeeze(0),
+    outs = [camera_models[model_key].ranges.activate_output(out).squeeze(0).cpu().numpy() for out in outputs]
 
-    pilImage = apply_output.apply_detections(target_to_box_transform, outs, [], Image.fromarray(img), model.classes, 0.5)
+    pilImage = apply_output.apply_detections(target_to_box_transform, outs, [], Image.fromarray(img), camera_models[model_key].classes, 0.5)
 
     img = np.array(pilImage)[:img.shape[0], :img.shape[1]]
     img = cv2.resize(img, dsize=img_input.shape[:2][::-1], interpolation=cv2.INTER_CUBIC)

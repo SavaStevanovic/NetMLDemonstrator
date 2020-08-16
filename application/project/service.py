@@ -39,7 +39,7 @@ def frame_upload():
         if len(model_services)>0:
             model_service = model_services[0]
             # image_data = data['frame'].replace('data:image/png;base64,', "")
-            r = requests.post(url = model_service['path'].replace('get_models', 'frame_upload'), json = {'frame': data['frame']}) 
+            r = requests.post(url = model_service['path'].replace('get_models', 'frame_upload'), json = {'frame': data['frame'], 'model_name':model_config['selectedModel']}) 
             return r.json()
 
     image_data = data['frame'].replace('data:image/png;base64,', "")
