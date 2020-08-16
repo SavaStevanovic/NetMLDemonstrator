@@ -10,14 +10,14 @@ import { Subject } from 'rxjs';
 export class FilterService {
 
   private filtersUrl = 'http://127.0.0.1:4321/get_filters';
-  private filters: Filter[];
+  // private filters: Filter[];
   private filtersSubject = new Subject<Filter[]>();
 
   constructor(private http: HttpClient) {
     this.http.get<Filter[]>(this.filtersUrl).subscribe(
       (filters)=>{
-        this.filters = filters;
-        this.filtersSubject.next(this.filters);
+        // this.filters = filters;
+        this.filtersSubject.next(filters);
       }
     );
   }

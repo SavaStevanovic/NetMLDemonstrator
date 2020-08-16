@@ -13,14 +13,14 @@ export class FrameService {
   constructor(private httpClient: HttpClient) { }
 
   processFrame(frame, config) {
-    var data = {'frame': frame, 'config': config}
-    return this.httpClient.post(this.frameUrl, data).
+    var post_data = {'frame': frame, 'config': config}
+    return this.httpClient.post(this.frameUrl, post_data).
         pipe(
            map((data: any) => {
              return data;
            }), catchError( error => {
              return throwError( 'Something went wrong!' );
            })
-        ).subscribe()
+        )
     }
 }

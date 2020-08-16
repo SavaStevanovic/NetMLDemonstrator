@@ -33,6 +33,15 @@ def get_filters():
 @cross_origin()
 def frame_upload():
     data = request.get_json()
+    used_models = [x for x in data['config'] if hasattr(x, 'selectedModel')]
+    for model_config in used_models:
+        model_services = [x for x in filter_data if x['name']==model_config['name']]
+        if len(model_services)>0:
+            model_service = model_services[0]
+            image_data = data['frame'].replace('data:image/png;base64,', "")
+            r = requests.get(url = model_service['path'], params = image_data) 
+            return r
+
     image_data = data['frame'].replace('data:image/png;base64,', "")
     byte_image = bytearray(base64.b64decode(image_data))
     frame = cv2.imdecode(np.asarray(byte_image), cv2.IMREAD_COLOR)
@@ -51,9 +60,9 @@ def frame_upload():
 
     # img = np.array(pilImage)[:img.shape[0], :img.shape[1]]
     # retval, buffer = cv2.imencode('.jpeg', img)
-    data = {'image':base64.b64encode(img).decode("utf-8") }
+    ret_data = {'image':data['frame'] }
 
-    return data
+    return ret_data
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', debug=False, port="4321", threaded=False)
