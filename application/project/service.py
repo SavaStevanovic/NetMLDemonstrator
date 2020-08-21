@@ -38,28 +38,12 @@ def frame_upload():
         model_services = [x for x in filter_data if x['name']==model_config['name']]
         if len(model_services)>0:
             model_service = model_services[0]
-            # image_data = data['frame'].replace('data:image/png;base64,', "")
-            r = requests.post(url = model_service['path'].replace('get_models', 'frame_upload'), json = {'frame': data['frame'], 'model_name':model_config['selectedModel']}) 
+            r = requests.post(url = model_service['path'].replace('get_models', 'frame_upload'), json = {'frame': data['frame'], 'model_name': model_config['selectedModel']}) 
             return r.json()
 
     image_data = data['frame'].replace('data:image/png;base64,', "")
     byte_image = bytearray(base64.b64decode(image_data))
     frame = cv2.imdecode(np.asarray(byte_image), cv2.IMREAD_COLOR)
-    # img = cv2.imdecode(data['frame'], cv2.IMREAD_COLOR)
-    # padded_img, _ = padder(Image.fromarray(img), None)
-    # # cv2.imwrite('samples/image.png',img)
-    # model_key = '_'.join(str(x) for x in list(img.shape))
-    # img_tensor, _ = transfor(padded_img, None)
-    # img_tensor = img_tensor.unsqueeze(0).float().cuda()
-    # if model_key not in camera_models:
-    #     camera_models[model_key] = torch2trt(model, [img_tensor])
-    # outputs = camera_models[model_key](img_tensor)
-    # outs = [out.cpu().numpy() for out in outputs]
-
-    # pilImage = apply_output.apply_detections(target_to_box_transform, outs, [], Image.fromarray(img), model.classes, 0.1)
-
-    # img = np.array(pilImage)[:img.shape[0], :img.shape[1]]
-    # retval, buffer = cv2.imencode('.jpeg', img)
     ret_data = {'image':data['frame'] }
 
     return ret_data

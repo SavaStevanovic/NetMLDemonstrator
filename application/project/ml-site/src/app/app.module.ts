@@ -8,15 +8,13 @@ import { FormsModule } from '@angular/forms';
 import { HttpClientModule }    from '@angular/common/http';
 import { FilterComponent } from './components/filter/filter.component';
 import { DisplayComponent } from './components/display/display.component';
-import { CameraComponent } from './components/camera/camera.component';
 
 @NgModule({
   declarations: [
     AppComponent,
     FiltersComponent,
     FilterComponent,
-    DisplayComponent,
-    CameraComponent
+    DisplayComponent
   ],
   imports: [
     WebcamModule,

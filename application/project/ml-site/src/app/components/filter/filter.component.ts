@@ -28,7 +28,6 @@ export class FilterComponent implements OnInit {
     {
       this.filter.selectedModel = model;
       this.filter.selected = false;
-      // this.filterService.setActiveFilter(this.filter.name, this.filter.selectedModel);
     }
   }
 }
