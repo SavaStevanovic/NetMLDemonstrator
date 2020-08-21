@@ -1,6 +1,5 @@
 import { Component, OnInit, Input } from '@angular/core';
 import { Filter } from 'src/app/models/filter';
-import { FilterService } from '../../services/filter/filter.service';
 
 @Component({
   selector: 'app-filter',
@@ -10,7 +9,6 @@ import { FilterService } from '../../services/filter/filter.service';
 export class FilterComponent implements OnInit {
   @Input() filter: Filter;
 
-  constructor(private filterService: FilterService) { }
 
   ngOnInit(): void {
   }

@@ -56,7 +56,6 @@ export class DisplayComponent implements AfterViewInit, OnInit {
     }
     this.frameService.processFrame(context, this.filters).subscribe(
       data => {
-
         this.data_raw = data["image"]
       },
       error => { console.log(error); // Error if any
