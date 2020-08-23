@@ -46,3 +46,21 @@ p.selected:hover {
   width: 5em;
   padding-left: .25em;
 }
+
+mat-slider {
+  top: -1em;
+  height: 1em;
+  width: 100%;
+  margin: 0em 0em 0em 0em;
+  padding: 0em 0em 0em 0em;
+}
+::ng-deep .mat-accent .mat-slider-thumb {
+  background-color: #ff0000;
+}
+::ng-deep .mat-accent .mat-slider-thumb-label {
+  background-color: #CFD8DC;
+}
+::ng-deep .mat-accent .mat-slider-track-fill {
+  background-color: #ff0000;
+}
+

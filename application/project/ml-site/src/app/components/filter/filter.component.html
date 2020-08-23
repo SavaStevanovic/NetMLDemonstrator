@@ -9,6 +9,7 @@
       {{filter.selectedModel}}
     </span>
   </p>
+  <mat-slider *ngIf="filter.selectedModel" thumbLabel min="0" max="1" step="0.01" [(value)]="filter.thresholdValue"></mat-slider>
   <ul *ngIf="filter.selected" class="models">
     <li *ngFor="let model of filter.models">
       <p

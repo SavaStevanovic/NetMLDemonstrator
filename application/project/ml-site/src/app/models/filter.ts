@@ -5,4 +5,5 @@ export interface Filter {
   selected: boolean;
   models: string[];
   selectedModel: string;
+  thresholdValue: number;
 }
