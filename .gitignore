@@ -135,3 +135,6 @@ __pycache__/
 # app
 logs/
 checkpoints/
+
+# data
+val2017

@@ -68,6 +68,19 @@ def frame_upload():
 
     return data
 
+@app.route('/decode_upload', methods=['GET', 'POST'])
+def decode_upload():
+    data = request.get_json()
+    image_data = data['frame'].replace('data:image/png;base64,', "")
+    byte_image = bytearray(base64.b64decode(image_data))
+    img_input = cv2.imdecode(np.asarray(byte_image), cv2.IMREAD_COLOR)
+    retval, buffer = cv2.imencode('.jpeg', img_input)
+    data = {'image': 'data:image/png;base64,' + base64.b64encode(buffer).decode("utf-8")}
 
+@app.route('/empty_upload', methods=['GET', 'POST'])
+def empty_upload():
+    return request.get_json()
+
+    return data
 if __name__ == '__main__':
     app.run(host='0.0.0.0', debug=False, port="5001", threaded=False)
