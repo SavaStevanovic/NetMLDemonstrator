@@ -3,6 +3,8 @@ import { ViewChild } from '@angular/core';
 import { FilterService } from '../../services/filter/filter.service';
 import { FrameService } from '../../services/frame/frame.service';
 import { Filter } from '../../models/filter';
+import { SockjsMessageService } from 'src/app/services/sockjs-message.service';
+import { Subject } from 'rxjs';
 
 @Component({
   selector: 'app-display',
@@ -21,8 +23,13 @@ export class DisplayComponent implements AfterViewInit, OnInit {
   image: any;
   image1: any;
   processed_context:any;
+  public sockServerResponse: string = ''
+  private sockServerResponse$:  Subject<any>
 
-  constructor(public frameService: FrameService, private filterService: FilterService) {
+  constructor(
+    public frameService: FrameService,
+    private filterService: FilterService,
+    private sms: SockjsMessageService) {
   }
 
   capture() {
@@ -106,5 +113,15 @@ export class DisplayComponent implements AfterViewInit, OnInit {
       this.videoElement.nativeElement.srcObject = stream;
       this.videoElement.nativeElement.play();
     });
+  }
+
+  openSockConn() {
+    this.sockServerResponse$ = this.sms.openImageConnection('bla')
+    this.sockServerResponse$.subscribe({
+      next: (v) => {
+        this.sockServerResponse = v.data
+        console.log(JSON.stringify(v))
+      }
+    })
   }
 }

@@ -9,6 +9,7 @@ import { from, Observable, throwError } from 'rxjs';
 export class FrameService {
 
   private frameUrl = 'http://127.0.0.1:4321/frame_upload';
+  private frameSocketUrl = 'http://127.0.0.1:4320/frame_upload';
 
   constructor(private httpClient: HttpClient) { }
 
