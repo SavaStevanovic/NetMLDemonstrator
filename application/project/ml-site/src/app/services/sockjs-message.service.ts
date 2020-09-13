@@ -8,7 +8,7 @@ import { Observable, Observer, Subject } from 'rxjs';
 export class SockjsMessageService {
 
   sockjs: any;
-  wsuri = "http://127.0.0.1:4320/echo"
+  wsuri = "http://127.0.0.1:4321/echo"
 
   constructor() { }
 
