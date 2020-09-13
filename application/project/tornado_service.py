@@ -151,4 +151,4 @@ if __name__ == "__main__":
     app.listen(4321)
     
     # 4. Start IOLoop
-    tornado.ioloop.IOLoop.instance().start()
+    tornado.ioloop.IOLoop.current().start()

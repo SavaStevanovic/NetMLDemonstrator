@@ -1,5 +1,5 @@
 <div id="container">
-  <video #videoElement class="videoElement" (timeupdate)="capture()"></video>
+  <video #videoElement class="videoElement" (loadeddata)="capture()"></video>
   <canvas #unprocessedCanvas id="unprocessedCanvas" class="videoElement"></canvas>
   <canvas #processedCanvas id="processed_canvas" class="videoElement"></canvas>
 </div>

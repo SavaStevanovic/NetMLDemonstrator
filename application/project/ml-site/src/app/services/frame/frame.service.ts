@@ -37,34 +37,36 @@ export class FrameService {
     this.sockjs.close()
   }
 
-  public openImageConnection(frame, config) {
+
+
+  public openImageConnection() {
     if (this.isConnectionOpen())
       this.closeConnection()
 
     if (!this.isConnectionOpen()){
       this.sockjs = new SockJS(this.frameSocketUrl);
     }
-    let wsjs = this.sockjs;
-    let observable = new Observable((obs:Observer<MessageEvent>) => {
-      wsjs.onmessage = obs.next.bind(obs)
-      wsjs.onerror = obs.error.bind(obs)
-      wsjs.onclose = obs.complete.bind(obs)
-      wsjs.onopen = () =>{
-        console.log('open')
-        // let sendObject = {
-        //   path: this.setImage,
-        //   slika: imageEncoded
-        // }
+    return this.sockjs;
+    // let observable = new Observable((obs:Observer<MessageEvent>) => {
+    //   wsjs.onmessage = obs.next.bind(obs)
+    //   wsjs.onerror = obs.error.bind(obs)
+    //   wsjs.onclose = obs.complete.bind(obs)
+    //   wsjs.onopen = () =>{
+    //     console.log('open')
+    //     // let sendObject = {
+    //     //   path: this.setImage,
+    //     //   slika: imageEncoded
+    //     // }
 
-        // wsjs.send(JSON.stringify(sendObject));
-        let post_data = {'frame': frame, 'config': config}
-        wsjs.send(JSON.stringify(post_data))
-      }
-    })
+    //     // wsjs.send(JSON.stringify(sendObject));
+    //     let post_data = {'frame': frame, 'config': config}
+    //     wsjs.send(JSON.stringify(post_data))
+    //   }
+    // })
 
-    let subject = new Subject()
-    observable.subscribe(subject)
+    // let subject = new Subject()
+    // observable.subscribe(subject)
 
-    return subject
+    // return subject
   }
 }
