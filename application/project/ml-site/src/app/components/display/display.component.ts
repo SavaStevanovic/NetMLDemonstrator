@@ -51,6 +51,16 @@ export class DisplayComponent implements AfterViewInit, OnInit {
       .subscribe(filters => this.filters = filters);
   }
 
+  // openSockConn() {
+  //   this.sockServerResponse$ = this.sms.openImageConnection('bla')
+  //   this.sockServerResponse$.subscribe({
+  //     next: (v) => {
+  //       this.sockServerResponse = v.data
+  //       console.log(JSON.stringify(v))
+  //     }
+  //   })
+  // }
+
   processFrame(context): any {
     if (this.processedCanvas.nativeElement.width!=this.videoElement.nativeElement.clientWidth)
       this.processedCanvas.nativeElement.width = this.videoElement.nativeElement.clientWidth;
@@ -61,13 +71,12 @@ export class DisplayComponent implements AfterViewInit, OnInit {
       var processed_context = this.processedCanvas.nativeElement.getContext("2d");
       processed_context.drawImage(this.image1, 0, 0, this.videoElement.nativeElement.clientWidth, this.videoElement.nativeElement.clientHeight, 0, 0, this.videoElement.nativeElement.clientWidth, this.videoElement.nativeElement.clientHeight);
     }
-    this.frameService.processFrame(context, this.filters).subscribe(
-      data => {
-        this.data_raw = data["image"]
-      },
-      error => { console.log(error); // Error if any
+    this.sockServerResponse$ = this.frameService.openImageConnection(context, this.filters)
+    this.sockServerResponse$.subscribe({
+      next: (v) => {
+        this.data_raw = JSON.parse(v.data)["image"]
       }
-    );
+    });
     this.image1.src = this.data_raw;
   }
 

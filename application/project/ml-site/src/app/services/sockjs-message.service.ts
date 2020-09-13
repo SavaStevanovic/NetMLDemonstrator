@@ -52,13 +52,4 @@ export class SockjsMessageService {
 
     return subject
   }
-
-  public sendImage(imageEncoded) {
-    let sendObject = {
-      // path: this.setImage,
-      slika: imageEncoded
-    }
-
-    this.sockjs.send(JSON.stringify(sendObject))
-  }
 }

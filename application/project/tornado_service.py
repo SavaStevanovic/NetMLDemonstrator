@@ -7,10 +7,14 @@ import json
 import base64
 import cv2
 import numpy as np
+import requests
 
 import sockjs.tornado
-class BaseHandler(tornado.web.RequestHandler):
+filter_data = {
+    "detection": {'path': 'http://detection:5001/get_models'}
+}
 
+class BaseHandler(tornado.web.RequestHandler):
     def set_default_headers(self):
         print("setting headers!!!")
         self.set_header("Access-Control-Allow-Origin", "*")
@@ -69,10 +73,49 @@ class FrameUploadHandler(BaseHandler):
 
         self.write(json.dumps(ret_data))
 
+class FrameUploadConnection(sockjs.tornado.SockJSConnection):
+    def __init__(self, session):
+        self.session = session
+        self.filter_data = filter_data
+
+    def on_open(self, info):
+        pass
+
+    def on_message(self, message):
+        data = json.loads(message)
+        used_models = [x for x in data['config'] if 'selectedModel' in x and x['name'] in filter_data.keys()]
+        for model_config in used_models:
+            model_service = self.filter_data[model_config['name']]
+            headers = {'Content-Type': 'application/json'}
+
+            r = requests.post(url=model_service['path'].replace('get_models', 'frame_upload'),
+                        json={'frame': data['frame'], 'model_name': model_config['selectedModel']})
+            self.send(r.content)
+            return
+
+            # http_client = tornado.httpclient.HTTPClient()
+            # response = http_client.fetch(
+            #     request=model_service['path'].replace('get_models', 'frame_upload'),
+            #     method='POST',
+            #     body=json.dumps({'frame': data['frame'], 'model_name': model_config['selectedModel']}),
+            #     headers=headers,
+            #     )
+            # self.write(response.body)
+            # return
+
+        image_data = data['frame'].replace('data:image/png;base64,', "")
+        byte_image = bytearray(base64.b64decode(image_data))
+        frame = cv2.imdecode(np.asarray(byte_image), cv2.IMREAD_COLOR)
+        ret_data = {'image': data['frame']}
+
+        self.send(json.dumps(ret_data))
+
+    def on_close(self):
+        pass
+
 class MessageConnection(sockjs.tornado.SockJSConnection):
     """Chat connection implementation"""
     # Class level variable
-    # participants = set()
     def __init__(self, session):
         """Connection constructor.
 
@@ -81,23 +124,12 @@ class MessageConnection(sockjs.tornado.SockJSConnection):
         """
         self.session = session
     def on_open(self, info):
-        # Send that someone joined
-        # self.broadcast(self.participants, "Someone joined.")
-
-        # Add client to the clients list
-        # self.participants.add(self)
-        print('Stigao je info: {}'.format(info))
-        # self.send(info)
+        pass
 
     def on_message(self, message):
-        # Broadcast message
         self.send(message)
 
     def on_close(self):
-        # Remove client from the clients list and broadcast leave message
-        # self.participants.remove(self)
-
-        # self.broadcast(self.participants, "Someone left.")
         pass
 
 if __name__ == "__main__":
@@ -105,15 +137,15 @@ if __name__ == "__main__":
     logging.getLogger().setLevel(logging.DEBUG)
 
     # 1. Create chat router
-    ChatRouter = sockjs.tornado.SockJSRouter(MessageConnection, '/echo')
-    filter_data = {
-        "detection": {'path': 'http://detection:5001/get_models'}
-    }
+    ChatRouter = sockjs.tornado.SockJSRouter(MessageConnection, '/echo', )
+
+    FrameRouter = sockjs.tornado.SockJSRouter(FrameUploadConnection, '/frame_upload_stream')
     # 2. Create Tornado application
     app = tornado.web.Application([
         (r'/get_filters', GetFilterHandler, dict(filter_data=filter_data)),
-        (r'/frame_upload', FrameUploadHandler, dict(filter_data=filter_data)),
-        ] + ChatRouter.urls)
+        (r'/frame_upload', FrameUploadHandler, dict(filter_data=filter_data)),] 
+        + ChatRouter.urls
+        + FrameRouter.urls)
 
     # 3. Make Tornado app listen on port 8080
     app.listen(4321)
