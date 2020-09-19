@@ -36,101 +36,49 @@ export class DisplayComponent implements AfterViewInit, OnInit {
   }
 
   capture() {
-    requestAnimationFrame(this.capture.bind(this))
     var time = this.videoElement.nativeElement.currentTime;
-    if (time == 0) {
+    if (time == 0 || this.videoElement.nativeElement.paused) {
       return
     }
-    if (time == this.lastTime) {
-        // console.log('time: ' + time);
-        //todo: do your rendering here
-        return;
-    }
+
     this.lastTime = time;
+    let unprocessedCanvasElement = this.unprocessedCanvas.nativeElement
+    let nativVideoEelement = this.videoElement.nativeElement
+    if (unprocessedCanvasElement.width!=nativVideoEelement.clientWidth)
+      unprocessedCanvasElement.width = nativVideoEelement.clientWidth;
+    if (unprocessedCanvasElement.height!=nativVideoEelement.clientHeight)
+      unprocessedCanvasElement.height = nativVideoEelement.clientHeight;
+    var context = unprocessedCanvasElement.getContext("2d");
+    context.drawImage(nativVideoEelement, 0, 0, nativVideoEelement.videoWidth, nativVideoEelement.videoHeight, 0, 0, nativVideoEelement.clientWidth, nativVideoEelement.clientHeight);
+    if (this.processedCanvas.nativeElement.width!=nativVideoEelement.clientWidth)
+      this.processedCanvas.nativeElement.width = nativVideoEelement.clientWidth;
+    if(this.processedCanvas.nativeElement.height != nativVideoEelement.clientHeight)
+      this.processedCanvas.nativeElement.height = nativVideoEelement.clientHeight;
 
-    if (this.unprocessedCanvas.nativeElement.width!=this.videoElement.nativeElement.clientWidth)
-      this.unprocessedCanvas.nativeElement.width = this.videoElement.nativeElement.clientWidth;
-    if (this.unprocessedCanvas.nativeElement.height!=this.videoElement.nativeElement.clientHeight)
-      this.unprocessedCanvas.nativeElement.height = this.videoElement.nativeElement.clientHeight;
-    var context = this.unprocessedCanvas.nativeElement.getContext("2d");
-    context.drawImage(this.videoElement.nativeElement, 0, 0, this.videoElement.nativeElement.videoWidth, this.videoElement.nativeElement.videoHeight, 0, 0, this.videoElement.nativeElement.clientWidth, this.videoElement.nativeElement.clientHeight);
-    this.processFrame(this.unprocessedCanvas.nativeElement.toDataURL());
 
+    let post_data = {'frame': unprocessedCanvasElement.toDataURL(), 'config': this.filters}
+    this.sock.send(JSON.stringify(post_data))
   }
 
   ngOnInit(): void {
     this.getFilters();
+    this.lastTime = 0;
+    this.image1 = new Image();
+    this.image1.onload = ()=> {
+      var processed_context = this.processedCanvas.nativeElement.getContext("2d");
+      processed_context.drawImage(this.image1, 0, 0, this.videoElement.nativeElement.clientWidth, this.videoElement.nativeElement.clientHeight, 0, 0, this.videoElement.nativeElement.clientWidth, this.videoElement.nativeElement.clientHeight);
+    }
     this.sock = this.frameService.openImageConnection()
+    this.sock.onmessage = (v) =>  {
+      this.image1.src = JSON.parse(v.data)["image"];
+      requestAnimationFrame(this.capture.bind(this))
+    }
   }
 
   getFilters(): void {
     this.filterService.getFilters()
       .subscribe(filters => this.filters = filters);
   }
-
-  // openSockConn() {
-  //   this.sockServerResponse$ = this.sms.openImageConnection('bla')
-  //   this.sockServerResponse$.subscribe({
-  //     next: (v) => {
-  //       this.sockServerResponse = v.data
-  //       console.log(JSON.stringify(v))
-  //     }
-  //   })
-  // }
-
-  processFrame(context): any {
-    if (this.processedCanvas.nativeElement.width!=this.videoElement.nativeElement.clientWidth)
-      this.processedCanvas.nativeElement.width = this.videoElement.nativeElement.clientWidth;
-    if(this.processedCanvas.nativeElement.height != this.videoElement.nativeElement.clientHeight)
-      this.processedCanvas.nativeElement.height = this.videoElement.nativeElement.clientHeight;
-    this.image1 = new Image();
-    this.image1.onload = ()=> {
-      var processed_context = this.processedCanvas.nativeElement.getContext("2d");
-      processed_context.drawImage(this.image1, 0, 0, this.videoElement.nativeElement.clientWidth, this.videoElement.nativeElement.clientHeight, 0, 0, this.videoElement.nativeElement.clientWidth, this.videoElement.nativeElement.clientHeight);
-    }
-    let wsjs = this.sock;
-    let frame = context;
-    let config = this.filters;
-    let observable = new Observable((obs:Observer<MessageEvent>) => {
-      wsjs.onmessage = obs.next.bind(obs)
-      wsjs.onerror = obs.error.bind(obs)
-      wsjs.onclose = obs.complete.bind(obs)
-      wsjs.onopen = () =>{
-        console.log('open')
-        // let sendObject = {
-        //   path: this.setImage,
-        //   slika: imageEncoded
-        // }
-
-        // wsjs.send(JSON.stringify(sendObject));
-        let post_data = {'frame': frame, 'config': config}
-        wsjs.send(JSON.stringify(post_data))
-      }
-    })
-
-    let subject = new Subject()
-    subject.subscribe({
-      next: (v) => {
-        // this.data_raw = JSON.parse(v.data)["image"]
-        console.log(v)
-      },
-      error: (v) => {
-        console.log(v)
-      }
-    });
-    observable.subscribe(subject)
-
-
-    let post_data = {'frame': frame, 'config': config}
-    wsjs.onmessage = (v) =>  {
-      console.log('Oh snap');
-      this.data_raw=JSON.parse(v.data)["image"];
-    }
-    wsjs.send(JSON.stringify(post_data))
-    this.image1.src = this.data_raw;
-    // requestAnimationFrame(this.capture.bind(this))
-  }
-
 
   ngAfterViewInit(): void {
     if(navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {

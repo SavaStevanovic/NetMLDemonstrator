@@ -93,16 +93,6 @@ class FrameUploadConnection(sockjs.tornado.SockJSConnection):
             self.send(r.content)
             return
 
-            # http_client = tornado.httpclient.HTTPClient()
-            # response = http_client.fetch(
-            #     request=model_service['path'].replace('get_models', 'frame_upload'),
-            #     method='POST',
-            #     body=json.dumps({'frame': data['frame'], 'model_name': model_config['selectedModel']}),
-            #     headers=headers,
-            #     )
-            # self.write(response.body)
-            # return
-
         image_data = data['frame'].replace('data:image/png;base64,', "")
         byte_image = bytearray(base64.b64decode(image_data))
         frame = cv2.imdecode(np.asarray(byte_image), cv2.IMREAD_COLOR)
