@@ -47,7 +47,7 @@ class GetModelsHandler(BaseHandler):
         data = {
             'models': list(self.model_paths.keys()),
             'progress_bars':[{'name':'threshold',  'value':0.7}], 
-            'check_boxes': [{'name':'nonMaxSupression', 'checked':True}],
+            'check_boxes': [{'name':'NMS', 'checked':True}],
         } 
       
         self.write(json.dumps(data))
@@ -55,6 +55,10 @@ class GetModelsHandler(BaseHandler):
 class FrameUploadHandler(BaseHandler):
     def post(self):
         data = json.loads(self.request.body.decode("utf-8"))
+        for d in data['progress_bars']:
+            data[d['name']] = d['value']
+        for d in data['check_boxes']:
+            data[d['name']] = d['checked']
         image_data = data['frame'].replace('data:image/png;base64,', "")
         byte_image = bytearray(base64.b64decode(image_data))
         img_input = cv2.imdecode(np.asarray(byte_image), cv2.IMREAD_COLOR)
@@ -80,7 +84,7 @@ class FrameUploadHandler(BaseHandler):
         outs = [out.cpu().detach().numpy() for out in outputs]
         for out in outs:
             img = apply_output.apply_detections(model.target_to_box_transform, out, [
-            ], Image.fromarray(img), model.classes, 0.5)
+            ], Image.fromarray(img), model.classes, data['threshold'])
 
         img = cv2.resize(img, dsize=img_input.shape[:2][::-1], interpolation=cv2.INTER_CUBIC)
         retval, buffer = cv2.imencode('.jpeg', img)

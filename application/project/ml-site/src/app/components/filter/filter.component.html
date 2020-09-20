@@ -9,7 +9,7 @@
       {{filter.selectedModel}}
     </span>
   </p>
-  <ul *ngIf="!filter.selected && filter.selectedModel && filter.progress_bars">
+  <ul *ngIf="!filter.selected && filter.selectedModel && filter.progress_bars" style="padding-inline-start: 0em;">
     <li *ngFor="let progress_bar of filter.progress_bars">
       <mat-label>{{ progress_bar.name }}</mat-label>
       <mat-slider *ngIf="filter.selectedModel" thumbLabel min="0" max="1" step="0.01" color="primary" [(value)]="progress_bar.value"></mat-slider>

@@ -68,10 +68,11 @@ class FrameUploadHandler(BaseHandler):
             headers = {'Content-Type': 'application/json'}
 
             http_client = tornado.httpclient.AsyncHTTPClient()
+            data['model_name'] = model_config['selectedModel']
             response = await http_client.fetch(
                 request=model_service['path'].replace('get_models', 'frame_upload'),
                 method='POST',
-                body=json.dumps({'frame': data['frame'], 'model_name': model_config['selectedModel']}),
+                body=json.dumps(data),
                 headers=headers,
                 )
             self.write(response.body)
@@ -98,9 +99,13 @@ class FrameUploadConnection(sockjs.tornado.SockJSConnection):
         for model_config in used_models:
             model_service = self.filter_data[model_config['name']]
             headers = {'Content-Type': 'application/json'}
-
-            r = requests.post(url=model_service['path'].replace('get_models', 'frame_upload'),
-                        json={'frame': data['frame'], 'model_name': model_config['selectedModel']})
+            data['model_name'] = model_config['selectedModel']
+            r = requests.post(url=model_service['path'].replace('get_models', 'frame_upload'),json = {
+                    'frame': data['frame'], 
+                    'model_name': model_config['selectedModel'],
+                    'progress_bars' : model_config['progress_bars'],
+                    'check_boxes' : model_config['check_boxes']
+                })
             self.send(r.content)
             return
 
@@ -135,7 +140,7 @@ class MessageConnection(sockjs.tornado.SockJSConnection):
 
 if __name__ == "__main__":
     import logging
-    logging.getLogger().setLevel(logging.DEBUG)
+    logging.getLogger().setLevel(logging.INFO)
 
     # 1. Create chat router
     ChatRouter = sockjs.tornado.SockJSRouter(MessageConnection, '/echo', )
