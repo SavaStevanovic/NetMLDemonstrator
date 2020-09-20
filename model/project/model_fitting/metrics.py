@@ -32,7 +32,7 @@ def metrics(net, dataloader, box_transform, epoch=1):
             labs = [labels[0].cpu()[0].numpy()]
 
             boxes_pr = box_transform(outs, 0.5)
-            boxes_pr = non_max_suppression(boxes_pr)
+            boxes_pr = apply_output.non_max_suppression(boxes_pr)
             boxes_tr = box_transform(labs)
             for x in boxes_pr:
                 x['image'] = i
@@ -48,15 +48,6 @@ def metrics(net, dataloader, box_transform, epoch=1):
     data_len = len(dataloader)
     
     return metric, losses/data_len, total_objectness_loss/data_len, total_size_loss/data_len, total_offset_loss/data_len, total_class_loss/data_len, images
-
-def non_max_suppression(boxes):
-    boxes = sorted(boxes, key = lambda x: -x['confidence'])
-    filtered_boxes = []
-    for b in boxes:
-        suppress = len([0 for fb in filtered_boxes if fb['category_id']==b['category_id'] and IoU(fb['bbox'], b['bbox'])>0.5])
-        if suppress==0:
-            filtered_boxes.append(b)
-    return filtered_boxes
 
 def calculateMAP(det_boxes, ref_boxes, classes):
     class_det_boxes = [[] for _ in classes]
@@ -75,7 +66,7 @@ def calculateAP(det_boxes, ref_boxes, class_id):
     for i, x in enumerate(det_boxes):
         image_boxes = ref_boxes[x['image']]
         for l in image_boxes:
-            if l['seen']==0 and IoU(x['bbox'], l['bbox'])>0.5:
+            if l['seen']==0 and apply_output.IoU(x['bbox'], l['bbox'])>0.5:
                 l['seen']=1
                 true_prediction[i]=1
                 break
@@ -111,16 +102,3 @@ def calculateAP(det_boxes, ref_boxes, class_id):
     metric = sum(indeces)/(1/period+1)
     return metric
 
-def IoU(bboxDT, bboxGT):
-    xA = max(bboxDT[0], bboxGT[0])
-    yA = max(bboxDT[1], bboxGT[1])
-    xB = min(bboxDT[0] + bboxDT[2], bboxGT[0] + bboxGT[2])
-    yB = min(bboxDT[1] + bboxDT[3], bboxGT[1] + bboxGT[3])
-    interArea = max(0, xB - xA) * max(0, yB - yA)
-    boxAArea = bboxDT[2] * bboxDT[2]
-    boxBArea = bboxGT[2] * bboxGT[2]
-    iou = 0
-    unionArea = float(boxAArea + boxBArea - interArea)
-    if unionArea>0:
-        iou = interArea / unionArea 
-    return iou

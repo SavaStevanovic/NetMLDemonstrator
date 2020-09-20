@@ -84,7 +84,7 @@ class FrameUploadHandler(BaseHandler):
         outs = [out.cpu().detach().numpy() for out in outputs]
         for out in outs:
             img = apply_output.apply_detections(model.target_to_box_transform, out, [
-            ], Image.fromarray(img), model.classes, data['threshold'])
+            ], Image.fromarray(img), model.classes, data['threshold'], data['NMS'])
 
         img = cv2.resize(img, dsize=img_input.shape[:2][::-1], interpolation=cv2.INTER_CUBIC)
         retval, buffer = cv2.imencode('.jpeg', img)
