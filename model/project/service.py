@@ -28,7 +28,7 @@ model_paths = {
 
 class BaseHandler(tornado.web.RequestHandler):
     def set_default_headers(self):
-        print("setting headers!!!")
+        # print("setting headers!!!")
         self.set_header("Access-Control-Allow-Origin", "*")
         self.set_header("Access-Control-Allow-Headers", "x-requested-with")
         self.set_header('Access-Control-Allow-Methods', 'GET, OPTIONS, POST')
@@ -44,7 +44,13 @@ class GetModelsHandler(BaseHandler):
         self.model_paths = model_paths
     
     def get(self):
-        self.write(json.dumps(list(self.model_paths.keys())))
+        data = {
+            'models': list(self.model_paths.keys()),
+            'progress_bars':[{'name':'threshold',  'value':0.7}], 
+            'check_boxes': [{'name':'nonMaxSupression', 'checked':True}],
+        } 
+      
+        self.write(json.dumps(data))
 
 class FrameUploadHandler(BaseHandler):
     def post(self):
@@ -84,7 +90,7 @@ class FrameUploadHandler(BaseHandler):
 
 if __name__ == "__main__":
     import logging
-    logging.getLogger().setLevel(logging.DEBUG)
+    logging.getLogger().setLevel(logging.INFO)
 
     # 2. Create Tornado application
     app = tornado.web.Application([

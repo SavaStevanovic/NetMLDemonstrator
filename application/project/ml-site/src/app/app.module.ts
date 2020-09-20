@@ -10,6 +10,8 @@ import { FilterComponent } from './components/filter/filter.component';
 import { DisplayComponent } from './components/display/display.component';
 import { BrowserAnimationsModule } from '@angular/platform-browser/animations';
 import { MatSliderModule } from '@angular/material/slider';
+import { MatFormFieldModule } from '@angular/material/form-field';
+import { MatSlideToggleModule } from '@angular/material/slide-toggle';
 
 @NgModule({
   declarations: [
@@ -25,7 +27,9 @@ import { MatSliderModule } from '@angular/material/slider';
     FormsModule,
     HttpClientModule,
     BrowserAnimationsModule,
-    MatSliderModule
+    MatSliderModule,
+    MatFormFieldModule,
+    MatSlideToggleModule
   ],
   providers: [],
   bootstrap: [AppComponent]

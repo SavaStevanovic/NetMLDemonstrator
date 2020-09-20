@@ -54,13 +54,10 @@ mat-slider {
   margin: 0em 0em 0em 0em;
   padding: 0em 0em 0em 0em;
 }
-::ng-deep .mat-accent .mat-slider-thumb {
-  background-color: #ff0000;
+mat-label {
+  left: 1em;
+  height: 1em;
+  width: 100%;
+  margin: 0em 0em 0em 0em;
+  padding: 0em 0em 0em 0em;
 }
-::ng-deep .mat-accent .mat-slider-thumb-label {
-  background-color: #CFD8DC;
-}
-::ng-deep .mat-accent .mat-slider-track-fill {
-  background-color: #ff0000;
-}
-

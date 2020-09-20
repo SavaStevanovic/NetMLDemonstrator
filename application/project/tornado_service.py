@@ -32,7 +32,17 @@ class GetFilterHandler(BaseHandler):
         self.filter_data = filter_data
     
     async def get(self):
-        filters = [{'name': "Test", 'models': ['Test_good', 'Test_bad']}]
+        filters = [{
+            'name': "Test", 
+            'models': ['Test_good', 'Test_bad'], 
+            'progress_bars':[
+                {'name':'bar_0.7', 'value':0.7}, 
+                {'name':'bar_0.2', 'value':0.2}, 
+                {'name':'bar_0.3', 'value':0.3}], 
+            'check_boxes': [
+                {'name':'true_check', 'checked':True}, 
+                {'name':'false_check', 'checked':False}],
+            }]
 
         for k, d in self.filter_data.items():
             http_client = tornado.httpclient.AsyncHTTPClient()
@@ -40,7 +50,8 @@ class GetFilterHandler(BaseHandler):
                 response = await http_client.fetch(d['path'])
                 if response.code == 200:
                     models = json.loads(response.body.decode("utf-8")) 
-                    filters.append({'name': k, 'models': models})
+                    models['name'] = k
+                    filters.append(models)
             except Exception as e:
                 pass
         self.write(json.dumps(filters))

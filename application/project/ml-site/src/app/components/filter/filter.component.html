@@ -9,15 +9,27 @@
       {{filter.selectedModel}}
     </span>
   </p>
-  <mat-slider *ngIf="filter.selectedModel" thumbLabel min="0" max="1" step="0.01" [(value)]="filter.thresholdValue"></mat-slider>
+  <ul *ngIf="!filter.selected && filter.selectedModel && filter.progress_bars">
+    <li *ngFor="let progress_bar of filter.progress_bars">
+      <mat-label>{{ progress_bar.name }}</mat-label>
+      <mat-slider *ngIf="filter.selectedModel" thumbLabel min="0" max="1" step="0.01" color="primary" [(value)]="progress_bar.value"></mat-slider>
+    </li>
+    <li *ngFor="let check_boxe of filter.check_boxes">
+      <mat-label>{{ check_boxe.name }}</mat-label>
+      <mat-slide-toggle *ngIf="filter.selectedModel"
+        color="primary"
+        [(checked)]="check_boxe.checked">
+      </mat-slide-toggle>
+    </li>
+  </ul>
   <ul *ngIf="filter.selected" class="models">
     <li *ngFor="let model of filter.models">
       <p
       [class.selected]="filter.selectedModel==model"
       (click)="selectModels(model)"
       class="model">
-      {{model}}
-    </p>
+      <mat-label>{{model}}</mat-label>
+      </p>
     </li>
   </ul>
 </li>
