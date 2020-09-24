@@ -13,23 +13,8 @@
   float: left;
 }
 .toolbar {
-  position: relative;
-  top: 0;
-  left: 0;
-  right: 0;
-  height: 30px;
-  display: flex;
+  height: 2.5em;
   align-items: center;
-  background-color: #1976d2;
-  color: white;
-  font-weight: 600;
-  clear: both;
-}
-.toolbar img {
-  padding-top: 3px;
-  display: block;
-  margin:20px 6px;
-  width: 35px;
 }
 /* everywhere else */
 * {
@@ -38,5 +23,7 @@
 .spacer {
   flex: 1;
 }
-
+.menu_hidden {
+  display: none;
+}
 
