@@ -104,7 +104,9 @@ class FrameUploadConnection(sockjs.tornado.SockJSConnection):
         byte_image = bytearray(base64.b64decode(image_data))
         frame = cv2.imdecode(np.asarray(byte_image), cv2.IMREAD_COLOR)
 
-        used_models = [x for x in data['config'] if 'selectedModel' in x and x['name'] in filter_data.keys()]
+        used_models = [x for x in data['config'] if 'selectedModel' in x 
+                                                    and x['selectedModel'] 
+                                                    and x['name'] in filter_data.keys()]
         for model_config in used_models:
             model_service = self.filter_data[model_config['name']]
             headers = {'Content-Type': 'application/json'}
