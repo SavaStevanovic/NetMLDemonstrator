@@ -10,7 +10,7 @@ class TargetTransformToBoxes(object):
         self.ratios = ratios
         self.strides = strides
 
-    def __call__(self, targets, threshold = 0.5):
+    def __call__(self, targets, threshold = 0.5, scale = None):
         labels = []
         for i in range(min(len(targets), len(self.strides), len(self.prior_box_sizes))):
             stride = self.strides[i]
@@ -27,5 +27,7 @@ class TargetTransformToBoxes(object):
                     box_size = box_size[0]/self.ratios[i], box_size[1]
                     l['bbox'] = ((cords[2]+box_center[0])*stride - box_size[0]/2).item(), ((cords[1]+box_center[1])*stride - box_size[1]/2).item(), box_size[0], box_size[1]
                     l['confidence'] = first_target[cords[0], cords[1], cords[2]].item()
+                    if scale:
+                        l['bbox'] = [x/scale[i%2] for i, x in enumerate(l['bbox'])]
                     labels.append(l)
         return labels

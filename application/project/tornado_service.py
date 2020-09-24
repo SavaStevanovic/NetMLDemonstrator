@@ -14,6 +14,11 @@ filter_data = {
     "detection": {'path': 'http://detection:5001/get_models'}
 }
 
+def draw_box(image, bbox, label, color, size):
+    image = cv2.rectangle(image, (bbox[0], bbox[1]), (bbox[0] + bbox[2], bbox[1] + bbox[3]), color, size)
+    cv2.putText(image, label, (bbox[0]-int(size/2), bbox[1]-size-1), cv2.FONT_HERSHEY_SIMPLEX, 0.5, color, size)
+    return image
+
 class BaseHandler(tornado.web.RequestHandler):
     def set_default_headers(self):
         print("setting headers!!!")
@@ -95,6 +100,10 @@ class FrameUploadConnection(sockjs.tornado.SockJSConnection):
 
     def on_message(self, message):
         data = json.loads(message)
+        image_data = data['frame'].replace('data:image/png;base64,', "")
+        byte_image = bytearray(base64.b64decode(image_data))
+        frame = cv2.imdecode(np.asarray(byte_image), cv2.IMREAD_COLOR)
+
         used_models = [x for x in data['config'] if 'selectedModel' in x and x['name'] in filter_data.keys()]
         for model_config in used_models:
             model_service = self.filter_data[model_config['name']]
@@ -106,18 +115,20 @@ class FrameUploadConnection(sockjs.tornado.SockJSConnection):
                     'progress_bars' : model_config['progress_bars'],
                     'check_boxes' : model_config['check_boxes']
                 })
-            self.send(r.content)
-            return
+            if model_config['name'] == 'detection':
+                boxes = json.loads(r.content.decode("utf-8"))
+                for l in boxes:
+                    l['bbox'] = [int(e*frame.shape[i%2]) for i, e in enumerate(l['bbox'])]
+                    image = draw_box(frame, l['bbox'], l['class'], (0, 255, 0), 2)
 
-        image_data = data['frame'].replace('data:image/png;base64,', "")
-        byte_image = bytearray(base64.b64decode(image_data))
-        frame = cv2.imdecode(np.asarray(byte_image), cv2.IMREAD_COLOR)
-        ret_data = {'image': data['frame']}
+        retval, buffer = cv2.imencode('.jpeg', frame)
+        data = {'image': 'data:image/png;base64,' + base64.b64encode(buffer).decode("utf-8")}
 
-        self.send(json.dumps(ret_data))
+        self.send(json.dumps(data))
 
     def on_close(self):
         pass
+
 
 class MessageConnection(sockjs.tornado.SockJSConnection):
     """Chat connection implementation"""
@@ -158,3 +169,4 @@ if __name__ == "__main__":
     
     # 4. Start IOLoop
     tornado.ioloop.IOLoop.current().start()
+

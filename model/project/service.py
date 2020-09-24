@@ -46,7 +46,7 @@ class GetModelsHandler(BaseHandler):
     def get(self):
         data = {
             'models': list(self.model_paths.keys()),
-            'progress_bars':[{'name':'threshold',  'value':0.7}], 
+            'progress_bars':[{'name':'threshold',  'value':0.5}], 
             'check_boxes': [{'name':'NMS', 'checked':True}],
         } 
       
@@ -82,15 +82,21 @@ class FrameUploadHandler(BaseHandler):
 
         outputs = model(img_tensor)
         outs = [out.cpu().detach().numpy() for out in outputs]
+
+        boxes_pr=[]
         for out in outs:
-            img = apply_output.apply_detections(model.target_to_box_transform, out, [
-            ], Image.fromarray(img), model.classes, data['threshold'], data['NMS'])
+            boxes_pr += model.target_to_box_transform(out, data['threshold'], scale=img.shape[:2])
+        if data['NMS']:
+            boxes_pr = apply_output.non_max_suppression(boxes_pr)
+         
 
-        img = cv2.resize(img, dsize=img_input.shape[:2][::-1], interpolation=cv2.INTER_CUBIC)
-        retval, buffer = cv2.imencode('.jpeg', img)
-        data = {'image': 'data:image/png;base64,' + base64.b64encode(buffer).decode("utf-8")}
 
-        self.write(json.dumps(data))
+        # img = cv2.resize(img, dsize=img_input.shape[:2][::-1], interpolation=cv2.INTER_CUBIC)
+        # retval, buffer = cv2.imencode('.jpeg', img)
+        for b in boxes_pr:
+            b['class'] = model.classes[b['category_id']][1]
+
+        self.write(json.dumps(boxes_pr))
 
 if __name__ == "__main__":
     import logging
