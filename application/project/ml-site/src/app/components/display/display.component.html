@@ -1,19 +1,9 @@
 <div id="container">
-  <video #videoElement class="videoElement" (loadeddata)="capture()"></video>
-  <canvas #unprocessedCanvas id="unprocessedCanvas" class="videoElement"></canvas>
-  <canvas #processedCanvas id="processed_canvas" class="videoElement"></canvas>
+  <video #videoElement class="videoElement" (resize)="updateCanvas()"></video>
+  <canvas #processedCanvas class="videoElement"></canvas>
 </div>
 
 <div class="row">
-  <button (click)="start()" class="btn btn-primary">Play</button>
-  <button (click)="toggleControls()" class="btn btn-success">Toggle Controls</button>
-  <button (click)="pause()" class="btn btn-warning">Pause</button>
-  <button (click)="resume()" class="btn btn-info">Resume</button>
-  <button (click)="sound()" class="btn btn-danger">Play with Sound</button>
-  <button (click)="capture()" class="btn btn-danger">Capture</button>
-</div>
-
-<div>
-  <button (click)="openSockConn()" class="btn btn-primary">Posalji serveru</button>
-  {{sockServerResponse}}
+  <button mat-stroked-button *ngIf="!videoPlaying" (click)="resume()" color="primary" class="video-control">Play</button>
+  <button mat-stroked-button *ngIf="videoPlaying" (click)="pause()" color="warn" class="video-control">Pause</button>
 </div>

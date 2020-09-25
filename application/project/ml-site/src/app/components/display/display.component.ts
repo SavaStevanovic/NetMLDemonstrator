@@ -13,12 +13,10 @@ import { Observer, Observable, throwError, Subject } from 'rxjs';
 })
 export class DisplayComponent implements AfterViewInit, OnInit {
   @ViewChild('videoElement') videoElement: ElementRef;
-  @ViewChild('unprocessedCanvas') unprocessedCanvas: ElementRef;
+  unprocessedCanvas = document.createElement('canvas');
   @ViewChild('processedCanvas') processedCanvas: ElementRef;
-  data_raw: any;
 
   filters: Filter[];
-  isPlaying = false;
   displayControls = true;
   image: any;
   image1: any;
@@ -27,6 +25,7 @@ export class DisplayComponent implements AfterViewInit, OnInit {
   readyToSend = true;
   public sockServerResponse: string = ''
   private sockServerResponse$:  Subject<any>
+  videoPlaying = false;
   sock: any;
 
   constructor(
@@ -42,21 +41,13 @@ export class DisplayComponent implements AfterViewInit, OnInit {
     }
 
     this.lastTime = time;
-    let unprocessedCanvasElement = this.unprocessedCanvas.nativeElement
     let nativVideoEelement = this.videoElement.nativeElement
-    if (unprocessedCanvasElement.width!=nativVideoEelement.clientWidth)
-      unprocessedCanvasElement.width = nativVideoEelement.clientWidth;
-    if (unprocessedCanvasElement.height!=nativVideoEelement.clientHeight)
-      unprocessedCanvasElement.height = nativVideoEelement.clientHeight;
-    var context = unprocessedCanvasElement.getContext("2d");
+    var context = this.unprocessedCanvas.getContext("2d");
     context.drawImage(nativVideoEelement, 0, 0, nativVideoEelement.videoWidth, nativVideoEelement.videoHeight, 0, 0, nativVideoEelement.clientWidth, nativVideoEelement.clientHeight);
-    if (this.processedCanvas.nativeElement.width!=nativVideoEelement.clientWidth)
-      this.processedCanvas.nativeElement.width = nativVideoEelement.clientWidth;
-    if(this.processedCanvas.nativeElement.height != nativVideoEelement.clientHeight)
-      this.processedCanvas.nativeElement.height = nativVideoEelement.clientHeight;
 
 
-    let post_data = {'frame': unprocessedCanvasElement.toDataURL(), 'config': this.filters}
+
+    let post_data = {'frame': this.unprocessedCanvas.toDataURL(), 'config': this.filters}
     this.sock.send(JSON.stringify(post_data))
   }
 
@@ -73,6 +64,7 @@ export class DisplayComponent implements AfterViewInit, OnInit {
       this.image1.src = JSON.parse(v.data)["image"];
       requestAnimationFrame(this.capture.bind(this))
     }
+    this.initCamera({ video: true, audio: true });
   }
 
   getFilters(): void {
@@ -86,29 +78,24 @@ export class DisplayComponent implements AfterViewInit, OnInit {
           this.videoElement.nativeElement.srcObject = stream;
       });
     }
-  }
 
-  start() {
-    this.initCamera({ video: true, audio: false });
-  }
 
-  sound() {
-    this.initCamera({ video: true, audio: true });
   }
 
   pause() {
     this.videoElement.nativeElement.pause();
-  }
-
-  toggleControls() {
-    this.videoElement.nativeElement.controls = this.displayControls;
-    this.displayControls = !this.displayControls;
+    this.videoPlaying = this.isPlaying();
   }
 
   resume() {
     this.videoElement.nativeElement.play();
+    this.capture()
+    this.videoPlaying = this.isPlaying();
   }
 
+  isPlaying() {
+    return this?.videoElement?.nativeElement?.paused==false;
+  }
   initCamera(config:any) {
     var browser = <any>navigator;
 
@@ -119,10 +106,19 @@ export class DisplayComponent implements AfterViewInit, OnInit {
 
     browser.mediaDevices.getUserMedia(config).then(stream => {
       this.videoElement.nativeElement.srcObject = stream;
-      this.videoElement.nativeElement.play();
     });
   }
-
+  updateCanvas(){
+    let nativVideoEelement = this.videoElement.nativeElement
+    if (this.unprocessedCanvas.width!=nativVideoEelement.clientWidth)
+      this.unprocessedCanvas.width = nativVideoEelement.clientWidth;
+    if (this.unprocessedCanvas.height!=nativVideoEelement.clientHeight)
+      this.unprocessedCanvas.height = nativVideoEelement.clientHeight;
+    if (this.processedCanvas.nativeElement.width!=nativVideoEelement.clientWidth)
+      this.processedCanvas.nativeElement.width = nativVideoEelement.clientWidth;
+    if(this.processedCanvas.nativeElement.height != nativVideoEelement.clientHeight)
+      this.processedCanvas.nativeElement.height = nativVideoEelement.clientHeight;
+  }
   openSockConn() {
     this.sockServerResponse$ = this.sms.openImageConnection('bla')
     this.sockServerResponse$.subscribe({

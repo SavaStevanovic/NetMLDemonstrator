@@ -89,10 +89,6 @@ class FrameUploadHandler(BaseHandler):
         if data['NMS']:
             boxes_pr = apply_output.non_max_suppression(boxes_pr)
          
-
-
-        # img = cv2.resize(img, dsize=img_input.shape[:2][::-1], interpolation=cv2.INTER_CUBIC)
-        # retval, buffer = cv2.imencode('.jpeg', img)
         for b in boxes_pr:
             b['class'] = model.classes[b['category_id']][1]
 
