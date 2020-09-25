@@ -17,51 +17,37 @@ export class DisplayComponent implements AfterViewInit, OnInit {
   @ViewChild('processedCanvas') processedCanvas: ElementRef;
 
   filters: Filter[];
-  displayControls = true;
   image: any;
-  image1: any;
   processed_context: any;
-  lastTime: any;
-  readyToSend = true;
-  public sockServerResponse: string = ''
-  private sockServerResponse$:  Subject<any>
+  unprocessed_context: any;
+  video_native_element: any;
   videoPlaying = false;
   sock: any;
 
   constructor(
     public frameService: FrameService,
-    private filterService: FilterService,
-    private sms: SockjsMessageService) {
+    private filterService: FilterService) {
   }
 
   capture() {
-    var time = this.videoElement.nativeElement.currentTime;
-    if (time == 0 || this.videoElement.nativeElement.paused) {
-      return
+    if (this.video_native_element.paused) {
+      return;
     }
 
-    this.lastTime = time;
-    let nativVideoEelement = this.videoElement.nativeElement
-    var context = this.unprocessedCanvas.getContext("2d");
-    context.drawImage(nativVideoEelement, 0, 0, nativVideoEelement.videoWidth, nativVideoEelement.videoHeight, 0, 0, nativVideoEelement.clientWidth, nativVideoEelement.clientHeight);
-
-
-
+    this.unprocessed_context.drawImage(this.video_native_element, 0, 0);
     let post_data = {'frame': this.unprocessedCanvas.toDataURL(), 'config': this.filters}
     this.sock.send(JSON.stringify(post_data))
   }
 
   ngOnInit(): void {
     this.getFilters();
-    this.lastTime = 0;
-    this.image1 = new Image();
-    this.image1.onload = ()=> {
-      var processed_context = this.processedCanvas.nativeElement.getContext("2d");
-      processed_context.drawImage(this.image1, 0, 0, this.videoElement.nativeElement.clientWidth, this.videoElement.nativeElement.clientHeight, 0, 0, this.videoElement.nativeElement.clientWidth, this.videoElement.nativeElement.clientHeight);
+    this.image = new Image();
+    this.image.onload = ()=> {
+      this.processed_context.drawImage(this.image, 0, 0);
     }
     this.sock = this.frameService.openImageConnection()
     this.sock.onmessage = (v) =>  {
-      this.image1.src = JSON.parse(v.data)["image"];
+      this.image.src = JSON.parse(v.data)["image"];
       requestAnimationFrame(this.capture.bind(this))
     }
     this.initCamera({ video: true, audio: true });
@@ -73,28 +59,29 @@ export class DisplayComponent implements AfterViewInit, OnInit {
   }
 
   ngAfterViewInit(): void {
+    this.processed_context = this.processedCanvas.nativeElement.getContext("2d");
+    this.unprocessed_context = this.unprocessedCanvas.getContext("2d");
+    this.video_native_element = this.videoElement.nativeElement;
     if(navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
       navigator.mediaDevices.getUserMedia({ video: true }).then(stream => {
-          this.videoElement.nativeElement.srcObject = stream;
+          this.video_native_element.srcObject = stream;
       });
     }
-
-
   }
 
   pause() {
-    this.videoElement.nativeElement.pause();
-    this.videoPlaying = this.isPlaying();
+    this.video_native_element.pause();
+    this.videoPlaying = this.video_native_element.paused==false;
   }
 
   resume() {
-    this.videoElement.nativeElement.play();
+    this.video_native_element.play();
     this.capture()
-    this.videoPlaying = this.isPlaying();
+    this.videoPlaying = this.video_native_element.paused==false;
   }
 
   isPlaying() {
-    return this?.videoElement?.nativeElement?.paused==false;
+    return this.video_native_element.paused==false;
   }
   initCamera(config:any) {
     var browser = <any>navigator;
@@ -105,11 +92,11 @@ export class DisplayComponent implements AfterViewInit, OnInit {
       browser.msGetUserMedia);
 
     browser.mediaDevices.getUserMedia(config).then(stream => {
-      this.videoElement.nativeElement.srcObject = stream;
+      this.video_native_element.srcObject = stream;
     });
   }
   updateCanvas(){
-    let nativVideoEelement = this.videoElement.nativeElement
+    let nativVideoEelement = this.video_native_element
     if (this.unprocessedCanvas.width!=nativVideoEelement.clientWidth)
       this.unprocessedCanvas.width = nativVideoEelement.clientWidth;
     if (this.unprocessedCanvas.height!=nativVideoEelement.clientHeight)
@@ -118,14 +105,5 @@ export class DisplayComponent implements AfterViewInit, OnInit {
       this.processedCanvas.nativeElement.width = nativVideoEelement.clientWidth;
     if(this.processedCanvas.nativeElement.height != nativVideoEelement.clientHeight)
       this.processedCanvas.nativeElement.height = nativVideoEelement.clientHeight;
-  }
-  openSockConn() {
-    this.sockServerResponse$ = this.sms.openImageConnection('bla')
-    this.sockServerResponse$.subscribe({
-      next: (v) => {
-        this.sockServerResponse = v.data
-        console.log(JSON.stringify(v))
-      }
-    })
   }
 }
