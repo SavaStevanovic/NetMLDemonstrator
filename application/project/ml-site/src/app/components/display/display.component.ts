@@ -45,12 +45,16 @@ export class DisplayComponent implements AfterViewInit, OnInit {
     this.image.onload = ()=> {
       this.processed_context.drawImage(this.image, 0, 0);
     }
-    this.sock = this.frameService.openImageConnection()
-    this.sock.onmessage = (v) =>  {
-      this.image.src = JSON.parse(v.data)["image"];
-      requestAnimationFrame(this.capture.bind(this))
-    }
+    this.setupConnection();
     this.initCamera({ video: true, audio: true });
+  }
+
+  private setupConnection() {
+    this.sock = this.frameService.openImageConnection();
+    this.sock.onmessage = (v) => {
+      this.image.src = JSON.parse(v.data)["image"];
+      requestAnimationFrame(this.capture.bind(this));
+    };
   }
 
   getFilters(): void {
@@ -62,26 +66,38 @@ export class DisplayComponent implements AfterViewInit, OnInit {
     this.processed_context = this.processedCanvas.nativeElement.getContext("2d");
     this.unprocessed_context = this.unprocessedCanvas.getContext("2d");
     this.video_native_element = this.videoElement.nativeElement;
-    if(navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+    this.setupCamera();
+  }
+
+  private setupCamera() {
+    if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
       navigator.mediaDevices.getUserMedia({ video: true }).then(stream => {
-          this.video_native_element.srcObject = stream;
+        this.video_native_element.srcObject = stream;
       });
     }
   }
 
   pause() {
     this.video_native_element.pause();
-    this.videoPlaying = this.video_native_element.paused==false;
+    this.setPlaying();
   }
 
   resume() {
+    if (!this.video_native_element.srcObject?.active){
+      this.setupCamera();
+    }
+    if (this.sock.readyState!=WebSocket.OPEN) {
+      this.setupConnection();
+    }
     this.video_native_element.play();
-    this.capture()
-    this.videoPlaying = this.video_native_element.paused==false;
+    this.capture();
+    this.setPlaying();
   }
 
-  isPlaying() {
-    return this.video_native_element.paused==false;
+  setPlaying() {
+    this.videoPlaying = this.video_native_element.paused==false
+      && this.sock.readyState!=WebSocket.OPEN
+      && !this.video_native_element.srcObject.active;
   }
   initCamera(config:any) {
     var browser = <any>navigator;

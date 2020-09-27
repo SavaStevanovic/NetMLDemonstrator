@@ -14,6 +14,8 @@ import imutils
 import sockjs.tornado
 import tornado.ioloop
 import tornado.web
+import time
+import io
 
 
 transfor = augmentation.OutputTransform()
@@ -60,9 +62,12 @@ class FrameUploadHandler(BaseHandler):
         for d in data['check_boxes']:
             data[d['name']] = d['checked']
         image_data = data['frame'].replace('data:image/png;base64,', "")
-        byte_image = bytearray(base64.b64decode(image_data))
-        img_input = cv2.imdecode(np.asarray(byte_image), cv2.IMREAD_COLOR)
-        img = imutils.resize(img_input, height=256)
+        byte_image = io.BytesIO(base64.b64decode(image_data))
+        img_input = Image.open(byte_image).convert('RGB')
+        byte_image.close()
+        new_size = tuple(x*256/img_input.size[-1] for x in img_input.size)
+        img_input.thumbnail(new_size, Image.ANTIALIAS)
+
         model_key = data['model_name']
         if model_key not in camera_models:
             if model_key not in model_paths:
@@ -76,7 +81,7 @@ class FrameUploadHandler(BaseHandler):
             model.padder = augmentation.PaddTransform(pad_size=2**model.depth)
             camera_models[model_key] = model
         model = camera_models[model_key]
-        padded_img, _ = model.padder(Image.fromarray(img), None)
+        padded_img, _ = model.padder(img_input, None)
         img_tensor, _ = transfor(padded_img, None)
         img_tensor = img_tensor.unsqueeze(0).float().cuda()
 
@@ -85,13 +90,12 @@ class FrameUploadHandler(BaseHandler):
 
         boxes_pr=[]
         for out in outs:
-            boxes_pr += model.target_to_box_transform(out, data['threshold'], scale=img.shape[:2])
+            boxes_pr += model.target_to_box_transform(out, data['threshold'], scale=img_input.size[::-1])
         if data['NMS']:
             boxes_pr = apply_output.non_max_suppression(boxes_pr)
          
         for b in boxes_pr:
             b['class'] = model.classes[b['category_id']][1]
-
         self.write(json.dumps(boxes_pr))
 
 if __name__ == "__main__":
