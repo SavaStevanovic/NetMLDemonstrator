@@ -65,8 +65,6 @@ class FrameUploadHandler(BaseHandler):
         byte_image = io.BytesIO(base64.b64decode(image_data))
         img_input = Image.open(byte_image).convert('RGB')
         byte_image.close()
-        new_size = tuple(x*256/img_input.size[-1] for x in img_input.size)
-        img_input.thumbnail(new_size, Image.ANTIALIAS)
 
         model_key = data['model_name']
         if model_key not in camera_models:

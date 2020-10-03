@@ -34,7 +34,7 @@ export class DisplayComponent implements AfterViewInit, OnInit {
       return;
     }
 
-    this.unprocessed_context.drawImage(this.video_native_element, 0, 0);
+    this.unprocessed_context.drawImage(this.video_native_element, 0, 0, this.video_native_element.clientWidth, this.video_native_element.clientHeight, 0, 0, this.unprocessed_context.canvas.width, this.unprocessed_context.canvas.height);
     let post_data = {'frame': this.unprocessedCanvas.toDataURL(), 'config': this.filters}
     this.sock.send(JSON.stringify(post_data))
   }
@@ -52,10 +52,42 @@ export class DisplayComponent implements AfterViewInit, OnInit {
   private setupConnection() {
     this.sock = this.frameService.openImageConnection();
     this.sock.onmessage = (v) => {
-      this.image.src = JSON.parse(v.data)["image"];
+      this.processed_context.drawImage(this.video_native_element, 0, 0);
+      let data = JSON.parse(v['data'])
+      if (data['bboxes']){
+        for (let box of data['bboxes']){
+          this.processed_context.beginPath();
+          this.processed_context.lineWidth = 3;
+          let color = this.toColor(16777216/(box['category_id']+1));
+          this.processed_context.strokeStyle = color;
+          let bbox = box['bbox'];
+          this.processed_context.rect(
+            bbox[0] * this.processed_context.canvas.height,
+            bbox[1] * this.processed_context.canvas.width,
+            bbox[2] * this.processed_context.canvas.height,
+            bbox[3] * this.processed_context.canvas.width
+          );
+          this.processed_context.font = "bold 1.25em Arial";
+          this.processed_context.fillStyle = color;
+          this.processed_context.fillText(
+            box['class'],
+            bbox[0] * this.processed_context.canvas.height - 2,
+            bbox[1] * this.processed_context.canvas.width - 4)
+          ;
+          this.processed_context.stroke();
+        }
+      }
       requestAnimationFrame(this.capture.bind(this));
     };
   }
+
+  private toColor(num): string {
+    num >>>= 0;
+    var b = num & 0xFF,
+        g = (num & 0xFF00) >>> 8,
+        r = (num & 0xFF0000) >>> 16;
+    return "rgba(" + [r, g, b].join(",") + ")";
+}
 
   getFilters(): void {
     this.filterService.getFilters()
@@ -96,8 +128,8 @@ export class DisplayComponent implements AfterViewInit, OnInit {
 
   setPlaying() {
     this.videoPlaying = this.video_native_element.paused==false
-      && this.sock.readyState!=WebSocket.OPEN
-      && !this.video_native_element.srcObject.active;
+      && this.sock.readyState == WebSocket.OPEN
+      && this.video_native_element.srcObject.active;
   }
   initCamera(config:any) {
     var browser = <any>navigator;
@@ -112,14 +144,16 @@ export class DisplayComponent implements AfterViewInit, OnInit {
     });
   }
   updateCanvas(){
+
     let nativVideoEelement = this.video_native_element
-    if (this.unprocessedCanvas.width!=nativVideoEelement.clientWidth)
-      this.unprocessedCanvas.width = nativVideoEelement.clientWidth;
-    if (this.unprocessedCanvas.height!=nativVideoEelement.clientHeight)
-      this.unprocessedCanvas.height = nativVideoEelement.clientHeight;
-    if (this.processedCanvas.nativeElement.width!=nativVideoEelement.clientWidth)
+    this.unprocessedCanvas.height = 256;
+    if (this.processedCanvas.nativeElement.width != nativVideoEelement.clientWidth){
       this.processedCanvas.nativeElement.width = nativVideoEelement.clientWidth;
-    if(this.processedCanvas.nativeElement.height != nativVideoEelement.clientHeight)
+      this.unprocessedCanvas.width = nativVideoEelement.clientWidth * 256 / nativVideoEelement.clientHeight;
+    }
+    if(this.processedCanvas.nativeElement.height != nativVideoEelement.clientHeight){
       this.processedCanvas.nativeElement.height = nativVideoEelement.clientHeight;
+      this.unprocessedCanvas.width = nativVideoEelement.clientWidth * 256 / nativVideoEelement.clientHeight;
+    }
   }
 }

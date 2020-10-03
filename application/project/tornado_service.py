@@ -6,9 +6,9 @@ import tornado.web
 import json 
 import base64
 import cv2
+import time
 import numpy as np
 import requests
-import imutils
 import sockjs.tornado
 filter_data = {
     "detection": {'path': 'http://detection:5001/get_models'}
@@ -70,37 +70,27 @@ class FrameUploadConnection(sockjs.tornado.SockJSConnection):
         pass
 
     def on_message(self, message):
+        start_time = time.time()
         data = json.loads(message)
-        image_data = data['frame'].replace('data:image/png;base64,', "")
-        byte_image = bytearray(base64.b64decode(image_data))
-        frame = cv2.imdecode(np.asarray(byte_image), cv2.IMREAD_COLOR)
-        new_size = tuple(int(x*256/frame.shape[0]) for x in frame.shape[:2][::-1])
-        small_frame = cv2.resize(frame, new_size, interpolation = cv2.INTER_AREA)
-        retval, small_frame_buffer = cv2.imencode('.jpeg', small_frame)
-        small_frame_endoced = 'data:image/png;base64,' + base64.b64encode(small_frame_buffer).decode("utf-8")
         used_models = [x for x in data['config'] if 'selectedModel' in x 
                                                     and x['selectedModel'] 
                                                     and x['name'] in filter_data.keys()]
+        return_data = {}                                                    
         for model_config in used_models:
             model_service = self.filter_data[model_config['name']]
-            headers = {'Content-Type': 'application/json'}
             data['model_name'] = model_config['selectedModel']
             r = requests.post(url=model_service['path'].replace('get_models', 'frame_upload'),json = {
-                    'frame': small_frame_endoced, 
+                    'frame': data['frame'], 
                     'model_name': model_config['selectedModel'],
                     'progress_bars' : model_config['progress_bars'],
                     'check_boxes' : model_config['check_boxes']
                 })
             if model_config['name'] == 'detection':
                 boxes = json.loads(r.content.decode("utf-8"))
-                for l in boxes:
-                    l['bbox'] = [int(e*frame.shape[i%2]) for i, e in enumerate(l['bbox'])]
-                    image = draw_box(frame, l['bbox'], l['class'], (0, 255, 0), 2)
+                return_data['bboxes'] = boxes
 
-        retval, buffer = cv2.imencode('.jpeg', frame)
-        data = {'image': 'data:image/png;base64,' + base64.b64encode(buffer).decode("utf-8")}
-
-        self.send(json.dumps(data))
+        self.send(json.dumps(return_data))
+        print("--- {} ms ---".format((time.time() - start_time)*1000))
 
     def on_close(self):
         pass
