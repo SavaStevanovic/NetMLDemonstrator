@@ -85,7 +85,7 @@ class FrameUploadHandler(BaseHandler):
 
         outputs = model(img_tensor)
         outs = [out.cpu().detach().numpy() for out in outputs]
-
+        print(img_input.size)
         boxes_pr=[]
         for i, out in enumerate(outs):
             boxes_pr += model.target_to_box_transform(out, data['threshold'], scale=img_input.size[::-1], depth = i)

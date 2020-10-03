@@ -6,4 +6,6 @@
 <div class="row">
   <button mat-stroked-button *ngIf="!videoPlaying" (click)="resume()" color="primary" class="video-control">Play</button>
   <button mat-stroked-button *ngIf="videoPlaying" (click)="pause()" color="warn" class="video-control">Pause</button>
+  <mat-label> Quality:</mat-label>
+  <mat-slider thumbLabel min="0" max="1" step="0.01" color="primary" [(value)]="quality" (change)="updateUnprocessedCanvas()"></mat-slider>
 </div>

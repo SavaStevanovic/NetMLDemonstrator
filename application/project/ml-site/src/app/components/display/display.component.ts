@@ -22,6 +22,7 @@ export class DisplayComponent implements AfterViewInit, OnInit {
   unprocessed_context: any;
   video_native_element: any;
   videoPlaying = false;
+  quality = 0.5;
   sock: any;
 
   constructor(
@@ -144,16 +145,13 @@ export class DisplayComponent implements AfterViewInit, OnInit {
     });
   }
   updateCanvas(){
+    this.processedCanvas.nativeElement.width = this.video_native_element.clientWidth;
+    this.processedCanvas.nativeElement.height = this.video_native_element.clientHeight;
+    this.updateUnprocessedCanvas();
+  }
 
-    let nativVideoEelement = this.video_native_element
-    this.unprocessedCanvas.height = 256;
-    if (this.processedCanvas.nativeElement.width != nativVideoEelement.clientWidth){
-      this.processedCanvas.nativeElement.width = nativVideoEelement.clientWidth;
-      this.unprocessedCanvas.width = nativVideoEelement.clientWidth * 256 / nativVideoEelement.clientHeight;
-    }
-    if(this.processedCanvas.nativeElement.height != nativVideoEelement.clientHeight){
-      this.processedCanvas.nativeElement.height = nativVideoEelement.clientHeight;
-      this.unprocessedCanvas.width = nativVideoEelement.clientWidth * 256 / nativVideoEelement.clientHeight;
-    }
+  updateUnprocessedCanvas(){
+    this.unprocessedCanvas.height = this.video_native_element.clientHeight * this.quality;
+    this.unprocessedCanvas.width = this.video_native_element.clientWidth * this.quality;
   }
 }
