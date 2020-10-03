@@ -87,8 +87,8 @@ class FrameUploadHandler(BaseHandler):
         outs = [out.cpu().detach().numpy() for out in outputs]
 
         boxes_pr=[]
-        for out in outs:
-            boxes_pr += model.target_to_box_transform(out, data['threshold'], scale=img_input.size[::-1])
+        for i, out in enumerate(outs):
+            boxes_pr += model.target_to_box_transform(out, data['threshold'], scale=img_input.size[::-1], depth = i)
         if data['NMS']:
             boxes_pr = apply_output.non_max_suppression(boxes_pr)
          
