@@ -3,7 +3,9 @@
 // The list of file replacements can be found in `angular.json`.
 
 export const environment = {
-  production: false
+  production: false,
+  frame_upload_stream: 'http://127.0.0.1:4321/menager/frame_upload_stream',
+  filtersUrl: 'http://127.0.0.1:4321/menager/get_filters'
 };
 
 /*

@@ -3,13 +3,14 @@ import { Filter } from '../../models/filter';
 import { Observable, of } from 'rxjs';
 import { HttpClient, HttpHeaders } from '@angular/common/http';
 import { Subject } from 'rxjs';
+import { environment } from '../../../environments/environment';
 
 @Injectable({
   providedIn: 'root'
 })
 export class FilterService {
 
-  private filtersUrl = 'http://127.0.0.1:4321/get_filters';
+  private filtersUrl = environment.filtersUrl;
   private filtersSubject = new Subject<Filter[]>();
 
   constructor(private http: HttpClient) {

@@ -97,10 +97,10 @@ if __name__ == "__main__":
     import logging
     logging.getLogger().setLevel(logging.INFO)
 
-    FrameRouter = sockjs.tornado.SockJSRouter(FrameUploadConnection, '/frame_upload_stream')
+    FrameRouter = sockjs.tornado.SockJSRouter(FrameUploadConnection, r'/menager/frame_upload_stream')
     # 2. Create Tornado application
     app = tornado.web.Application([
-        (r'/get_filters', GetFilterHandler, dict(filter_data=filter_data)),] 
+        (r'/menager/get_filters', GetFilterHandler, dict(filter_data=filter_data)),] 
         + FrameRouter.urls)
 
     # 3. Make Tornado app listen on port 8080

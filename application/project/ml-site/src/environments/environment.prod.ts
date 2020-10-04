@@ -1,3 +1,5 @@
 export const environment = {
-  production: true
+  production: true,
+  frame_upload_stream: 'menager/frame_upload_stream',
+  filtersUrl: 'menager/get_filters'
 };
