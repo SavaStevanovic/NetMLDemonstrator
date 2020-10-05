@@ -17,7 +17,6 @@ export class DisplayComponent implements AfterViewInit, OnInit {
   @ViewChild('processedCanvas') processedCanvas: ElementRef;
 
   filters: Filter[];
-  image: any;
   processed_context: any;
   unprocessed_context: any;
   video_native_element: any;
@@ -42,10 +41,6 @@ export class DisplayComponent implements AfterViewInit, OnInit {
 
   ngOnInit(): void {
     this.getFilters();
-    this.image = new Image();
-    this.image.onload = ()=> {
-      this.processed_context.drawImage(this.image, 0, 0);
-    }
     this.setupConnection();
     this.initCamera({ video: true, audio: true });
   }
