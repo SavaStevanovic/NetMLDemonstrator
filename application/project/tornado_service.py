@@ -68,7 +68,7 @@ class FrameUploadConnection(sockjs.tornado.SockJSConnection):
 
     def on_message(self, message):
         start_time = time.time()
-        data = json.loads(message)
+        data = tornado.escape.json_decode(message)
         used_models = [x for x in data['config'] if 'selectedModel' in x 
                                                     and x['selectedModel'] 
                                                     and x['name'] in filter_data.keys()]
@@ -76,17 +76,20 @@ class FrameUploadConnection(sockjs.tornado.SockJSConnection):
         for model_config in used_models:
             model_service = self.filter_data[model_config['name']]
             data['model_name'] = model_config['selectedModel']
-            r = requests.post(url=model_service['path'].replace('get_models', 'frame_upload'),json = {
+            r = requests.post(
+                url=model_service['path'].replace('get_models', 'frame_upload'),
+                json = {
                     'frame': data['frame'], 
                     'model_name': model_config['selectedModel'],
                     'progress_bars' : model_config['progress_bars'],
                     'check_boxes' : model_config['check_boxes']
-                })
+                }
+            )
             if model_config['name'] == 'detection':
                 boxes = json.loads(r.content.decode("utf-8"))
                 return_data['bboxes'] = boxes
 
-        self.send(json.dumps(return_data))
+        self.send(tornado.escape.json_encode(return_data))
         print("--- {} ms ---".format((time.time() - start_time)*1000))
 
     def on_close(self):
