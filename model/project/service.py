@@ -51,10 +51,9 @@ class FrameUploadHandler(BaseHandler):
             data[d['name']] = d['value']
         for d in data['check_boxes']:
             data[d['name']] = d['checked']
-        image_data = data['frame'].replace('data:image/png;base64,', "")
+        image_data = data['frame'].replace('data:image/jpeg;base64,', "")
         byte_image = io.BytesIO(pybase64._pybase64.b64decode(image_data))
-        img_input = Image.open(byte_image).convert('RGB')
-        byte_image.close()
+        img_input = Image.open(byte_image)
 
         model_key = data['model_name']
         if model_key not in camera_models:

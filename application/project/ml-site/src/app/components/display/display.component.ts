@@ -35,7 +35,7 @@ export class DisplayComponent implements AfterViewInit, OnInit {
 
     this.unprocessed_context.drawImage(this.video_native_element, 0, 0, this.video_native_element.clientWidth, this.video_native_element.clientHeight, 0, 0, this.unprocessed_context.canvas.width, this.unprocessed_context.canvas.height);
     if (this.shouldSendReques()){
-      let post_data = {'frame': this.unprocessedCanvas.toDataURL(), 'config': this.filters}
+      let post_data = {'frame': this.unprocessedCanvas.toDataURL("image/jpeg", 0.95), 'config': this.filters}
       this.sock.send(JSON.stringify(post_data))
     }
     else{
