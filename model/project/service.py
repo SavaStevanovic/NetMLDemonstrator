@@ -1,4 +1,4 @@
-import base64
+import pybase64
 import torch
 from visualization import output_transform
 from visualization import apply_output
@@ -52,7 +52,7 @@ class FrameUploadHandler(BaseHandler):
         for d in data['check_boxes']:
             data[d['name']] = d['checked']
         image_data = data['frame'].replace('data:image/png;base64,', "")
-        byte_image = io.BytesIO(base64.b64decode(image_data))
+        byte_image = io.BytesIO(pybase64._pybase64.b64decode(image_data))
         img_input = Image.open(byte_image).convert('RGB')
         byte_image.close()
 

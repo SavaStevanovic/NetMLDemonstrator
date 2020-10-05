@@ -2,3 +2,4 @@ torchsummary
 imutils
 autopep8
 sockjs-tornado
+pybase64
