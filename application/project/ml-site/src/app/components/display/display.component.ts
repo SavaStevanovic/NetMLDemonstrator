@@ -3,8 +3,6 @@ import { ViewChild } from '@angular/core';
 import { FilterService } from '../../services/filter/filter.service';
 import { FrameService } from '../../services/frame/frame.service';
 import { Filter } from '../../models/filter';
-import { SockjsMessageService } from 'src/app/services/sockjs-message.service';
-import { Observer, Observable, throwError, Subject } from 'rxjs';
 
 @Component({
   selector: 'app-display',
@@ -30,13 +28,20 @@ export class DisplayComponent implements AfterViewInit, OnInit {
   }
 
   capture() {
-    if (this.video_native_element.paused) {
+    this.setPlaying();
+    if (!this.videoPlaying) {
       return;
     }
 
     this.unprocessed_context.drawImage(this.video_native_element, 0, 0, this.video_native_element.clientWidth, this.video_native_element.clientHeight, 0, 0, this.unprocessed_context.canvas.width, this.unprocessed_context.canvas.height);
-    let post_data = {'frame': this.unprocessedCanvas.toDataURL(), 'config': this.filters}
-    this.sock.send(JSON.stringify(post_data))
+    if (this.shouldSendReques()){
+      let post_data = {'frame': this.unprocessedCanvas.toDataURL(), 'config': this.filters}
+      this.sock.send(JSON.stringify(post_data))
+    }
+    else{
+      this.processed_context.drawImage(this.video_native_element, 0, 0);
+      requestAnimationFrame(this.capture.bind(this));
+    }
   }
 
   ngOnInit(): void {
@@ -45,39 +50,54 @@ export class DisplayComponent implements AfterViewInit, OnInit {
     this.initCamera({ video: true, audio: true });
   }
 
+  private shouldSendReques (): boolean {
+    if (this.quality==0){
+      return false;
+    }
+    for (let i = 0; i < this.filters.length; i++) {
+      if (this.filters[i].selectedModel) {
+        return true;
+      }
+    }
+    return false;
+  }
+
   private setupConnection() {
     this.sock = this.frameService.openImageConnection();
     this.sock.onmessage = (v) => {
       this.processed_context.drawImage(this.video_native_element, 0, 0);
       let data = JSON.parse(v['data'])
-      if (data['bboxes']){
-        for (let box of data['bboxes']){
-          this.processed_context.beginPath();
-          this.processed_context.lineWidth = 3;
-          let color = this.toColor(16777216/(box['category_id']+1));
-          this.processed_context.strokeStyle = color;
-          let bbox = box['bbox'];
-          this.processed_context.rect(
-            bbox[0] * this.processed_context.canvas.height,
-            bbox[1] * this.processed_context.canvas.width,
-            bbox[2] * this.processed_context.canvas.height,
-            bbox[3] * this.processed_context.canvas.width
-          );
-          this.processed_context.font = "bold 1.25em Arial";
-          this.processed_context.fillStyle = color;
-          this.processed_context.fillText(
-            box['class'],
-            bbox[0] * this.processed_context.canvas.height - 2,
-            bbox[1] * this.processed_context.canvas.width - 4)
-          ;
-          this.processed_context.stroke();
-        }
-      }
+      this.processDetection(data);
       requestAnimationFrame(this.capture.bind(this));
     };
   }
 
-  private toColor(num): string {
+  private processDetection(data: any) {
+    if (data['bboxes']) {
+      for (let box of data['bboxes']) {
+        this.processed_context.beginPath();
+        this.processed_context.lineWidth = 3;
+        let color = this.toColor(16777216 / (box['category_id'] + 1));
+        this.processed_context.strokeStyle = color;
+        let bbox = box['bbox'];
+        this.processed_context.rect(
+          bbox[0] * this.processed_context.canvas.height,
+          bbox[1] * this.processed_context.canvas.width,
+          bbox[2] * this.processed_context.canvas.height,
+          bbox[3] * this.processed_context.canvas.width
+        );
+        this.processed_context.font = "bold 1.25em Arial";
+        this.processed_context.fillStyle = color;
+        this.processed_context.fillText(
+          box['class'],
+          bbox[0] * this.processed_context.canvas.height - 2,
+          bbox[1] * this.processed_context.canvas.width - 4);
+        this.processed_context.stroke();
+      }
+    }
+  }
+
+  private toColor(num: number): string {
     num >>>= 0;
     var b = num & 0xFF,
         g = (num & 0xFF00) >>> 8,
@@ -119,7 +139,6 @@ export class DisplayComponent implements AfterViewInit, OnInit {
     }
     this.video_native_element.play();
     this.capture();
-    this.setPlaying();
   }
 
   setPlaying() {
@@ -127,6 +146,7 @@ export class DisplayComponent implements AfterViewInit, OnInit {
       && this.sock.readyState == WebSocket.OPEN
       && this.video_native_element.srcObject.active;
   }
+
   initCamera(config:any) {
     var browser = <any>navigator;
 
@@ -139,6 +159,7 @@ export class DisplayComponent implements AfterViewInit, OnInit {
       this.video_native_element.srcObject = stream;
     });
   }
+
   updateCanvas(){
     this.processedCanvas.nativeElement.width = this.video_native_element.clientWidth;
     this.processedCanvas.nativeElement.height = this.video_native_element.clientHeight;
