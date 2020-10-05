@@ -1,20 +1,10 @@
-import tornado.ioloop
-import tornado.web
-import json 
-import base64
-import cv2
+import tornado
 import time
-import numpy as np
 import requests
 import sockjs.tornado
 filter_data = {
     "detection": {'path': 'http://detection:5001/get_models'}
 }
-
-def draw_box(image, bbox, label, color, size):
-    image = cv2.rectangle(image, (bbox[0], bbox[1]), (bbox[0] + bbox[2], bbox[1] + bbox[3]), color, size)
-    cv2.putText(image, label, (bbox[0]-int(size/2), bbox[1]-size-1), cv2.FONT_HERSHEY_SIMPLEX, 0.5, color, size)
-    return image
 
 class BaseHandler(tornado.web.RequestHandler):
     def set_default_headers(self):
@@ -51,12 +41,12 @@ class GetFilterHandler(BaseHandler):
             try:
                 response = await http_client.fetch(d['path'])
                 if response.code == 200:
-                    models = json.loads(response.body.decode("utf-8")) 
+                    models = tornado.escape.json_decode(response.body) 
                     models['name'] = k
                     filters.append(models)
             except Exception as e:
                 pass
-        self.write(json.dumps(filters))
+        self.write(tornado.escape.json_encode(filters))
 
 class FrameUploadConnection(sockjs.tornado.SockJSConnection):
     def __init__(self, session):
@@ -86,7 +76,7 @@ class FrameUploadConnection(sockjs.tornado.SockJSConnection):
                 }
             )
             if model_config['name'] == 'detection':
-                boxes = json.loads(r.content.decode("utf-8"))
+                boxes = tornado.escape.json_decode(r.content)
                 return_data['bboxes'] = boxes
 
         self.send(tornado.escape.json_encode(return_data))

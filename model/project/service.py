@@ -1,20 +1,10 @@
-import cv2
-import numpy as np
-import json
 import base64
 import torch
-from torch2trt import torch2trt, TRTModule
-from torchvision.models.alexnet import alexnet
-from torch2trt import TRTModule
 from visualization import output_transform
 from visualization import apply_output
 from PIL import Image
 from data_loader import augmentation
-import imutils
-import sockjs.tornado
-import tornado.ioloop
 import tornado.web
-import time
 import io
 
 
@@ -52,11 +42,11 @@ class GetModelsHandler(BaseHandler):
             'check_boxes': [{'name':'NMS', 'checked':True}],
         } 
       
-        self.write(json.dumps(data))
+        self.write(data)
 
 class FrameUploadHandler(BaseHandler):
     def post(self):
-        data = json.loads(self.request.body.decode("utf-8"))
+        data = tornado.escape.json_decode(self.request.body)
         for d in data['progress_bars']:
             data[d['name']] = d['value']
         for d in data['check_boxes']:
@@ -94,7 +84,7 @@ class FrameUploadHandler(BaseHandler):
          
         for b in boxes_pr:
             b['class'] = model.classes[b['category_id']][1]
-        self.write(json.dumps(boxes_pr))
+        self.write(tornado.escape.json_encode(boxes_pr))
 
 if __name__ == "__main__":
     import logging
