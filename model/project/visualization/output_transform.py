@@ -31,5 +31,5 @@ class TargetTransformToBoxes(object):
         l['bbox'] = [b*2**depth for b in l['bbox']]
         l['confidence'] = first_target[cords[0], cords[1], cords[2]].item()
         if scale:
-            l['bbox'] = [x/scale[i%2] for i, x in enumerate(l['bbox'])]
+            l['bbox'] = [min(max(x/scale[i%2], 0), 1) for i, x in enumerate(l['bbox'])]
         return l

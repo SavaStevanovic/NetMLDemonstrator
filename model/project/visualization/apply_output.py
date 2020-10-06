@@ -28,8 +28,8 @@ def IoU(bboxDT, bboxGT):
     xB = min(bboxDT[0] + bboxDT[2], bboxGT[0] + bboxGT[2])
     yB = min(bboxDT[1] + bboxDT[3], bboxGT[1] + bboxGT[3])
     interArea = max(0, xB - xA) * max(0, yB - yA)
-    boxAArea = bboxDT[2] * bboxDT[2]
-    boxBArea = bboxGT[2] * bboxGT[2]
+    boxAArea = bboxDT[2] * bboxDT[3]
+    boxBArea = bboxGT[2] * bboxGT[3]
     iou = 0
     unionArea = float(boxAArea + boxBArea - interArea)
     if unionArea>0:
