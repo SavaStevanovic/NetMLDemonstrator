@@ -119,11 +119,8 @@ class PaddTransform(object):
         return image_padded, label
 
 class OutputTransform(object):
-    def __init__(self):
-        self.toTensor = transforms.ToTensor()
-
     def __call__(self, image, label):
-        image_padded = self.toTensor(image)
+        image_padded = transforms.functional.to_tensor(image)
         return image_padded, label
 
 class TargetTransform(object):

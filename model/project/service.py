@@ -8,7 +8,6 @@ import tornado.web
 import io
 
 
-transfor = augmentation.OutputTransform()
 camera_models = {}
 
 model_paths = {
@@ -65,16 +64,17 @@ class FrameUploadHandler(BaseHandler):
                                                                                     classes=model.classes,
                                                                                     ratios=model.ratios,
                                                                                     strides=model.strides)
-            model.padder = augmentation.PaddTransform(pad_size=2**model.depth)
+            model.preprocessing = augmentation.PairCompose([
+                augmentation.PaddTransform(pad_size=2**model.depth),
+                augmentation.OutputTransform()
+            ])
             camera_models[model_key] = model
         model = camera_models[model_key]
-        padded_img, _ = model.padder(img_input, None)
-        img_tensor, _ = transfor(padded_img, None)
+        img_tensor, _  = model.preprocessing(img_input, None)
         img_tensor = img_tensor.unsqueeze(0).float().cuda()
-
         outputs = model(img_tensor)
         outs = [out.cpu().detach().numpy() for out in outputs]
-        print(img_input.size)
+
         boxes_pr=[]
         for i, out in enumerate(outs):
             boxes_pr += model.target_to_box_transform(out, data['threshold'], scale=img_input.size[::-1], depth = i)
@@ -95,8 +95,7 @@ if __name__ == "__main__":
         (r'/frame_upload', FrameUploadHandler),] 
     )
 
-    # 3. Make Tornado app listen on port 8080
-    app.listen(5001)
-    
-    # 4. Start IOLoop
+    server = tornado.httpserver.HTTPServer(app)
+    server.listen(5001)
+   
     tornado.ioloop.IOLoop.current().start()

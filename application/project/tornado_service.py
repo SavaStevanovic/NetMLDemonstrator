@@ -22,8 +22,9 @@ class BaseHandler(tornado.web.RequestHandler):
 class GetFilterHandler(BaseHandler):
     def initialize(self, filter_data):
         self.filter_data = filter_data
-    
-    async def get(self):
+
+    @tornado.gen.coroutine
+    def get(self):
         filters = [{
             'name': "Test", 
             'models': ['Test_good', 'Test_bad'], 
@@ -39,7 +40,7 @@ class GetFilterHandler(BaseHandler):
         for k, d in self.filter_data.items():
             http_client = tornado.httpclient.AsyncHTTPClient()
             try:
-                response = await http_client.fetch(d['path'])
+                response = yield http_client.fetch(d['path'])
                 if response.code == 200:
                     models = tornado.escape.json_decode(response.body) 
                     models['name'] = k
@@ -96,9 +97,7 @@ if __name__ == "__main__":
         (r'/menager/get_filters', GetFilterHandler, dict(filter_data=filter_data)),] 
         + FrameRouter.urls)
 
-    # 3. Make Tornado app listen on port 8080
-    app.listen(4321)
-    
-    # 4. Start IOLoop
+    server = tornado.httpserver.HTTPServer(app)
+    server.listen(4321)
+   
     tornado.ioloop.IOLoop.current().start()
-
