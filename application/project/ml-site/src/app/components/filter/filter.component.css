@@ -1,43 +1,12 @@
 mat-slider {
   top: -1em;
-  /* left: -0.5em; */
   height: 1em;
-  width: 6em;
-  margin: 0em 0em 0em 0em;
-  padding: 0em 0em 0em 0em;
+  width: 8em;
   float:right;
-}
-.mat-slider-horizontal {
-  min-width: 4em;
-}
-mat-label {
-  height: 1em;
-  margin: 0em 0em 0em 0em;
-  padding: 0em 0em 0em 0em;
 }
 mat-slide-toggle {
   float: right;
-  margin: 0em 0.5em 0em 0em;
   height: 1em;
-}
-::ng-deep .mat-slide-toggle-bar {
-  height: 0.8em !important;
-  width: 2.4em !important;
-}
-
-::ng-deep .mat-slide-toggle-thumb {
-  height: 1em !important;
-  width: 1em !important;
-}
-
-::ng-deep .mat-slide-toggle.mat-checked .mat-slide-toggle-thumb-container {
-    transform: translate3d(1.4em,0,0) !important;
-}
-
-::ng-deep .mat-slide-toggle-thumb-container {
-    width: 1.2em !important;
-    height: 1.2em !important;
-    top: -0.1em !important;
 }
 .menuItem .mat-expansion-panel-header {
   text-transform: capitalize;
@@ -45,4 +14,11 @@ mat-slide-toggle {
 }
 .menuItem .mat-expansion-panel-header-description, .mat-expansion-panel-header-title {
   flex-basis: 0;
+}
+ul {
+  padding-inline-start: 0em;
+  list-style-type: none;
+}
+li {
+  padding: 0.0em 0em 0.1em 0em;
 }
