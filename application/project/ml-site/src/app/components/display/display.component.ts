@@ -81,17 +81,17 @@ export class DisplayComponent implements AfterViewInit, OnInit {
         this.processed_context.strokeStyle = color;
         let bbox = box['bbox'];
         this.processed_context.rect(
-          bbox[0] * this.processed_context.canvas.height,
-          bbox[1] * this.processed_context.canvas.width,
-          bbox[2] * this.processed_context.canvas.height,
-          bbox[3] * this.processed_context.canvas.width
+          bbox[0] * this.processed_context.canvas.width,
+          bbox[1] * this.processed_context.canvas.height,
+          bbox[2] * this.processed_context.canvas.width,
+          bbox[3] * this.processed_context.canvas.height
         );
         this.processed_context.font = "bold 1.25em Arial";
         this.processed_context.fillStyle = color;
         this.processed_context.fillText(
           box['class'],
-          bbox[0] * this.processed_context.canvas.height - 2,
-          bbox[1] * this.processed_context.canvas.width - 4);
+          bbox[0] * this.processed_context.canvas.width - 2,
+          bbox[1] * this.processed_context.canvas.height - 4);
         this.processed_context.stroke();
       }
     }

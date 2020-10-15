@@ -9,6 +9,11 @@ import io
 
 
 camera_models = {}
+torch.no_grad()
+torch.autograd.set_detect_anomaly(False)
+torch.autograd.profiler.emit_nvtx(False)
+torch.autograd.profiler.profile(False)
+# torch.backends.cudnn.benchmark = True
 
 model_paths = {
         "YoloV2" : {'path': 'checkpoints/YoloV2/64/0,5-1,0-2,0/Coco_checkpoints_final.pth'},
@@ -76,7 +81,7 @@ class FrameUploadHandler(BaseHandler):
 
         boxes_pr=[]
         for i, out in enumerate(outs):
-            boxes_pr += model.target_to_box_transform(out, data['threshold'], scale=img_input.size[::-1], depth = i)
+            boxes_pr += model.target_to_box_transform(out, data['threshold'], scale=img_input.size, depth = i)
         if data['NMS']:
             boxes_pr = apply_output.non_max_suppression(boxes_pr)
          
