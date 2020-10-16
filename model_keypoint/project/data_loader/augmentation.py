@@ -3,6 +3,7 @@ import torchvision.transforms as transforms
 import numpy as np
 from PIL import Image, ImageFilter
 from skimage import util
+import torch
 
 class PairCompose(object):
     def __init__(self, transforms):
@@ -152,3 +153,51 @@ class TargetTransform(object):
                     target[i, id, box_position[1], box_position[0]] = 1
             targets.append(target)
         return image, targets
+
+class PartAffinityFieldTransform(object):
+    def __init__(self, skeleton, distance):
+        self.skeleton = skeleton
+        self.distance = distance
+
+    def point_segment_distance(self, point, line_point1, line_point2):
+        point_distances = [np.linalg.norm(line_point2-point), np.linalg.norm(line_point1-point)]
+        max_distance = max(point_distances)
+        line_length = np.linalg.norm(line_point1-line_point2)
+        if max_distance >= line_length:
+            return min(point_distances)
+        line_distance = np.abs(np.cross(line_point2-line_point1, line_point1-point)) / line_length
+        return line_distance
+
+    def __call__(self, image, labels):
+        afinity_fields_shape = [2*len(self.skeleton),*image.shape[:2]]
+        affinity_fields = torch.zeros(afinity_fields_shape, dtype=torch.float32)
+        for label in labels:
+            for i, part in enumerate(self.skeleton):
+                spart = part[0]
+                dpart = part[1]
+                if spart in label and dpart in label:
+                    spoint = np.array(label[spart])
+                    dpoint = np.array(label[dpart])
+                    direction = spoint - dpoint
+                    line_length = np.linalg.norm(direction, 2)
+                    direction = direction/line_length
+                    points_to_process = [spoint.tolist()]
+                    max_distance = line_length / self.distance
+
+                    point_offsets = [np.array([0, 1]), np.array([0, -1]), np.array([1, 0]), np.array([-1, 0])]
+                    j = 0
+                    while j < len(points_to_process):
+                        point = np.array(points_to_process[j])
+                        j+=1
+                        if point[0]<0 or point[0]>=image.shape[2] or point[1]<0 or point[1]>=image.shape[1]:
+                            continue
+                        point_distance = self.point_segment_distance(point, spoint, dpoint)
+                        if point_distance < max_distance:
+                            affinity_fields[2*i:2*i+2, point[1], point[0]] += direction
+                            next_points = [(point + offset).tolist() for offset in point_offsets if (point + offset).tolist() not in points_to_process]
+                            points_to_process.extend(next_points)
+
+        for i in range(len(self.skeleton)):
+            affinity_fields[2*i:2*i+2] /= np.linalg.norm(affinity_fields, 2, 0) + 1e-8
+
+        return image, affinity_fields
