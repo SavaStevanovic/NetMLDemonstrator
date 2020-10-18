@@ -6,7 +6,7 @@ from tqdm import tqdm
 from functools import reduce
 from torchvision.transforms.functional import to_pil_image
 
-def metrics(net, dataloader, box_transform, epoch=1):
+def metrics(net, dataloader, postprocessing, epoch=1):
     net.eval()
     criterion = YoloLoss(ranges = net.ranges)
     losses = 0.0

@@ -5,6 +5,7 @@ from data_loader import augmentation
 from visualization import output_transform
 import multiprocessing as mu
 from torch.utils.data import Dataset, DataLoader
+from visualization.output_transform import PartAffinityFieldTransform
 import os
 
 skeleton = [
@@ -33,9 +34,11 @@ class UnifiedKeypointDataset(Dataset):
     def __init__(self, net, train=True, debug=False):
         self.debug = debug
         self.train = train
+        self.skeleton = skeleton
+        self.parts = list(set(sum(self.skeleton, [])))
         if train:
             self.transforms = augmentation.PairCompose([
-                augmentation.PartAffinityFieldTransform(skeleton, 10),
+                augmentation.PartAffinityFieldTransform(skeleton, 10, 6, self.parts),
                 # augmentation.RandomResizeTransform(),
                 # augmentation.RandomHorizontalFlipTransform(),
                 # augmentation.RandomCropTransform((416, 416)),
@@ -51,7 +54,7 @@ class UnifiedKeypointDataset(Dataset):
 
         if not train:
             self.transforms = augmentation.PairCompose([
-                augmentation.PartAffinityFieldTransform(skeleton, 10),
+                augmentation.PartAffinityFieldTransform(skeleton, 10, 6, self.parts),
                 #   augmentation.PaddTransform(pad_size=2**net.depth), 
                 #   augmentation.TargetTransform(prior_box_sizes=net.prior_box_sizes, classes=net.classes, ratios=net.ratios, strides=net.strides), 
                 augmentation.OutputTransform()]
@@ -61,6 +64,7 @@ class UnifiedKeypointDataset(Dataset):
             ]
 
         self.data_ids = [(i, j) for i, dataset in enumerate(self.datasets) for j in range(len(self.datasets[i]))]
+        self.postprocessing = PartAffinityFieldTransform(skeleton, 6)
 
 
 

@@ -12,8 +12,13 @@ class UnifiedKeypointDataloader(object):
     def __init__(self, net, batch_size=1, th_count=mu.cpu_count()):
         self.th_count = th_count
         self.batch_size = batch_size 
-        train_dataset = UnifiedKeypointDataset(net, train=True , debug=self.th_count - 1)
-        val_dataset   = UnifiedKeypointDataset(net, train=False, debug=self.th_count - 1)
+        train_dataset = UnifiedKeypointDataset(net, train=True , debug=self.th_count)
+        val_dataset   = UnifiedKeypointDataset(net, train=False, debug=self.th_count)
 
         self.trainloader      = torch.utils.data.DataLoader(train_dataset, batch_size=batch_size, shuffle=True , num_workers=th_count)
         self.validationloader = torch.utils.data.DataLoader(val_dataset  , batch_size=1         , shuffle=False, num_workers=th_count)
+        self.postprocessing   = train_dataset.postprocessing
+        self.trainloader.skeleton         = train_dataset.skeleton 
+        self.trainloader.parts            = train_dataset.parts
+        self.validationloader.skeleton    = val_dataset.skeleton 
+        self.validationloader.parts       = val_dataset.parts

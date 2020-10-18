@@ -4,6 +4,8 @@ import numpy as np
 from PIL import Image, ImageFilter
 from skimage import util
 import torch
+import matplotlib.pyplot as plt
+import cv2
 
 class PairCompose(object):
     def __init__(self, transforms):
@@ -155,9 +157,11 @@ class TargetTransform(object):
         return image, targets
 
 class PartAffinityFieldTransform(object):
-    def __init__(self, skeleton, distance):
+    def __init__(self, skeleton, distance, heatmap_distance, parts):
         self.skeleton = skeleton
         self.distance = distance
+        self.heatmap_distance = heatmap_distance
+        self.parts = parts
 
     def point_segment_distance(self, point, line_point1, line_point2):
         point_distances = [np.linalg.norm(line_point2-point), np.linalg.norm(line_point1-point)]
@@ -176,28 +180,71 @@ class PartAffinityFieldTransform(object):
                 spart = part[0]
                 dpart = part[1]
                 if spart in label and dpart in label:
-                    spoint = np.array(label[spart])
-                    dpoint = np.array(label[dpart])
-                    direction = spoint - dpoint
+                    spoint = np.array(label[spart][::-1])
+                    dpoint = np.array(label[dpart][::-1])
+                    direction = dpoint - spoint
                     line_length = np.linalg.norm(direction, 2)
                     direction = direction/line_length
                     points_to_process = [spoint.tolist()]
-                    max_distance = line_length / self.distance
+                    max_distance = 5
 
                     point_offsets = [np.array([0, 1]), np.array([0, -1]), np.array([1, 0]), np.array([-1, 0])]
                     j = 0
                     while j < len(points_to_process):
                         point = np.array(points_to_process[j])
                         j+=1
-                        if point[0]<0 or point[0]>=image.shape[2] or point[1]<0 or point[1]>=image.shape[1]:
+                        if point[0]<0 or point[0]>=image.shape[0] or point[1]<0 or point[1]>=image.shape[1]:
                             continue
                         point_distance = self.point_segment_distance(point, spoint, dpoint)
-                        if point_distance < max_distance:
-                            affinity_fields[2*i:2*i+2, point[1], point[0]] += direction
-                            next_points = [(point + offset).tolist() for offset in point_offsets if (point + offset).tolist() not in points_to_process]
-                            points_to_process.extend(next_points)
+                        if point_distance > max_distance:
+                            continue
+                        affinity_fields[2*i:2*i+2, point[0], point[1]] += direction
+                        next_points = [(point + offset).tolist() for offset in point_offsets if (point + offset).tolist() not in points_to_process]
+                        points_to_process.extend(next_points)
 
         for i in range(len(self.skeleton)):
-            affinity_fields[2*i:2*i+2] /= np.linalg.norm(affinity_fields, 2, 0) + 1e-8
+            affinity_fields[2*i:2*i+2] /= np.linalg.norm(affinity_fields[2*i:2*i+2], 2, 0) + 1e-8
+            field = affinity_fields[2*i:2*i+2].permute(1, 2, 0).numpy()
+            if (field!=0).any():
+                image[..., :2] = np.where(field==0, image[..., :2], np.uint8(field*255))
+                # image[..., :2] = image[..., :2] + np.uint8((field!=0)*60)
 
-        return image, affinity_fields
+                # complex_img = 1j*field[0]+field[1]
+                # img = np.angle(complex_img, deg=True)
+                # img = img*(img>0) + (img<0)*(360+img)
+                # cv2.imshow('image',img)
+                # cv2.waitKey(0)
+                # img = np.uint8(img*255)
+                # img = Image.fromarray(img, 'L')
+                # plt.imshow(img)
+                # plt.show() 
+        # img = Image.fromarray(image, 'RGB')
+        # plt.imshow(img)
+        # plt.show()   
+
+        part_shape = [len(self.parts),*image.shape[:2]]
+        part_heatmaps = torch.zeros(part_shape, dtype=torch.float32)
+
+        for label in labels: 
+            for part in label.items():
+                i = self.parts.index(part[0])
+                part_heatmap = part_heatmaps[i]
+                point = part[1][::-1]
+                center_point = np.array(point)
+                points_to_process = [list(point)]
+
+                point_offsets = [np.array([0, 1]), np.array([0, -1]), np.array([1, 0]), np.array([-1, 0])]
+                j = 0
+                while j < len(points_to_process):
+                    point = np.array(points_to_process[j])
+                    j+=1
+                    if point[0]<0 or point[0]>=image.shape[0] or point[1]<0 or point[1]>=image.shape[1]:
+                        continue
+                    point_distance = np.linalg.norm(center_point-point)
+                    if point_distance > self.heatmap_distance:
+                        continue
+                    part_heatmap[point[0], point[1]] = max(part_heatmap[point[0], point[1]], 1 - point_distance/self.heatmap_distance)
+                    next_points = [(point + offset).tolist() for offset in point_offsets if (point + offset).tolist() not in points_to_process]
+                    points_to_process.extend(next_points)
+
+        return image, (labels, affinity_fields, part_heatmaps)
