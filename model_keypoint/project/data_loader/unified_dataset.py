@@ -41,11 +41,11 @@ class UnifiedKeypointDataset(Dataset):
                 augmentation.RandomResizeTransform(),
                 augmentation.RandomHorizontalFlipTransform(),
                 augmentation.RandomCropTransform((416, 416)),
-                # augmentation.RandomNoiseTransform(),
-                # augmentation.RandomColorJitterTransform(),
-                # augmentation.RandomBlurTransform(),
-                augmentation.PartAffinityFieldTransform(skeleton, 10, 6, self.parts),
-                # augmentation.TargetTransform(prior_box_sizes=net.prior_box_sizes, classes=net.classes, ratios=net.ratios, strides=net.strides), 
+                augmentation.RandomNoiseTransform(),
+                augmentation.RandomColorJitterTransform(),
+                augmentation.RandomBlurTransform(),
+                augmentation.RandomJPEGcompression(95),
+                augmentation.PartAffinityFieldTransform(skeleton, 14, 6, self.parts),
                 augmentation.OutputTransform()]
             )
             self.datasets = [
@@ -54,9 +54,7 @@ class UnifiedKeypointDataset(Dataset):
 
         if not train:
             self.transforms = augmentation.PairCompose([
-                augmentation.PartAffinityFieldTransform(skeleton, 10, 6, self.parts),
-                #   augmentation.PaddTransform(pad_size=2**net.depth), 
-                #   augmentation.TargetTransform(prior_box_sizes=net.prior_box_sizes, classes=net.classes, ratios=net.ratios, strides=net.strides), 
+                augmentation.PartAffinityFieldTransform(skeleton, 14, 6, self.parts),
                 augmentation.OutputTransform()]
             )
             self.datasets = [

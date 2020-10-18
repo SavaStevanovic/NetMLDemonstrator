@@ -6,6 +6,7 @@ from skimage import util
 import torch
 import matplotlib.pyplot as plt
 import cv2
+import io
 
 class PairCompose(object):
     def __init__(self, transforms):
@@ -78,7 +79,7 @@ class RandomBlurTransform(object):
 
     def __call__(self, image, label):
         p = random.random()
-        if p>0.75:
+        if p>0.9:
             image = image.filter(self.blur)
         return image, label
 
@@ -102,7 +103,7 @@ class RandomNoiseTransform(object):
 
     def __call__(self, image, label):
         p = random.random()
-        if p>0.75:
+        if p>0.9:
             image = np.array(image)
             image = util.random_noise(image, mode='gaussian', seed=None, clip=True)*255
             image = Image.fromarray(image.astype(np.uint8))
@@ -122,38 +123,20 @@ class PaddTransform(object):
 
 class OutputTransform(object):
     def __call__(self, image, label):
-        image_padded = transforms.functional.to_tensor(image)
-        return image_padded, label
+        image = transforms.functional.to_tensor(image)
+        return image, label
 
-class TargetTransform(object):
-    def __init__(self, prior_box_sizes, classes, ratios, strides):
-        self.classes = [x[0] for x in classes]
-        self.classes_len = len(classes)
-        self.prior_box_sizes = prior_box_sizes
-        self.ratios = ratios
-        self.strides = strides
+# added to reflect inference state
+class RandomJPEGcompression(object):
+    def __init__(self, quality):
+        self.quality = quality
 
-    def __call__(self, image, labels):
-        targets = []
-        for i in range(min(len(self.strides), len(self.prior_box_sizes))):
-            stride = self.strides[i]
-            prior_box_size = self.prior_box_sizes[i]
-            target = np.zeros((len(self.ratios), (5 + self.classes_len), image.size[1]//stride, image.size[0]//stride), dtype=np.float32)
-            for l in labels:
-                id = self.classes.index(l['category_id']) + 5
-                bbox = l['bbox']
-                box_center = (bbox[0] + bbox[2]/2)/stride, (bbox[1] + bbox[3]/2)/stride  
-                box_position = np.floor(box_center[0]).astype(np.int), np.floor(box_center[1]).astype(np.int)
-                i = min(range(len(self.ratios)), key=lambda i: abs(self.ratios[i]-bbox[2]/(bbox[3]+1e-9)))
-                if  target[i,  0, box_position[1], box_position[0]]== 0:
-                    target[i,  0, box_position[1], box_position[0]] = 1
-                    target[i,  1, box_position[1], box_position[0]] = np.log(max(bbox[2], 1)/prior_box_size*self.ratios[i])
-                    target[i,  2, box_position[1], box_position[0]] = np.log(max(bbox[3], 1)/prior_box_size)
-                    target[i,  3, box_position[1], box_position[0]] = box_center[0] - box_position[0]
-                    target[i,  4, box_position[1], box_position[0]] = box_center[1] - box_position[1]
-                    target[i, id, box_position[1], box_position[0]] = 1
-            targets.append(target)
-        return image, targets
+    def __call__(self, image, label):
+        outputIoStream = io.BytesIO()
+        image.save(outputIoStream, "JPEG", quality=self.quality, optimice=True)
+        outputIoStream.seek(0)
+        image = Image.open(outputIoStream)
+        return image, label
 
 class PartAffinityFieldTransform(object):
     def __init__(self, skeleton, distance, heatmap_distance, parts):
@@ -185,7 +168,7 @@ class PartAffinityFieldTransform(object):
                     line_length = np.linalg.norm(direction, 2)
                     direction = direction/line_length
                     points_to_process = [spoint.tolist()]
-                    max_distance = 5
+                    max_distance = max(line_length / self.distance, 4)
 
                     point_offsets = [np.array([0, 1]), np.array([0, -1]), np.array([1, 0]), np.array([-1, 0])]
                     j = 0
