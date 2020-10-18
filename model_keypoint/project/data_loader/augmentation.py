@@ -51,14 +51,14 @@ class RandomCropTransform(object):
 class RandomHorizontalFlipTransform(object):
     def __call__(self, image, label):
         p = random.random()
-        if p>0.5:
-            image = transforms.functional.hflip(image)
-            for i, l in enumerate(label):
-                bbox = l['bbox']
-                bbox_center = bbox[0]+bbox[2]/2, bbox[1]+bbox[3]/2
-                bbox_center = image.size[0]-bbox_center[0], bbox_center[1]
-                bbox = [bbox_center[0]-bbox[2]/2, bbox_center[1]-bbox[3]/2, bbox[2], bbox[3]]
-                label[i]['bbox'] = bbox
+        if p<0.5:
+            return image, label
+        image = transforms.functional.hflip(image)
+        end_point = np.array([image.size[0], 0])
+        for i, l in enumerate(label):
+            l = {k:np.array(v) for k, v in l.items()}
+            l = {k:np.abs(end_point-v) for k, v in l.items()}
+            label[i] = {k:tuple(v) for k, v in l.items()}
         return image, label
 
 class RandomResizeTransform(object):

@@ -39,7 +39,7 @@ class UnifiedKeypointDataset(Dataset):
         if train:
             self.transforms = augmentation.PairCompose([
                 augmentation.RandomResizeTransform(),
-                # augmentation.RandomHorizontalFlipTransform(),
+                augmentation.RandomHorizontalFlipTransform(),
                 augmentation.RandomCropTransform((416, 416)),
                 # augmentation.RandomNoiseTransform(),
                 # augmentation.RandomColorJitterTransform(),
