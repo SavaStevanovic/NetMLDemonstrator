@@ -4,6 +4,7 @@ import json
 from pycocotools.coco import COCO
 import matplotlib.pyplot as plt
 from skimage import io
+from PIL import Image
 
 class CocoDataset(Dataset):
     def __init__(self, folder, ann_file):
@@ -25,7 +26,7 @@ class CocoDataset(Dataset):
         annIds = self.data.getAnnIds(imgIds=self.ids[idx])
         anns   = self.data.loadAnns(annIds)
         img_data    = self.data.loadImgs(ids = [self.ids[idx]])[0]
-        img = io.imread(os.path.join(self.folder, img_data['file_name']))
+        img = Image.open(os.path.join(self.folder, img_data['file_name']))
 
         person_keypoints = []
         for keypoint_ann in anns:

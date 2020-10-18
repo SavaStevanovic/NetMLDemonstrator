@@ -32,21 +32,20 @@ class RandomCropTransform(object):
         padding_x = max(self.crop_size[0]-image.size[0],0)
         padding_y = max(self.crop_size[1]-image.size[1],0)
         image = transforms.functional.pad(image, (0, 0, padding_x, padding_y))
-        x = random.randint(self.crop_size[0]//2, image.size[0]-self.crop_size[0]//2)
-        y = random.randint(self.crop_size[1]//2, image.size[1]-self.crop_size[1]//2)
-        image = image.crop((x-self.crop_size[0]//2, y-self.crop_size[1]//2, x+self.crop_size[0]//2, y+self.crop_size[1]//2))
+        x_radius = self.crop_size[0]//2
+        y_radius = self.crop_size[1]//2
+        x = random.randint(x_radius, image.size[0]-x_radius)
+        y = random.randint(y_radius, image.size[1]-y_radius)
+        start_point = [x-x_radius,y-y_radius]
+        end_point = [x+x_radius, y+y_radius]
+        image = image.crop((*start_point, *end_point))
+        start_point = np.array(start_point)
+        end_point = np.array(end_point)
         for i, l in enumerate(label):
-            bbox = l['bbox']
-            bbox_center = bbox[0]+bbox[2]/2, bbox[1]+bbox[3]/2
-            if abs(bbox_center[0]-x)<self.crop_size[0]//2 and abs(bbox_center[1]-y)<self.crop_size[1]//2:
-                bbox[0]=max(self.crop_size[0]//2 + bbox_center[0] - x - bbox[2]/2, 0)
-                bbox[1]=max(self.crop_size[1]//2 + bbox_center[1] - y - bbox[3]/2, 0)
-                bbox[2]=min(bbox[2], self.crop_size[0]-bbox[0])
-                bbox[3]=min(bbox[3], self.crop_size[1]-bbox[1])
-                label[i]['bbox'] = bbox
-            else:
-                label[i]=None
-        label = [l for l in label if l is not None]
+            l = {k:np.array(v) for k, v in l.items()}
+            l = {k:v-start_point for k, v in l.items() if  (start_point <= v).all() and (end_point > v).all()}
+            label[i] = {k:tuple(v) for k, v in l.items()}
+        label = [l for l in label if bool(l)]
         return image, label
 
 class RandomHorizontalFlipTransform(object):
@@ -173,7 +172,7 @@ class PartAffinityFieldTransform(object):
         return line_distance
 
     def __call__(self, image, labels):
-        afinity_fields_shape = [2*len(self.skeleton),*image.shape[:2]]
+        afinity_fields_shape = [2*len(self.skeleton),*image.size[:2]]
         affinity_fields = torch.zeros(afinity_fields_shape, dtype=torch.float32)
         for label in labels:
             for i, part in enumerate(self.skeleton):
@@ -193,7 +192,7 @@ class PartAffinityFieldTransform(object):
                     while j < len(points_to_process):
                         point = np.array(points_to_process[j])
                         j+=1
-                        if point[0]<0 or point[0]>=image.shape[0] or point[1]<0 or point[1]>=image.shape[1]:
+                        if point[0]<0 or point[0]>=image.size[0] or point[1]<0 or point[1]>=image.size[1]:
                             continue
                         point_distance = self.point_segment_distance(point, spoint, dpoint)
                         if point_distance > max_distance:
@@ -204,25 +203,15 @@ class PartAffinityFieldTransform(object):
 
         for i in range(len(self.skeleton)):
             affinity_fields[2*i:2*i+2] /= np.linalg.norm(affinity_fields[2*i:2*i+2], 2, 0) + 1e-8
-            field = affinity_fields[2*i:2*i+2].permute(1, 2, 0).numpy()
-            if (field!=0).any():
-                image[..., :2] = np.where(field==0, image[..., :2], np.uint8(field*255))
-                # image[..., :2] = image[..., :2] + np.uint8((field!=0)*60)
+            # field = affinity_fields[2*i:2*i+2].permute(1, 2, 0).numpy()
+            # if (field!=0).any():
+            #     image[..., :2] = np.where(field==0, image[..., :2], np.uint8(field*255))
 
-                # complex_img = 1j*field[0]+field[1]
-                # img = np.angle(complex_img, deg=True)
-                # img = img*(img>0) + (img<0)*(360+img)
-                # cv2.imshow('image',img)
-                # cv2.waitKey(0)
-                # img = np.uint8(img*255)
-                # img = Image.fromarray(img, 'L')
-                # plt.imshow(img)
-                # plt.show() 
         # img = Image.fromarray(image, 'RGB')
         # plt.imshow(img)
         # plt.show()   
 
-        part_shape = [len(self.parts),*image.shape[:2]]
+        part_shape = [len(self.parts),*image.size[:2]]
         part_heatmaps = torch.zeros(part_shape, dtype=torch.float32)
 
         for label in labels: 
@@ -238,7 +227,7 @@ class PartAffinityFieldTransform(object):
                 while j < len(points_to_process):
                     point = np.array(points_to_process[j])
                     j+=1
-                    if point[0]<0 or point[0]>=image.shape[0] or point[1]<0 or point[1]>=image.shape[1]:
+                    if point[0]<0 or point[0]>=image.size[0] or point[1]<0 or point[1]>=image.size[1]:
                         continue
                     point_distance = np.linalg.norm(center_point-point)
                     if point_distance > self.heatmap_distance:
