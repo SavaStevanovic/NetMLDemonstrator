@@ -67,9 +67,9 @@ class RandomResizeTransform(object):
         new_size = [np.round(s*p).astype(np.int32) for s in list(image.size)[::-1]]
         image = transforms.functional.resize(image, new_size, Image.ANTIALIAS)
         for i, l in enumerate(label):
-            bbox = l['bbox']
-            bbox = [b*p for b in bbox]
-            label[i]['bbox'] = bbox
+            l = {k:np.array(v) for k, v in l.items()}
+            l = {k:np.round(v*p).astype(np.int32) for k, v in l.items()}
+            label[i] = {k:tuple(v) for k, v in l.items()}
         return image, label
 
 class RandomBlurTransform(object):

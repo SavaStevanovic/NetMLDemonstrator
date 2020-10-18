@@ -38,13 +38,13 @@ class UnifiedKeypointDataset(Dataset):
         self.parts = list(set(sum(self.skeleton, [])))
         if train:
             self.transforms = augmentation.PairCompose([
-                augmentation.RandomCropTransform((416, 416)),
-                augmentation.PartAffinityFieldTransform(skeleton, 10, 6, self.parts),
-                # augmentation.RandomResizeTransform(),
+                augmentation.RandomResizeTransform(),
                 # augmentation.RandomHorizontalFlipTransform(),
+                augmentation.RandomCropTransform((416, 416)),
                 # augmentation.RandomNoiseTransform(),
                 # augmentation.RandomColorJitterTransform(),
                 # augmentation.RandomBlurTransform(),
+                augmentation.PartAffinityFieldTransform(skeleton, 10, 6, self.parts),
                 # augmentation.TargetTransform(prior_box_sizes=net.prior_box_sizes, classes=net.classes, ratios=net.ratios, strides=net.strides), 
                 augmentation.OutputTransform()]
             )
