@@ -31,7 +31,7 @@ skeleton = [
 ]
 
 class UnifiedKeypointDataset(Dataset):
-    def __init__(self, net, train=True, debug=False):
+    def __init__(self, train=True, debug=False):
         self.debug = debug
         self.train = train
         self.skeleton = skeleton

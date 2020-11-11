@@ -24,7 +24,6 @@ def getRGBfromI(RGBint):
 def fit_epoch(net, dataloader, lr_rate, postprocessing, epoch=1):
     net.train()
     optimizer = torch.optim.Adam(net.parameters(), lr_rate)
-    criterion = YoloLoss(ranges = net.ranges)
     losses = 0.0
     total_objectness_loss = 0.0
     total_size_loss = 0.0

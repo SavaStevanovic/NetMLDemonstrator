@@ -72,6 +72,38 @@ class FeaturePyramidNet(nn.Module, utils.Identifier):
 
         return features
         
+class OpenPoseNet(nn.Module, utils.Identifier):
+    def __init__(self, backbone, paf_stages, map_stages, block, block_count, paf_planes, map_planes):
+        super(OpenPoseNet, self).__init__()
+        self.backbone = functools.reduce(lambda b,m : m(b),backbone[::-1])
+        self.block = block
+        self.adapter = nn.Sequential(
+            nn.Conv2d(self.backbone.channels   , self.backbone.channels//2, kernel_size=1, bias=True, padding=0),
+            nn.Conv2d(self.backbone.channels//2, self.backbone.channels//4, kernel_size=1, bias=True, padding=0),
+        )
+        self.channels = self.backbone.channels//4
+        self.first_paf = block(self.channels, self.channels, paf_planes, block_count)
+        self.pafs = [block(self.channels + paf_planes) for _ in range(paf_stages-1)]
+        self.first_map = block(self.channels + paf_planes, self.channels, map_planes, block_count)
+        self.maps = [block(self.channels + map_planes) for _ in range(map_stages-1)]
+    
+    def forward(self, x):
+        feature = self.adapter(self.backbone(x))
+        out = self.first_paf(feature)
+        pafs_features = [out]
+        for paf in self.pafs:
+            out = paf(pafs_features[-1])
+            pafs_features.append(out)
+            out = torch.cat([out, feature], 1)
+
+        out = self.first_map(feature)
+        maps_features = [out]
+        for mapf in self.maps:
+            out = mapf(maps_features[-1])
+            maps_features.append(out)
+            out = torch.cat([out, feature], 1)
+        
+        return pafs_features, maps_features
 
 class RetinaNet(nn.Module, utils.Identifier):
     def __init__(self, backbone, classes, ratios, scales=[2 ** (i / 3) for i in range(3)]):
@@ -249,6 +281,19 @@ class YoloNet(nn.Module, utils.Identifier):
         output = self.head(boutput)
         return self.ranges.activate_output(output),
 
+class VGGNetBackbone(nn.Sequential, utils.Identifier):
+    def __init__(self, planes, blocks):
+        self.channels = planes
+        self.planes = planes
+        layers = [nn.Conv2d(3, self.channels, kernel_size=3, bias=True, padding=1)]
+        layers.extend([nn.Conv2d(self.channels, self.channels, kernel_size=3, bias=True, padding=1) for _ in range(blocks[0]-1)])
+        for b in blocks[1:]:
+            layers.append(nn.MaxPool2d(2, 2))
+            layers.append(nn.Conv2d(self.channels, self.channels*2, kernel_size=3, bias=True, padding=1))
+            self.channels*=2
+            layers.extend([nn.Conv2d(self.channels, self.channels, kernel_size=3, bias=True, padding=1) for _ in range(b-1)])
+           
+        super(VGGNetBackbone, self).__init__(*layers)
 
 class FeaturePyramidBackbone(nn.Module, utils.Identifier):
     def __init__(self, backbone):
