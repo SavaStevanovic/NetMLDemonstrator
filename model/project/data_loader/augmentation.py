@@ -3,6 +3,7 @@ import torchvision.transforms as transforms
 import numpy as np
 from PIL import Image, ImageFilter
 from skimage import util
+import io
 
 class PairCompose(object):
     def __init__(self, transforms):
@@ -76,7 +77,7 @@ class RandomBlurTransform(object):
 
     def __call__(self, image, label):
         p = random.random()
-        if p>0.75:
+        if p>0.95:
             image = image.filter(self.blur)
         return image, label
 
@@ -100,7 +101,7 @@ class RandomNoiseTransform(object):
 
     def __call__(self, image, label):
         p = random.random()
-        if p>0.75:
+        if p>0.95:
             image = np.array(image)
             image = util.random_noise(image, mode='gaussian', seed=None, clip=True)*255
             image = Image.fromarray(image.astype(np.uint8))
@@ -117,6 +118,18 @@ class PaddTransform(object):
         padding_y = (padding_y!=self.pad_size) * padding_y
         image_padded = transforms.functional.pad(image, (0, 0, padding_x, padding_y))
         return image_padded, label
+
+# added to reflect inference state
+class RandomJPEGcompression(object):
+    def __init__(self, quality):
+        self.quality = quality
+
+    def __call__(self, image, label):
+        outputIoStream = io.BytesIO()
+        image.save(outputIoStream, "JPEG", quality=self.quality, optimice=True)
+        outputIoStream.seek(0)
+        image = Image.open(outputIoStream)
+        return image, label
 
 class OutputTransform(object):
     def __call__(self, image, label):

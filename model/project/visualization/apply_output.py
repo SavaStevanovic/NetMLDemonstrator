@@ -2,7 +2,9 @@ from PIL import ImageDraw
 import numpy as np
 
 def apply_detections(box_transform, outputs, labels, image, cats, thresh = 0.5, apply_nms = False):
-    boxes_pr = box_transform(outputs, thresh)
+    boxes_pr=[]
+    for i, out in enumerate(outputs):
+        boxes_pr += box_transform(out, threshold = thresh, depth = i)
     if apply_nms:
         boxes_pr = non_max_suppression(boxes_pr)
     boxes_tr = box_transform(labels)

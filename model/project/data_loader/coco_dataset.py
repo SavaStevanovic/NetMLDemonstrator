@@ -13,9 +13,10 @@ class CocoDetectionDatasetProvider():
                                             augmentation.RandomResizeTransform(),
                                             augmentation.RandomHorizontalFlipTransform(),
                                             augmentation.RandomCropTransform((416, 416)),
-                                            # augmentation.RandomNoiseTransform(),
+                                            augmentation.RandomNoiseTransform(),
                                             augmentation.RandomColorJitterTransform(),
-                                            # augmentation.RandomBlurTransform(),
+                                            augmentation.RandomBlurTransform(),
+                                            augmentation.RandomJPEGcompression(95),
                                             augmentation.TargetTransform(prior_box_sizes=net.prior_box_sizes, classes=net.classes, ratios=net.ratios, strides=net.strides), 
                                             augmentation.OutputTransform()])
         if val_transforms is None:
@@ -35,7 +36,7 @@ class CocoDetectionDatasetProvider():
 
         if th_count==1:
             self.trainset.ids      = self.trainset.ids[:100]
-            self.validationset.ids = self.validationset.ids[:100]
+            self.validationset.ids = self.validationset.ids[:10]
 
         self.trainloader      = torch.utils.data.DataLoader(self.trainset,      batch_size=batch_size,   shuffle=True , num_workers=th_count, pin_memory=True)
         self.validationloader = torch.utils.data.DataLoader(self.validationset, batch_size=1,            shuffle=False, num_workers=th_count, pin_memory=True)
