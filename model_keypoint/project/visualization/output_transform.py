@@ -5,6 +5,8 @@ import torch
 import matplotlib.pyplot as plt
 from io import BytesIO
 from PIL import Image
+from skimage.draw import disk
+from itertools import compress
 
 class PartAffinityFieldTransform(object):
     def __init__(self, skeleton, heatmap_distance):
@@ -36,27 +38,36 @@ class PartAffinityFieldTransform(object):
             heatmap_cordinates = [(x[0], x[1], heatmap[x[0], x[1]]) for x in heatmap_cordinates]
             s_heatmap_cordinates = sorted(heatmap_cordinates, key=lambda e: -e[2]) 
             for candidate in s_heatmap_cordinates:
+                if len(body_parts)>100:
+                    break
                 if not heatmap_candidates[candidate[0], candidate[1]]:
                     continue
+                rr, cc = disk(candidate[:2], self.heatmap_distance*2)
+                # img[rr, cc] = 1
+                list_filter = [rr[i]>=0 and cc[i]>=0 and rr[i]<heatmap.shape[0] and cc[i]<heatmap.shape[1] for i in range(len(rr))]
+                rr = np.array(list(compress(rr, list_filter)))
+                cc = np.array(list(compress(cc, list_filter)))
+                heatmap_candidates[rr, cc] = False
                 body_parts.append((self.parts[i], candidate[:2]))
-                points_to_process = [list(candidate[:2])]
+                # points_to_process = [list(candidate[:2])]
 
-                point_offsets = [np.array([0, 1]), np.array([0, -1]), np.array([1, 0]), np.array([-1, 0])]
-                j = 0
-                while j < len(points_to_process):
-                    point = np.array(points_to_process[j])
-                    j+=1
-                    if point[0]<0 or point[0]>=heatmap.shape[0] or point[1]<0 or point[1]>=heatmap.shape[1]:
-                        continue
-                    point_distance = np.linalg.norm(candidate[:2]-point)
-                    if point_distance > self.heatmap_distance:
-                        continue
-                    heatmap_candidates[point[0], point[1]] = False
-                    next_points = [(point + offset).tolist() for offset in point_offsets if (point + offset).tolist() not in points_to_process]
-                    points_to_process.extend(next_points)
+                # point_offsets = [np.array([0, 1]), np.array([0, -1]), np.array([1, 0]), np.array([-1, 0])]
+                # j = 0
+                # while j < len(points_to_process):
+                #     point = np.array(points_to_process[j])
+                #     j+=1
+                #     if point[0]<0 or point[0]>=heatmap.shape[0] or point[1]<0 or point[1]>=heatmap.shape[1]:
+                #         continue
+                #     point_distance = np.linalg.norm(candidate[:2]-point)
+                #     if point_distance > self.heatmap_distance:
+                #         continue
+                #     heatmap_candidates[point[0], point[1]] = False
+                #     next_points = [(point + offset).tolist() for offset in point_offsets if (point + offset).tolist() not in points_to_process]
+                #     points_to_process.extend(next_points)
 
         joints = []
-        print(len(body_parts))
+        # body_parts = body_parts[:100]
+        # print(len(body_parts))
         for ind, part_conn in enumerate(self.skeleton):
             fparts = [x for x in body_parts if x[0]==part_conn[0]]
             dparts = [x for x in body_parts if x[0]==part_conn[1]]
@@ -97,5 +108,6 @@ def get_mapped_image(images, labels, postprocessing, skeleton, parts):
     plt.savefig(buffer_, format = "png")
     buffer_.seek(0)
     image = Image.open(buffer_)
-
+    image.save('test.png')
+    plt.close()
     return image

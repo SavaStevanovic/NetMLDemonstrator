@@ -7,6 +7,8 @@ import torch
 import matplotlib.pyplot as plt
 import cv2
 import io
+from skimage.draw import polygon
+from itertools import compress
 
 class PairCompose(object):
     def __init__(self, transforms):
@@ -171,29 +173,39 @@ class PartAffinityFieldTransform(object):
                     direction = direction/line_length
                     points_to_process = [spoint.tolist()]
                     max_distance = max(line_length / self.distance, 4)
-
-                    point_offsets = [np.array([0, 1]), np.array([0, -1]), np.array([1, 0]), np.array([-1, 0])]
-                    j = 0
-                    while j < len(points_to_process):
-                        point = np.array(points_to_process[j])
-                        j+=1
-                        if point[0]<0 or point[0]>=image.size[0] or point[1]<0 or point[1]>=image.size[1]:
-                            continue
-                        point_distance = self.point_segment_distance(point, spoint, dpoint)
-                        if point_distance > max_distance:
-                            continue
-                        affinity_fields[2*i:2*i+2, point[0], point[1]] += direction
-                        next_points = [(point + offset).tolist() for offset in point_offsets if (point + offset).tolist() not in points_to_process]
-                        points_to_process.extend(next_points)
+                    extended_line = [spoint-direction*max_distance, dpoint+direction*max_distance]
+                    pdir = np.array([-1,1])*max_distance
+                    rec_cord = [[p+direction[::-1]*pdir, p-direction[::-1]*pdir] for p in extended_line]
+                    rec_cords = rec_cord[0][::-1] + rec_cord[1]
+                    rr, cc = polygon(np.array([x[0] for x in rec_cords]), np.array([x[1] for x in rec_cords]))
+                    list_filter = [rr[i]>=0 and cc[i]>=0 and rr[i]<image.size[0] and cc[i]<image.size[1] for i in range(len(rr))]
+                    rr = np.array(list(compress(rr, list_filter)))
+                    cc = np.array(list(compress(cc, list_filter)))
+                    if rr.size:
+                        affinity_fields[2*i:2*i+2, rr, cc] += np.vstack([direction]*rr.size).T.astype(np.float32)
+                    # point_offsets = [np.array([0, 1]), np.array([0, -1]), np.array([1, 0]), np.array([-1, 0])]
+                    # j = 0
+                    # while j < len(points_to_process):
+                    #     point = np.array(points_to_process[j])
+                    #     j+=1
+                    #     if point[0]<0 or point[0]>=image.size[0] or point[1]<0 or point[1]>=image.size[1]:
+                    #         continue
+                    #     point_distance = self.point_segment_distance(point, spoint, dpoint)
+                    #     if point_distance > max_distance:
+                    #         continue
+                    #     affinity_fields[2*i:2*i+2, point[0], point[1]] += direction
+                    #     next_points = [(point + offset).tolist() for offset in point_offsets if (point + offset).tolist() not in points_to_process]
+                    #     points_to_process.extend(next_points)
 
         for i in range(len(self.skeleton)):
             affinity_fields[2*i:2*i+2] /= np.linalg.norm(affinity_fields[2*i:2*i+2], 2, 0) + 1e-8
-            # field = affinity_fields[2*i:2*i+2].permute(1, 2, 0).numpy()
-            # if (field!=0).any():
-            #     image[..., :2] = np.where(field==0, image[..., :2], np.uint8(field*255))
+        #     field = affinity_fields[2*i:2*i+2].permute(1, 2, 0).numpy()
+        #     image = np.array(image)
+        #     if (field!=0).any():
+        #         image[..., :2] = np.where(field==0, image[..., :2], np.uint8(field*255))
 
-        # img = Image.fromarray(image, 'RGB')
-        # plt.imshow(img)
+        # image = Image.fromarray(image, 'RGB')
+        # plt.imshow(image)
         # plt.show()   
 
         part_shape = [len(self.parts),*image.size[:2]]

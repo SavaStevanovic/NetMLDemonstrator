@@ -45,7 +45,7 @@ class UnifiedKeypointDataset(Dataset):
                 augmentation.RandomColorJitterTransform(),
                 augmentation.RandomBlurTransform(),
                 augmentation.RandomJPEGcompression(95),
-                augmentation.PartAffinityFieldTransform(skeleton, 14, 6, self.parts),
+                augmentation.PartAffinityFieldTransform(skeleton, 10, 6, self.parts),
                 augmentation.OutputTransform()]
             )
             self.datasets = [
@@ -54,7 +54,7 @@ class UnifiedKeypointDataset(Dataset):
 
         if not train:
             self.transforms = augmentation.PairCompose([
-                augmentation.PartAffinityFieldTransform(skeleton, 14, 6, self.parts),
+                augmentation.PartAffinityFieldTransform(skeleton, 10, 6, self.parts),
                 augmentation.OutputTransform()]
             )
             self.datasets = [
