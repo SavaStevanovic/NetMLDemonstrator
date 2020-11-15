@@ -124,7 +124,9 @@ class PaddTransform(object):
 class OutputTransform(object):
     def __call__(self, image, label):
         image = transforms.functional.to_tensor(image)
-        return image, label
+        if image.shape[0]==1:
+            image = torch.cat([image]*3)
+        return image, (label[1], label[2])
 
 # added to reflect inference state
 class RandomJPEGcompression(object):
@@ -165,7 +167,7 @@ class PartAffinityFieldTransform(object):
                     spoint = np.array(label[spart][::-1])
                     dpoint = np.array(label[dpart][::-1])
                     direction = dpoint - spoint
-                    line_length = np.linalg.norm(direction, 2)
+                    line_length = np.linalg.norm(direction, 2) + 1e-8
                     direction = direction/line_length
                     points_to_process = [spoint.tolist()]
                     max_distance = max(line_length / self.distance, 4)

@@ -226,23 +226,13 @@ class EfficientNetBlock(nn.Module, utils.Identifier):
 
         return out
          
-
 class PoseCNNStage(nn.Sequential, utils.Identifier):
     def __init__(self, inplanes, planes, outplanes, block_count):
         layers = []
         layers.append(PoseConvBlock(inplanes, planes, 3))
         layers.extend([PoseConvBlock(planes, planes, 3) for _ in range(block_count-1)])
         layers.append(nn.Conv2d(planes, planes, kernel_size=1, bias=True))
-        layers.append(nn.Conv2d(planes, outplanes, kernel_size=1, bias=True))
-
-        super(PoseCNNStage, self).__init__(*layers)
-
-class PoseCNNStage(nn.Sequential, utils.Identifier):
-    def __init__(self, inplanes, planes, outplanes, block_count):
-        layers = []
-        layers.append(PoseConvBlock(inplanes, planes, 3))
-        layers.extend(PoseConvBlock(inplanes, planes, 3) for _ in range(block_count-1))
-        layers.append(nn.Conv2d(planes, planes, kernel_size=1, bias=True))
+        layers.append(nn.ReLU())
         layers.append(nn.Conv2d(planes, outplanes, kernel_size=1, bias=True))
 
         super(PoseCNNStage, self).__init__(*layers)
@@ -261,7 +251,6 @@ class PoseConvBlock(nn.Module, utils.Identifier):
         out = x
         s = torch.zeros_like(out)
         for l in self.layers:
-            out = l(out) 
-            s += out           
-
+            out = F.relu(l(out))
+            s += out
         return s

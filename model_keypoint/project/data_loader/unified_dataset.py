@@ -68,7 +68,7 @@ class UnifiedKeypointDataset(Dataset):
 
     def __len__(self):
         if self.debug==1:
-            return 100
+            return 50
         else:
             return len(self.data_ids)
 

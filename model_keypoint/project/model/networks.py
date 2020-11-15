@@ -79,6 +79,7 @@ class OpenPoseNet(nn.Module, utils.Identifier):
         self.block = block
         self.adapter = nn.Sequential(
             nn.Conv2d(self.backbone.channels   , self.backbone.channels//2, kernel_size=1, bias=True, padding=0),
+            nn.ReLU(),
             nn.Conv2d(self.backbone.channels//2, self.backbone.channels//4, kernel_size=1, bias=True, padding=0),
         )
         self.channels = self.backbone.channels//4
@@ -88,19 +89,20 @@ class OpenPoseNet(nn.Module, utils.Identifier):
         self.maps = [block(self.channels + map_planes) for _ in range(map_stages-1)]
     
     def forward(self, x):
+        o_size = x.size()[2:][::-1]
         feature = self.adapter(self.backbone(x))
         out = self.first_paf(feature)
-        pafs_features = [out]
+        pafs_features = [nn.functional.interpolate(out, size = o_size, mode='bicubic', align_corners=True)]
         for paf in self.pafs:
             out = paf(pafs_features[-1])
-            pafs_features.append(out)
+            pafs_features.append(nn.functional.interpolate(out, size = o_size, mode='bicubic', align_corners=True))
             out = torch.cat([out, feature], 1)
 
         out = self.first_map(feature)
-        maps_features = [out]
+        maps_features = [nn.functional.interpolate(out, size = o_size, mode='bicubic', align_corners=True)]
         for mapf in self.maps:
             out = mapf(maps_features[-1])
-            maps_features.append(out)
+            maps_features.append(nn.functional.interpolate(out, size = o_size, mode='bicubic', align_corners=True))
             out = torch.cat([out, feature], 1)
         
         return pafs_features, maps_features
@@ -286,12 +288,14 @@ class VGGNetBackbone(nn.Sequential, utils.Identifier):
         self.channels = planes
         self.planes = planes
         layers = [nn.Conv2d(3, self.channels, kernel_size=3, bias=True, padding=1)]
-        layers.extend([nn.Conv2d(self.channels, self.channels, kernel_size=3, bias=True, padding=1) for _ in range(blocks[0]-1)])
+        for _ in range(blocks[0]-1):
+            layers.extend([nn.ReLU(), nn.Conv2d(self.channels, self.channels, kernel_size=3, bias=True, padding=1)])
         for b in blocks[1:]:
             layers.append(nn.MaxPool2d(2, 2))
-            layers.append(nn.Conv2d(self.channels, self.channels*2, kernel_size=3, bias=True, padding=1))
+            layers.extend([nn.ReLU(), nn.Conv2d(self.channels, self.channels*2, kernel_size=3, bias=True, padding=1)])
             self.channels*=2
-            layers.extend([nn.Conv2d(self.channels, self.channels, kernel_size=3, bias=True, padding=1) for _ in range(b-1)])
+            for _ in range(b-1):
+                layers.extend([nn.ReLU(), nn.Conv2d(self.channels, self.channels, kernel_size=3, bias=True, padding=1)])
            
         super(VGGNetBackbone, self).__init__(*layers)
 

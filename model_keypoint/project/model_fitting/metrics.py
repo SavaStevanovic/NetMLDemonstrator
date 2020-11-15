@@ -5,49 +5,39 @@ from model_fitting.losses import YoloLoss
 from tqdm import tqdm
 from functools import reduce
 from torchvision.transforms.functional import to_pil_image
+from visualization.output_transform import get_mapped_image 
+import numpy as np
 
 def metrics(net, dataloader, postprocessing, epoch=1):
     net.eval()
-    criterion = YoloLoss(ranges = net.ranges)
+    criterion = torch.nn.MSELoss()
     losses = 0.0
-    total_objectness_loss = 0.0
-    total_size_loss = 0.0
-    total_offset_loss = 0.0
-    total_class_loss = 0.0
-    images = []
-    det_boxes = []
-    ref_boxes = [[] for _ in range(len(dataloader))]
+    total_pafs_loss = 0.0
+    total_maps_loss = 0.0
+    output_images = []
+    label_images = []
     with torch.no_grad():
         for i, data in enumerate(tqdm(dataloader)):
             image, labels = data
-            outputs = net(image.cuda())
-            criterions = [criterion(outputs[i], labels[i].cuda()) for i in range(len(outputs))]
-            loss, objectness_loss, size_loss, offset_loss, class_loss = (sum(x) for x in zip(*criterions))
-            total_objectness_loss += objectness_loss
-            total_size_loss += size_loss
+            pafs_output, maps_output = net(image.cuda())
+            paf_label = labels[0].cuda()
+            map_label = labels[1].cuda()
+            pafs_loss = torch.stack([(paf_label>0).int() * criterion(paf_label, o) for o in pafs_output], dim=0).sum()
+            maps_loss = torch.stack([(map_label>0).int() * criterion(map_label, o) for o in maps_output], dim=0).sum()
+            loss = pafs_loss + maps_loss
+            total_pafs_loss += pafs_loss.item()
+            total_maps_loss += maps_loss.item()
             losses += loss.item()
-            total_offset_loss += offset_loss
-            total_class_loss += class_loss
-            outs = [out.cpu()[0].numpy() for out in outputs]
-            labs = [labels[0].cpu()[0].numpy()]
 
-            boxes_pr = box_transform(outs, 0.5)
-            boxes_pr = apply_output.non_max_suppression(boxes_pr)
-            boxes_tr = box_transform(labs)
-            for x in boxes_pr:
-                x['image'] = i
-            for x in boxes_tr:
-                x['seen'] = 0
-            det_boxes+=boxes_pr
-            ref_boxes[i]=boxes_tr
-            
             if i>=len(dataloader)-5:
-                pilImage = apply_output.apply_detections(box_transform, outs, labs, to_pil_image(image[0]), dataloader.cats)
-                images.append(pilImage)
-    metric, _ = calculateMAP(det_boxes, ref_boxes, net.classes)
-    data_len = len(dataloader)
+                mapped_image = get_mapped_image(image, labels, postprocessing, dataloader.skeleton, dataloader.parts)
+                label_images.append(np.array(mapped_image))
+
+                mapped_image = get_mapped_image(image, [pafs_output[-1], maps_output[-1]], postprocessing, dataloader.skeleton, dataloader.parts)
+                output_images.append(np.array(mapped_image))
     
-    return metric, losses/data_len, total_objectness_loss/data_len, total_size_loss/data_len, total_offset_loss/data_len, total_class_loss/data_len, images
+    data_len = len(dataloader)
+    return losses/data_len, total_pafs_loss/data_len, total_maps_loss/data_len, output_images, label_images
 
 def calculateMAP(det_boxes, ref_boxes, classes):
     class_det_boxes = [[] for _ in classes]

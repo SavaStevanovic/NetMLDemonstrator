@@ -15,7 +15,7 @@ classes = [(1, 'person'), (2, 'bicycle'), (3, 'car'), (4, 'motorcycle'), (5, 'ai
 backbone = networks.ResNetBackbone(inplanes = 64, block = blocks.BasicBlock, block_counts = [3, 4, 6, 3])
 net = networks.RetinaNet(backbone = [networks.FeaturePyramidBackbone, backbone], classes = classes, ratios=ratios)
 
-coco_provider = CocoDetectionDatasetProvider(net, annDir=os.path.join('/Data', dataset_name), batch_size=16, th_count=th_count)
+coco_provider = CocoDetectionDatasetProvider(net, annDir=os.path.join('/Data', dataset_name), batch_size=8, th_count=th_count)
 
 fit(net, coco_provider.trainloader, coco_provider.validationloader, 
     dataset_name = dataset_name, 

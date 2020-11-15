@@ -8,6 +8,6 @@ def join_images(images):
     joined_images = np.zeros((hight, width, 3), dtype=np.uint8)
     pos = 0
     for img in images:
-        joined_images[:img.shape[0], pos:pos+img.shape[1]] = img
+        joined_images[:img.shape[0], pos:pos+img.shape[1]] = img[...,:3]
         pos += img.shape[1]
     return joined_images

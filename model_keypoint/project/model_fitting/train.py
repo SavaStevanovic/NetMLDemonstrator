@@ -1,6 +1,5 @@
 import torch
 import os
-from model_fitting.losses import YoloLoss
 from model_fitting.metrics import metrics
 from datetime import datetime
 from torch.utils.tensorboard import SummaryWriter
@@ -14,59 +13,45 @@ from torchsummary import summary
 from torchvision.transforms.functional import to_pil_image
 import matplotlib.pyplot as plt
 import numpy as np
+from visualization.output_transform import get_mapped_image 
+from PIL import Image
 
-def getRGBfromI(RGBint):
-    blue =  RGBint & 255
-    green = (RGBint >> 8) & 255
-    red =   (RGBint >> 16) & 255
-    return red/255, green/255, blue/255
 
 def fit_epoch(net, dataloader, lr_rate, postprocessing, epoch=1):
     net.train()
     optimizer = torch.optim.Adam(net.parameters(), lr_rate)
+    criterion = torch.nn.MSELoss()
     losses = 0.0
-    total_objectness_loss = 0.0
-    total_size_loss = 0.0
-    total_offset_loss = 0.0
-    total_class_loss = 0.0
-    images = []
+    total_pafs_loss = 0.0
+    total_maps_loss = 0.0
+    output_images = []
+    label_images = []
     for i, data in enumerate(tqdm(dataloader)):
         image, labels = data
-        outputs = [postprocessing(labels[1][i].numpy(), labels[2][i].numpy()) for i in range(dataloader.batch_size)]
-        for i in range(dataloader.batch_size):
-            plt.imshow(image[i].permute(1,2,0).numpy()); plt.axis('off')
-            for o in outputs[i][1]:
-                c_off = dataloader.skeleton.index([o[0][0],o[1][0]])+1
-                c = getRGBfromI(16777216//c_off)
-                line = np.asarray([x[1][::-1] for x in o]).T
-                plt.plot(line[0], line[1], '-', linewidth=1, color=c)
-            for o in outputs[i][0]:
-                c = getRGBfromI(16777216//(dataloader.parts.index(o[0])+1))
-                plt.plot(o[1][1], o[1][0],'o',markersize=6, markerfacecolor=c, markeredgecolor='w',markeredgewidth=1)
- 
-            plt.show()
-            print('')
+        # labels_cuda = labels.cuda()
+        optimizer.zero_grad()
+        pafs_output, maps_output = net(image.cuda())
+        paf_label = labels[0].cuda()
+        map_label = labels[1].cuda()
+        pafs_loss = torch.stack([(paf_label>0).int() * criterion(paf_label, o) for o in pafs_output], dim=0).sum()
+        maps_loss = torch.stack([(map_label>0).int() * criterion(map_label, o) for o in maps_output], dim=0).sum()
+        loss = pafs_loss + maps_loss
+        loss.backward()
+        optimizer.step()
+        total_pafs_loss += pafs_loss.item()
+        total_maps_loss += maps_loss.item()
+        losses += loss.item()
 
-        # optimizer.zero_grad()
-        # outputs = net(image.cuda())
-        # criterions = [criterion(outputs[i], labels[i].cuda()) for i in range(len(outputs))]
-        # loss, objectness_loss, size_loss, offset_loss, class_loss = (sum(x) for x in zip(*criterions))
-        # loss.backward()
-        # optimizer.step()
-        # total_objectness_loss += objectness_loss
-        # total_size_loss += size_loss
-        # losses += loss.item()
-        # total_offset_loss += offset_loss
-        # total_class_loss += class_loss
+        if i>=len(dataloader)-5:
+            mapped_image = get_mapped_image(image, labels, postprocessing, dataloader.skeleton, dataloader.parts)
+            label_images.append(np.array(mapped_image))
 
-        # if i>=len(dataloader)-5:
-        #     outs = [out.detach().cpu()[0].numpy() for out in outputs]
-        #     labs = [labels[0].cpu()[0].numpy()]
-        #     pilImage = apply_detections(box_transform, outs, labs, to_pil_image(image[0]), dataloader.cats)
-        #     images.append(pilImage)
-        
+            mapped_image = get_mapped_image(image, [pafs_output[-1], maps_output[-1]], postprocessing, dataloader.skeleton, dataloader.parts)
+            output_images.append(np.array(mapped_image))
+
     data_len = len(dataloader)
-    return losses/data_len, total_objectness_loss/data_len, total_size_loss/data_len, total_offset_loss/data_len, total_class_loss/data_len, images
+    return losses/data_len, total_pafs_loss/data_len, total_maps_loss/data_len, output_images, label_images
+
 
 def fit(net, trainloader, validationloader, postprocessing, epochs=1000, lower_learning_period=10):
     model_dir_header = net.get_identifier()
@@ -81,18 +66,21 @@ def fit(net, trainloader, validationloader, postprocessing, epochs=1000, lower_l
     summary(net, (3, 224, 224))
     writer = SummaryWriter(os.path.join('logs', model_dir_header))
     for epoch in range(train_config.epoch, epochs):
-        loss, objectness_loss, size_loss, offset_loss, class_loss, samples = fit_epoch(net, trainloader, train_config.learning_rate, postprocessing, epoch=epoch)
-        writer.add_scalars('Train/Metrics', {'objectness_loss': objectness_loss, 'size_loss':size_loss, 'offset_loss':offset_loss, 'class_loss':class_loss}, epoch)
+        loss, total_pafs_loss, total_maps_loss, output_images, label_images = fit_epoch(net, trainloader, train_config.learning_rate, postprocessing, epoch=epoch)
+        writer.add_scalars('Train/Metrics', {'total_pafs_loss': total_pafs_loss, 'total_maps_loss': total_maps_loss}, epoch)
         writer.add_scalar('Train/Metrics/loss', loss, epoch)
-        grid = join_images(samples)
-        writer.add_images('train_sample', grid, epoch, dataformats='HWC')
-        
-        validation_map, loss, objectness_loss, size_loss, offset_loss, class_loss, samples = metrics(net, validationloader, postprocessing, epoch)
-        writer.add_scalars('Validation/Metrics', {'objectness_loss': objectness_loss, 'size_loss':size_loss, 'offset_loss':offset_loss, 'class_loss':class_loss}, epoch)
+        grid = join_images(label_images)
+        writer.add_images('train_labels', grid/255, epoch, dataformats='HWC')
+        grid = join_images(output_images)
+        writer.add_images('train_outputs', grid/255, epoch, dataformats='HWC')
+
+        loss, total_pafs_loss, total_maps_loss, output_images, label_images = metrics(net, validationloader, postprocessing, epoch=epoch)
+        writer.add_scalars('Validation/Metrics', {'total_pafs_loss': total_pafs_loss, 'total_maps_loss': total_maps_loss}, epoch)
         writer.add_scalar('Validation/Metrics/loss', loss, epoch)
-        writer.add_scalar('Validation/Metrics/validation_map', validation_map, epoch)
-        grid = join_images(samples)
-        writer.add_images('validation_sample', grid, epoch, dataformats='HWC')
+        grid = join_images(label_images)
+        writer.add_images('validation_labels', grid, epoch, dataformats='HWC')
+        grid = join_images(output_images)
+        writer.add_images('validation_outputs', grid, epoch, dataformats='HWC')
 
         os.makedirs((chp_dir), exist_ok=True)
         if train_config.best_metric > loss:

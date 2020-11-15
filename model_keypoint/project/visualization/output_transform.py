@@ -2,6 +2,9 @@ from PIL import ImageDraw
 import numpy as np
 import scipy
 import torch
+import matplotlib.pyplot as plt
+from io import BytesIO
+from PIL import Image
 
 class PartAffinityFieldTransform(object):
     def __init__(self, skeleton, heatmap_distance):
@@ -14,15 +17,17 @@ class PartAffinityFieldTransform(object):
         dpart = np.array(dpart)
         direction = dpart - fpart
         line_length = np.linalg.norm(direction, 2)
-        direction = direction/line_length
+        direction = direction/(line_length + 1e-8)
         line = dpart - fpart
-        evaluation_points = np.linspace(fpart, dpart, num = 100, dtype = np.int32)
+        p_count = 10
+        evaluation_points = np.linspace(fpart, dpart, num = p_count, dtype = np.int32)
         costs = [np.dot(affinity_field[:, x[0], x[1]], direction) for x in evaluation_points]
-        value = sum(costs)/100
+        value = sum(costs)/p_count
 
         return value
 
     def __call__(self, affinity_field, part_heatmap):
+        # return [], []
         body_parts = []
         for i, heatmap in enumerate(part_heatmap):
             heatmap_candidates = heatmap > 0.5
@@ -51,6 +56,7 @@ class PartAffinityFieldTransform(object):
                     points_to_process.extend(next_points)
 
         joints = []
+        print(len(body_parts))
         for ind, part_conn in enumerate(self.skeleton):
             fparts = [x for x in body_parts if x[0]==part_conn[0]]
             dparts = [x for x in body_parts if x[0]==part_conn[1]]
@@ -59,11 +65,37 @@ class PartAffinityFieldTransform(object):
                 for j, dpart in enumerate(dparts):
                     dist[i, j] = self.conn_cost(fpart[1], dpart[1], affinity_field[2*ind:2*ind+2])
 
-            if part_conn == ['left_shoulder', 'right_shoulder'] and len(dist)>=2:
-                print(dist)
+            # if len(dist)>=2:
+            #     print(dist)
             assignments = scipy.optimize.linear_sum_assignment(dist, maximize=True)
             assignments = np.asarray(assignments).T
             new_conns = [(fparts[p[0]], dparts[p[1]]) for p in assignments if dist[p[0], p[1]]>0.20]
             joints.extend(new_conns)
 
         return body_parts, joints
+
+def getRGBfromI(RGBint):
+    blue =  RGBint & 255
+    green = (RGBint >> 8) & 255
+    red =   (RGBint >> 16) & 255
+    return red/255, green/255, blue/255
+
+def get_mapped_image(images, labels, postprocessing, skeleton, parts):
+    outputs = postprocessing(labels[0][0].detach().cpu().numpy(), labels[1][0].detach().cpu().numpy())
+    image = (images[0].permute(1,2,0).numpy() * 255).round().astype(np.uint8)
+    plt.imshow(image); plt.axis('off')
+    for o in outputs[1]:
+        c_off = skeleton.index([o[0][0],o[1][0]])+1
+        c = getRGBfromI(16777216//c_off)
+        line = np.asarray([x[1][::-1] for x in o]).T
+        plt.plot(line[0], line[1], '-', linewidth=1, color=c)
+    for o in outputs[0]:
+        c = getRGBfromI(16777216//(parts.index(o[0])+1))
+        plt.plot(o[1][1], o[1][0],'o',markersize=6, markerfacecolor=c, markeredgecolor='w',markeredgewidth=1)
+
+    buffer_ = BytesIO()
+    plt.savefig(buffer_, format = "png")
+    buffer_.seek(0)
+    image = Image.open(buffer_)
+
+    return image
