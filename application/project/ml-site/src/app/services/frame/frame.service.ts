@@ -9,28 +9,21 @@ import { environment } from '../../../environments/environment';
 export class FrameService {
 
   private frameSocketUrl = environment.frame_upload_stream;
-  sockjs: any;
+  socket: SockJS;
+
   constructor(private httpClient: HttpClient) { }
 
-  isConnectionOpen(){
-    if (this.sockjs && this.sockjs.readyState == SockJS.OPEN)
-      return true
-
-    return false
+  private isConnectionOpen(): boolean {
+    return this.socket?.readyState == SockJS.OPEN;
   }
 
-  closeConnection(){
-    console.log("close")
-    this.sockjs.close()
-  }
-
-  public openImageConnection() {
+  public openImageConnection(): SockJS {
     if (this.isConnectionOpen())
-      this.closeConnection()
+      this.socket.close();
 
     if (!this.isConnectionOpen()){
-      this.sockjs = new SockJS(this.frameSocketUrl);
+      this.socket = new SockJS(this.frameSocketUrl);
     }
-    return this.sockjs;
+    return this.socket;
   }
 }
