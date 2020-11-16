@@ -4,4 +4,4 @@ RUN apt-get -y install python3-pip
 RUN apt install -y libgl1-mesa-glx
 RUN npm i sockjs-client
 ENV QT_X11_NO_MITSHM=1
-CMD pip3 install --upgrade pip; pip3 install -r /app/requirements.txt; cd /app/ml-site; ng add @angular/material; bash
+CMD pip3 install --upgrade pip; pip3 install -r /app/requirements.txt; cd /app/ml-site; bash
