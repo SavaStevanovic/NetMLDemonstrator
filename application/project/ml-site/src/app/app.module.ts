@@ -18,6 +18,7 @@ import { MatToolbarModule } from '@angular/material/toolbar';
 import { MatIconModule } from '@angular/material/icon';
 import { MatButtonModule } from '@angular/material/button';
 import { MatSnackBarModule } from '@angular/material/snack-bar';
+import { ToolbarComponent } from './components/toolbar/toolbar.component';
 
 @NgModule({
   declarations: [
@@ -25,6 +26,7 @@ import { MatSnackBarModule } from '@angular/material/snack-bar';
     FiltersComponent,
     FilterComponent,
     DisplayComponent,
+    ToolbarComponent,
   ],
   imports: [
     WebcamModule,

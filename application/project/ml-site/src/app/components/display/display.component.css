@@ -1,12 +1,17 @@
 #container {
-  display: block;
-  overflow: auto;
+  /* display: block; */
   border: 10px #333 solid;
 }
 
-.videoElement {
-  float: left;
+.inputElement {
+  visibility:hidden;
+  z-index: 3;
+  position: fixed;
+}
+.outputElement {
   background-color: #666;
+  z-index: 5;
+  border: 10px #333 solid;
 }
 
 .video-control {
