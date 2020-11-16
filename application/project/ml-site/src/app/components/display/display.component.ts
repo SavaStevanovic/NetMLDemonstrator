@@ -3,6 +3,7 @@ import { ViewChild } from '@angular/core';
 import { FilterService } from '../../services/filter/filter.service';
 import { FrameService } from '../../services/frame/frame.service';
 import { Filter } from '../../models/filter';
+import { MatSnackBar } from '@angular/material/snack-bar';
 
 @Component({
   selector: 'app-display',
@@ -24,7 +25,8 @@ export class DisplayComponent implements AfterViewInit, OnInit {
 
   constructor(
     public frameService: FrameService,
-    private filterService: FilterService) {
+    private filterService: FilterService,
+    private snackBar: MatSnackBar) {
   }
 
   private capture():void {
@@ -124,10 +126,16 @@ export class DisplayComponent implements AfterViewInit, OnInit {
   resume(setup_camera = true): void {
     let is_active_camera = this.video_native_element.srcObject?.active;
     if (setup_camera = !is_active_camera){
-      navigator.mediaDevices.getUserMedia({ video: true }).then((stream) => {
+      navigator.mediaDevices.getUserMedia({ video: true }).then(stream => {
         this.video_native_element.srcObject = stream;
         this.setup_stream()
-      });
+      },
+      error => {
+        this.snackBar.open('Camera not found.', 'Confirm', {
+          duration: 2000
+        });
+      }
+    );
     }else{
       this.setup_stream()
     }
