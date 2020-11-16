@@ -1,12 +1,13 @@
 <app-toolbar></app-toolbar>
-
-<div class="content" role="main">
-  <div class="menu">
+<mat-drawer-container class="content" role="main">
+  <mat-drawer #drawer mode="side" class="menu" opened>
     <app-filters></app-filters>
-  </div>
-  <div class="display">
+  </mat-drawer>
+  <mat-drawer-content class="display">
     <app-display></app-display>
-  </div>
-</div>
-
+  </mat-drawer-content>
+</mat-drawer-container>
+<button mat-raised-button (click)="drawer.toggle()" [color]="drawer.opened? 'warn' : 'primary'" class="menu_toggle" >
+  Menu
+</button>
 <router-outlet></router-outlet>

@@ -1,19 +1,16 @@
 .content {
-  position: relative;
-  display: flex;
-  /* background-color: #070504; */
-  clear: both;
+  height: 100%;
 }
 .display {
-  float: left;
-  /* background-color: #0010f5; */
+  width: 100%;
 }
 .menu {
-  /* background-color: #f7941d; */
-  float: left;
+  width: 250px;
 }
-/* everywhere else */
-* {
-  font-family: Arial, Helvetica, sans-serif;
+.menu_toggle {
+  position: fixed;
+  bottom: 0px;
+  left: 0px;
+  z-index: 5;
 }
 

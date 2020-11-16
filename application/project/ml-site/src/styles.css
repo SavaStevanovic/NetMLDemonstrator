@@ -1,8 +1,13 @@
-body {
-  margin: 0em 0.0em;
-}
-
-html, body { height: 100%; }
 .material-icons{
   font-family: 'Material Icons' !important;
+}
+html
+{
+  overflow: hidden;
+  height: 100%;
+}
+body
+{
+  margin: 0;
+  height: 100%;
 }
