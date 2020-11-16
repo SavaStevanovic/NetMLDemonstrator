@@ -1,12 +1,10 @@
-.toolbar {
-  height: 40px;
-  align-items: center;
-}
 .example-spacer {
   flex: 1 1 auto;
 }
 svg {
-  vertical-align: middle;
   width:32px;
   height:32px
+}
+.mat-toolbar-row, .mat-toolbar-single-row {
+  height: auto;
 }
