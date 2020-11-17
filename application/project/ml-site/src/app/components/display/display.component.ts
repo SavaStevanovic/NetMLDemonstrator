@@ -4,6 +4,7 @@ import { FilterService } from '../../services/filter/filter.service';
 import { FrameService } from '../../services/frame/frame.service';
 import { Filter } from '../../models/filter';
 import { MatSnackBar } from '@angular/material/snack-bar';
+import { environment } from '../../../environments/environment';
 
 @Component({
   selector: 'app-display',
@@ -22,6 +23,7 @@ export class DisplayComponent implements AfterViewInit, OnInit {
   videoPlaying = false;
   quality = 0.5;
   sock: any;
+  production = environment.production;
 
   constructor(
     public frameService: FrameService,

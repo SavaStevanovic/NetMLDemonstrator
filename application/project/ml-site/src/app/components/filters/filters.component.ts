@@ -1,6 +1,7 @@
 import { Component, OnInit } from '@angular/core';
 import { Filter } from '../../models/filter';
 import { FilterService } from '../../services/filter/filter.service';
+import { environment } from '../../../environments/environment';
 
 @Component({
   selector: 'app-filters',
@@ -20,6 +21,6 @@ export class FiltersComponent implements OnInit {
 
   getFilters(): void {
     this.filterService.getFilters()
-      .subscribe(filters => this.filters = filters);
+      .subscribe(filters => this.filters = filters.filter(f => !environment.production || !f.name.includes('Test')));
   }
 }

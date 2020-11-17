@@ -1,5 +1,5 @@
 <div>
-  <video #videoElement class="inputElement" (resize)="updateCanvas()"></video>
+  <video #videoElement [ngClass]="{'outputElement' : !production , 'inputElement' : production}" (resize)="updateCanvas()"></video>
   <canvas #processedCanvas class="outputElement"></canvas>
 </div>
 <div class="row">
