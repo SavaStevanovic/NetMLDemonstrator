@@ -128,7 +128,7 @@ export class DisplayComponent implements AfterViewInit, OnInit {
   resume(setup_camera = true): void {
     let is_active_camera = this.video_native_element.srcObject?.active;
     if (setup_camera = !is_active_camera){
-      navigator.mediaDevices.getUserMedia({ video: true }).then(stream => {
+      navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } }).then(stream => {
         this.video_native_element.srcObject = stream;
         this.setup_stream()
       },

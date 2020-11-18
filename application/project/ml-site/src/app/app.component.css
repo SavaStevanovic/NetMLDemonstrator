@@ -10,3 +10,6 @@
 .mat-drawer-container{
   height: 100%;
 }
+.mat-drawer-content{
+  overflow: hidden;
+}

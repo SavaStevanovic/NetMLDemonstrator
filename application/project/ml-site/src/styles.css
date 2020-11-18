@@ -3,7 +3,6 @@
 }
 body {
   height: calc(var(--vh, 1vh) * 100);
-
   width: 100vw;
   margin: 0;
 }
