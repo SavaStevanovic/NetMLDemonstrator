@@ -1,10 +1,10 @@
 <mat-drawer-container>
-  <mat-drawer #drawer mode="side" class="menu" opened>
+  <mat-drawer #drawer mode="side" class="menu" opened (openedChange)="disp.resizeCanvas()">
     <app-toolbar></app-toolbar>
     <app-filters></app-filters>
   </mat-drawer>
   <mat-drawer-content>
-    <app-display></app-display>
+    <app-display #disp ></app-display>
   </mat-drawer-content>
 </mat-drawer-container>
 <button mat-raised-button (click)="drawer.toggle()" [color]="drawer.opened? 'warn' : 'primary'" class="menu_toggle" >

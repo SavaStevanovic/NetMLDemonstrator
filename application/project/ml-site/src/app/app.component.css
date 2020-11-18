@@ -3,7 +3,7 @@
 }
 .menu_toggle {
   position: fixed;
-  bottom: 12px;
+  bottom: 0.6em;
   right: 0px;
   z-index: 5;
 }

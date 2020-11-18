@@ -44,7 +44,7 @@ export class DisplayComponent implements AfterViewInit, OnInit {
       this.sock.send(JSON.stringify(post_data))
     }
     else{
-      this.processed_context.drawImage(this.video_native_element, 0, 0);
+      this.processed_context.drawImage(this.video_native_element, 0, 0, this.processedCanvas.nativeElement.width, this.processedCanvas.nativeElement.height);
       requestAnimationFrame(this.capture.bind(this));
     }
   }
@@ -68,7 +68,7 @@ export class DisplayComponent implements AfterViewInit, OnInit {
   private setupConnection(): void {
     this.sock = this.frameService.openImageConnection();
     this.sock.onmessage = (v) => {
-      this.processed_context.drawImage(this.video_native_element, 0, 0);
+      this.processed_context.drawImage(this.video_native_element, 0, 0, this.processedCanvas.nativeElement.width, this.processedCanvas.nativeElement.height);
       let data = JSON.parse(v['data'])
       this.processDetection(data);
       requestAnimationFrame(this.capture.bind(this));
@@ -172,6 +172,20 @@ export class DisplayComponent implements AfterViewInit, OnInit {
     this.processedCanvas.nativeElement.width = this.video_native_element.videoWidth;
     this.processedCanvas.nativeElement.height = this.video_native_element.videoHeight;
     this.updateUnprocessedCanvas();
+    this.resizeCanvas()
+  }
+
+  resizeCanvas(): void {
+    var w = this.processedCanvas.nativeElement.parentElement.clientWidth-20;
+    var h = this.processedCanvas.nativeElement.parentElement.clientHeight-20;
+    var aspectRatio = this.video_native_element.videoWidth/this.video_native_element.videoHeight
+    if (w/h > aspectRatio){
+      this.processedCanvas.nativeElement.width = h * aspectRatio;
+      this.processedCanvas.nativeElement.height = h;
+    } else{
+      this.processedCanvas.nativeElement.width = w;
+      this.processedCanvas.nativeElement.height = w / aspectRatio;
+    }
   }
 
   updateUnprocessedCanvas(): void {

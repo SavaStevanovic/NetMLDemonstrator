@@ -1,5 +1,7 @@
-<video #videoElement class="inputElement" (resize)="updateCanvas()"></video>
-<canvas #processedCanvas class="outputElement"></canvas>
+<div class="content">
+  <video #videoElement class="inputElement" (resize)="updateCanvas()"></video>
+  <canvas #processedCanvas class="outputElement" (window:resize)="resizeCanvas()"></canvas>
+</div>
 <div class="controls">
   <button mat-stroked-button *ngIf="!videoPlaying" (click)="resume()" color="primary" class="video-control">Play</button>
   <button mat-stroked-button *ngIf="videoPlaying" (click)="pause()" color="warn" class="video-control">Pause</button>
