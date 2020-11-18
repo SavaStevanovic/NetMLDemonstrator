@@ -169,13 +169,13 @@ export class DisplayComponent implements AfterViewInit, OnInit {
   }
 
   updateCanvas(): void {
-    this.processedCanvas.nativeElement.width = this.video_native_element.clientWidth;
-    this.processedCanvas.nativeElement.height = this.video_native_element.clientHeight;
+    this.processedCanvas.nativeElement.width = this.video_native_element.videoWidth;
+    this.processedCanvas.nativeElement.height = this.video_native_element.videoHeight;
     this.updateUnprocessedCanvas();
   }
 
   updateUnprocessedCanvas(): void {
-    this.unprocessedCanvas.height = this.video_native_element.clientHeight * this.quality;
-    this.unprocessedCanvas.width = this.video_native_element.clientWidth * this.quality;
+    this.unprocessedCanvas.height = this.video_native_element.videoHeight * this.quality;
+    this.unprocessedCanvas.width = this.video_native_element.videoWidth * this.quality;
   }
 }

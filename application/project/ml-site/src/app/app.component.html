@@ -1,9 +1,9 @@
-<app-toolbar></app-toolbar>
-<mat-drawer-container class="content" role="main">
+<mat-drawer-container>
   <mat-drawer #drawer mode="side" class="menu" opened>
+    <app-toolbar></app-toolbar>
     <app-filters></app-filters>
   </mat-drawer>
-  <mat-drawer-content class="display">
+  <mat-drawer-content>
     <app-display></app-display>
   </mat-drawer-content>
 </mat-drawer-container>

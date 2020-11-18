@@ -1,2 +1,4 @@
 <h2 class="mat-title">Filters</h2>
-<app-filter *ngFor="let filter of filters" [filter]="filter"></app-filter>
+<mat-accordion>
+  <app-filter *ngFor="let filter of filters" [filter]="filter"></app-filter>
+</mat-accordion>

@@ -1,16 +1,12 @@
-.content {
-  height: 100%;
-}
-.display {
-  width: 100%;
-}
 .menu {
   width: 250px;
 }
 .menu_toggle {
   position: fixed;
-  bottom: 0px;
-  left: 0px;
+  bottom: 12px;
+  right: 0px;
   z-index: 5;
 }
-
+.mat-drawer-container{
+  height: 100%;
+}
