@@ -5,23 +5,21 @@
   height: calc(100% - 3em);
   max-width: calc(100%);
 }
-
 .inputElement {
   visibility:hidden;
   z-index: 3;
   position: fixed;
 }
 .outputElement {
+  visibility:hidden;
   background-color: #666;
   z-index: 5;
   border: 10px #333 solid;
-  height: calc(100% - 20px);
   max-width: 100%;
   margin-left: auto;
   margin-right: auto;
   display: block;
 }
-
 .video-control {
   width: 6em!important;
 }

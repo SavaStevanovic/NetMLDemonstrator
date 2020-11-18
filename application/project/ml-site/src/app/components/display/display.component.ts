@@ -131,6 +131,7 @@ export class DisplayComponent implements AfterViewInit, OnInit {
       navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } }).then(stream => {
         this.video_native_element.srcObject = stream;
         this.setup_stream()
+        this.processedCanvas.nativeElement.style.visibility = "visible";
       },
       error => {
         this.snackBar.open('Camera not found.', 'Confirm', {
