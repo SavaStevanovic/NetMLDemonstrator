@@ -7,6 +7,7 @@ from io import BytesIO
 from PIL import Image
 from skimage.draw import disk
 from itertools import compress
+from scipy.ndimage.filters import gaussian_filter
 
 class PartAffinityFieldTransform(object):
     def __init__(self, skeleton, heatmap_distance):
@@ -28,26 +29,44 @@ class PartAffinityFieldTransform(object):
 
         return value
 
-    def __call__(self, affinity_field, part_heatmap):
+    def __call__(self, affinity_field, part_heatmap, threshold=0.5):
         # return [], []
         body_parts = []
-        for i, heatmap in enumerate(part_heatmap):
-            heatmap_candidates = heatmap > 0.5
-            heatmap_cordinates = np.where(heatmap_candidates)
+        for i, heatmap in enumerate(part_heatmap[:-1]):
+            heatmap = gaussian_filter(heatmap, sigma=self.heatmap_distance)
+            map_left = np.zeros(heatmap.shape)
+            map_right = np.zeros(heatmap.shape)
+            map_top = np.zeros(heatmap.shape)
+            map_bottom = np.zeros(heatmap.shape)
+
+            map_left[1:, :] = heatmap[:-1, :]
+            map_right[:-1, :] = heatmap[1:, :]
+            map_top[:, 1:] = heatmap[:, :-1]
+            map_bottom[:, :-1] = heatmap[:, 1:]
+
+            peaks_binary = np.logical_and.reduce((
+                heatmap > threshold,
+                heatmap > map_left,
+                heatmap > map_right,
+                heatmap > map_top,
+                heatmap > map_bottom,
+            ))
+
+            heatmap_cordinates = np.where(peaks_binary)
             heatmap_cordinates = np.asarray(heatmap_cordinates).T
             heatmap_cordinates = [(x[0], x[1], heatmap[x[0], x[1]]) for x in heatmap_cordinates]
             s_heatmap_cordinates = sorted(heatmap_cordinates, key=lambda e: -e[2]) 
             for candidate in s_heatmap_cordinates:
                 if len(body_parts)>100:
                     break
-                if not heatmap_candidates[candidate[0], candidate[1]]:
+                if not peaks_binary[candidate[0], candidate[1]]:
                     continue
                 rr, cc = disk(candidate[:2], self.heatmap_distance*2)
                 # img[rr, cc] = 1
                 list_filter = [rr[i]>=0 and cc[i]>=0 and rr[i]<heatmap.shape[0] and cc[i]<heatmap.shape[1] for i in range(len(rr))]
                 rr = np.array(list(compress(rr, list_filter)))
                 cc = np.array(list(compress(cc, list_filter)))
-                heatmap_candidates[rr, cc] = False
+                peaks_binary[rr, cc] = False
                 body_parts.append((self.parts[i], candidate[:2]))
                 # points_to_process = [list(candidate[:2])]
 
@@ -91,8 +110,8 @@ def getRGBfromI(RGBint):
     red =   (RGBint >> 16) & 255
     return red/255, green/255, blue/255
 
-def get_mapped_image(images, labels, postprocessing, skeleton, parts):
-    outputs = postprocessing(labels[0][0].detach().cpu().numpy(), labels[1][0].detach().cpu().numpy())
+def get_mapped_image(images, pafs, maps, postprocessing, skeleton, parts):
+    outputs = postprocessing(pafs[0].detach().cpu().numpy(), maps[0].detach().cpu().numpy(), 0.5)
     image = (images[0].permute(1,2,0).numpy() * 255).round().astype(np.uint8)
     plt.imshow(image); plt.axis('off')
     for o in outputs[1]:

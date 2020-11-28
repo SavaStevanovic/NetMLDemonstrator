@@ -10,32 +10,34 @@ import numpy as np
 
 def metrics(net, dataloader, postprocessing, epoch=1):
     net.eval()
-    criterion = torch.nn.MSELoss()
+    criterion = torch.nn.L1Loss(reduction='none')
     losses = 0.0
     total_pafs_loss = 0.0
     total_maps_loss = 0.0
     output_images = []
     label_images = []
+    torch.backends.cudnn.benchmark = False
     with torch.no_grad():
         for i, data in enumerate(tqdm(dataloader)):
-            image, labels = data
+            image, labels, mask = data
             pafs_output, maps_output = net(image.cuda())
             paf_label = labels[0].cuda()
             map_label = labels[1].cuda()
-            pafs_loss = torch.stack([(paf_label>0).int() * criterion(paf_label, o) for o in pafs_output], dim=0).sum()
-            maps_loss = torch.stack([(map_label>0).int() * criterion(map_label, o) for o in maps_output], dim=0).sum()
+            pafs_loss = torch.stack([(paf_label>0).int() * criterion(o, paf_label) for o in pafs_output], dim=0).mean()
+            maps_loss = torch.stack([(map_label>0).int() * criterion(o, map_label) for o in maps_output], dim=0).mean()
             loss = pafs_loss + maps_loss
             total_pafs_loss += pafs_loss.item()
             total_maps_loss += maps_loss.item()
             losses += loss.item()
 
-            if i>=len(dataloader)-5:
+            if i>=len(dataloader)-10:
                 mapped_image = get_mapped_image(image, labels, postprocessing, dataloader.skeleton, dataloader.parts)
                 label_images.append(np.array(mapped_image))
 
                 mapped_image = get_mapped_image(image, [pafs_output[-1], maps_output[-1]], postprocessing, dataloader.skeleton, dataloader.parts)
                 output_images.append(np.array(mapped_image))
     
+    torch.backends.cudnn.benchmark = True
     data_len = len(dataloader)
     return losses/data_len, total_pafs_loss/data_len, total_maps_loss/data_len, output_images, label_images
 

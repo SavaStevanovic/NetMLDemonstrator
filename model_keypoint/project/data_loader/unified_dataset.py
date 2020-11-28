@@ -6,6 +6,7 @@ from visualization import output_transform
 import multiprocessing as mu
 from torch.utils.data import Dataset, DataLoader
 from visualization.output_transform import PartAffinityFieldTransform
+from pycocotools.coco import COCO
 import os
 
 skeleton = [
@@ -36,6 +37,7 @@ class UnifiedKeypointDataset(Dataset):
         self.train = train
         self.skeleton = skeleton
         self.parts = list(set(sum(self.skeleton, [])))
+        sigma = 6
         if train:
             self.transforms = augmentation.PairCompose([
                 augmentation.RandomResizeTransform(),
@@ -45,7 +47,7 @@ class UnifiedKeypointDataset(Dataset):
                 augmentation.RandomColorJitterTransform(),
                 augmentation.RandomBlurTransform(),
                 augmentation.RandomJPEGcompression(95),
-                augmentation.PartAffinityFieldTransform(skeleton, 10, 6, self.parts),
+                augmentation.PartAffinityFieldTransform(skeleton, 10, sigma, self.parts),
                 augmentation.OutputTransform()]
             )
             self.datasets = [
@@ -54,7 +56,8 @@ class UnifiedKeypointDataset(Dataset):
 
         if not train:
             self.transforms = augmentation.PairCompose([
-                augmentation.PartAffinityFieldTransform(skeleton, 10, 6, self.parts),
+                augmentation.PaddTransform(8),
+                augmentation.PartAffinityFieldTransform(skeleton, 10, sigma, self.parts),
                 augmentation.OutputTransform()]
             )
             self.datasets = [
@@ -62,13 +65,13 @@ class UnifiedKeypointDataset(Dataset):
             ]
 
         self.data_ids = [(i, j) for i, dataset in enumerate(self.datasets) for j in range(len(self.datasets[i]))]
-        self.postprocessing = PartAffinityFieldTransform(skeleton, 6)
+        self.postprocessing = PartAffinityFieldTransform(skeleton, sigma**0.5)
 
 
 
     def __len__(self):
         if self.debug==1:
-            return 50
+            return 5
         else:
             return len(self.data_ids)
 
