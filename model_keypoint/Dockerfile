@@ -3,4 +3,4 @@ RUN apt-get update && pip install --upgrade pip && apt-get install -y libsm6 lib
 ENV QT_X11_NO_MITSHM=1
 EXPOSE 5002
 RUN apt-get -y install libprotobuf* protobuf-compiler ninja-build
-CMD pip install -r /app/requirements.txt; bash
+CMD pip install -r requirements.txt; pip uninstall -y tensorboard-plugin-dlprof; bash

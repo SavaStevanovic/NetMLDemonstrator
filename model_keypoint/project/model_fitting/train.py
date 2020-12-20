@@ -17,6 +17,7 @@ import numpy as np
 from visualization.output_transform import get_mapped_image 
 from PIL import Image
 import torch.nn.functional as F
+from utils import plt_to_np
 
 def focal_loss(x, y):
     gamma = 2
@@ -46,6 +47,12 @@ def fit_epoch(net, dataloader, lr_rate, postprocessing, train, epoch=1):
     total_maps_loss = 0.0
     output_images = []
     label_images = []
+    map_outputs_images = []
+    map_labels_images = []
+    paf_outputs_images = []
+    paf_labels_images = []
+
+
     for i, data in enumerate(tqdm(dataloader)):
         image, pafs, maps, mask = data
         # image = (image+0.5)
@@ -63,8 +70,8 @@ def fit_epoch(net, dataloader, lr_rate, postprocessing, train, epoch=1):
         if train:
             loss.backward()
             optimizer.step()
-        total_pafs_loss += pafs_loss.mean()
-        total_maps_loss += maps_loss.mean()
+        total_pafs_loss += pafs_loss.sum()
+        total_maps_loss += maps_loss.sum()
         losses += loss.item()
 
         if i>=len(dataloader)-5:
@@ -77,51 +84,60 @@ def fit_epoch(net, dataloader, lr_rate, postprocessing, train, epoch=1):
             mapped_image = get_mapped_image((1 - mask) * image, pafs, maps, postprocessing, dataloader.skeleton, dataloader.parts)
             label_images.append(np.array(mapped_image))
 
+            plt.imshow(maps_output[-1].clamp(0, 1).cpu().numpy()[0, -1])
+            plt.imshow(image[0].permute(1,2,0), alpha=0.2)
+            map_outputs_images.append(plt_to_np(plt))
+
+
+            plt.imshow(maps.cpu().clamp(0, 1).numpy()[0, -1])
+            plt.imshow(image[0].permute(1,2,0), alpha=0.2)
+            map_labels_images.append(plt_to_np(plt))
+            
+            plt.imshow(((pafs_output[-1].clamp(-1, 1).cpu().numpy()[0, :]+1)/2).mean(0))
+            plt.imshow(image[0].permute(1,2,0), alpha=0.2)
+            paf_outputs_images.append(plt_to_np(plt))
+
+
+            plt.imshow(((pafs.clamp(-1, 1).cpu().numpy()[0, :]+1)/2).mean(0))
+            plt.imshow(image[0].permute(1,2,0), alpha=0.2)
+            paf_labels_images.append(plt_to_np(plt))
+
             mapped_image = get_mapped_image(image, pafs_output[-1], maps_output[-1], postprocessing, dataloader.skeleton, dataloader.parts)
             output_images.append(np.array(mapped_image))
 
     data_len = len(dataloader)
-    return losses/data_len, total_pafs_loss/data_len, total_maps_loss/data_len, output_images, label_images
+    return losses/data_len, total_pafs_loss/data_len, total_maps_loss/data_len, output_images, label_images, map_outputs_images, map_labels_images, paf_outputs_images, paf_labels_images
 
 def mean_square_error(pred, target):
     assert pred.shape == target.shape, 'x and y should in same shape'
     return torch.sum((pred - target) ** 2) / target.nelement()
 
 def compute_loss(pafs_ys, heatmaps_ys, pafs_t, heatmaps_t, ignore_mask):
-    heatmap_loss_log = []
-    paf_loss_log = []
     total_loss = 0
-
-    paf_masks = ignore_mask.repeat([1, pafs_t.shape[1], 1, 1])
-    heatmap_masks = ignore_mask.repeat([1, heatmaps_t.shape[1], 1, 1])
-
     # compute loss on each stage
-    for pafs_y, heatmaps_y in zip(pafs_ys, heatmaps_ys):
-        stage_pafs_t = pafs_t.clone()
-        stage_heatmaps_t = heatmaps_t.clone()
-        stage_paf_masks = paf_masks.clone()
-        stage_heatmap_masks = heatmap_masks.clone()
-
-        if pafs_y.shape != stage_pafs_t.shape:
-            with torch.no_grad():
-                stage_pafs_t = F.interpolate(stage_pafs_t, pafs_y.shape[2:], mode='bilinear', align_corners=True)
-                stage_heatmaps_t = F.interpolate(stage_heatmaps_t, heatmaps_y.shape[2:], mode='bilinear', align_corners=True)
-                stage_paf_masks = F.interpolate(stage_paf_masks, pafs_y.shape[2:]) > 0
-                stage_heatmap_masks = F.interpolate(stage_heatmap_masks, heatmaps_y.shape[2:]) > 0
-                
-        with torch.no_grad():       
-            stage_pafs_t[stage_paf_masks > 0.5] = pafs_y.detach()[stage_paf_masks > 0.5]
-            stage_heatmaps_t[stage_heatmap_masks > 0.5] = heatmaps_y.detach()[stage_heatmap_masks > 0.5]        
-        
-        pafs_loss = mean_square_error(pafs_y, stage_pafs_t)
-        heatmaps_loss = mean_square_error(heatmaps_y, stage_heatmaps_t)
-
-        total_loss += pafs_loss + heatmaps_loss
-
-        paf_loss_log.append(pafs_loss.item())
-        heatmap_loss_log.append(heatmaps_loss.item())
+    heatmap_loss_log, loss = pose_loss(heatmaps_ys, heatmaps_t, ignore_mask)
+    total_loss             += loss
+    paf_loss_log    , loss = pose_loss(pafs_ys    , pafs_t    , ignore_mask    )
+    total_loss             += loss
 
     return total_loss, np.array(paf_loss_log), np.array(heatmap_loss_log)
+
+def pose_loss(ys, t, masks):
+    masks = masks.repeat([1, t.shape[1], 1, 1])
+    sum_loss = 0
+    loss_log = []
+    stage_t = t.clone()
+    stage_masks = masks.clone()
+    for y in ys:
+        if stage_t.shape != y.shape:
+            y = F.interpolate(y, stage_t.shape[2:], mode='bilinear', align_corners=True)
+    
+        y[stage_masks > 0.5] = stage_t.detach()[stage_masks > 0.5]        
+
+        loss = mean_square_error(y, stage_t)
+        sum_loss += loss
+        loss_log.append(loss.item())
+    return loss_log, sum_loss
 
 def fit(net, trainloader, validationloader, postprocessing, epochs=1000, lower_learning_period=10):
     model_dir_header = net.get_identifier()
@@ -140,21 +156,37 @@ def fit(net, trainloader, validationloader, postprocessing, epochs=1000, lower_l
     # with torch.no_grad():
     #     writer.add_graph(net, images[:2].cuda())
     for epoch in range(train_config.epoch, epochs):
-        loss, total_pafs_loss, total_maps_loss, output_images, label_images = fit_epoch(net, trainloader, train_config.learning_rate, postprocessing, train = True, epoch=epoch)
+        loss, total_pafs_loss, total_maps_loss, output_images, label_images, map_outputs_images, map_labels_images, paf_outputs_images, paf_labels_images = fit_epoch(net, trainloader, train_config.learning_rate, postprocessing, train = True, epoch=epoch)
         writer.add_scalars('Train/Metrics', {'total_pafs_loss': total_pafs_loss, 'total_maps_loss': total_maps_loss}, epoch)
         writer.add_scalar('Train/Metrics/loss', loss, epoch)
         grid = join_images(label_images)
         writer.add_images('train_labels', grid, epoch, dataformats='HWC')
         grid = join_images(output_images)
         writer.add_images('train_outputs', grid, epoch, dataformats='HWC')
+        grid = join_images(map_outputs_images)
+        writer.add_images('train_map_outputs_images', grid, epoch, dataformats='HWC')
+        grid = join_images(map_labels_images)
+        writer.add_images('train_map_labels_images', grid, epoch, dataformats='HWC')
+        grid = join_images(paf_outputs_images)
+        writer.add_images('train_paf_outputs_images', grid, epoch, dataformats='HWC')
+        grid = join_images(paf_labels_images)
+        writer.add_images('train_paf_labels_images', grid, epoch, dataformats='HWC')
 
-        loss, total_pafs_loss, total_maps_loss, output_images, label_images = fit_epoch(net, validationloader, None, postprocessing, train = False, epoch=epoch)
+        loss, total_pafs_loss, total_maps_loss, output_images, label_images, map_outputs_images, map_labels_images, paf_outputs_images, paf_labels_images = fit_epoch(net, validationloader, None, postprocessing, train = False, epoch=epoch)
         writer.add_scalars('Validation/Metrics', {'total_pafs_loss': total_pafs_loss, 'total_maps_loss': total_maps_loss}, epoch)
         writer.add_scalar('Validation/Metrics/loss', loss, epoch)
         grid = join_images(label_images)
         writer.add_images('validation_labels', grid, epoch, dataformats='HWC')
         grid = join_images(output_images)
         writer.add_images('validation_outputs', grid, epoch, dataformats='HWC')
+        grid = join_images(map_outputs_images)
+        writer.add_images('validation_map_outputs_images', grid, epoch, dataformats='HWC')
+        grid = join_images(map_labels_images)
+        writer.add_images('validation_map_labels_images', grid, epoch, dataformats='HWC')
+        grid = join_images(paf_outputs_images)
+        writer.add_images('validation_paf_outputs_images', grid, epoch, dataformats='HWC')
+        grid = join_images(paf_labels_images)
+        writer.add_images('validation_paf_labels_images', grid, epoch, dataformats='HWC')
 
         os.makedirs((chp_dir), exist_ok=True)
         if train_config.best_metric > loss:

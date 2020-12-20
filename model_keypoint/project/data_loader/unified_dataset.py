@@ -37,7 +37,7 @@ class UnifiedKeypointDataset(Dataset):
         self.train = train
         self.skeleton = skeleton
         self.parts = list(set(sum(self.skeleton, [])))
-        sigma = 6
+        sigma = 4
         if train:
             self.transforms = augmentation.PairCompose([
                 augmentation.RandomResizeTransform(),

@@ -8,7 +8,7 @@ import os
 
 th_count = 24
 
-dataloader = UnifiedKeypointDataloader(batch_size = 4, th_count=th_count)
+dataloader = UnifiedKeypointDataloader(batch_size = 6, th_count=th_count)
 backbone = networks.VGGNetBackbone(inplanes = 64, block_counts = [2, 2, 4, 2])
 net = networks.OpenPoseNet([backbone], 4, 1, blocks.PoseCNNStage, 10, len(dataloader.trainloader.skeleton)*2, len(dataloader.trainloader.parts)+1)
 # net = networks.CocoPoseNet()

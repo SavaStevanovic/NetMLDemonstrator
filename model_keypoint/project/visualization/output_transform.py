@@ -8,6 +8,7 @@ from PIL import Image
 from skimage.draw import disk
 from itertools import compress
 from scipy.ndimage.filters import gaussian_filter
+from utils import plt_to_np
 
 class PartAffinityFieldTransform(object):
     def __init__(self, skeleton, heatmap_distance):
@@ -99,7 +100,7 @@ class PartAffinityFieldTransform(object):
             #     print(dist)
             assignments = scipy.optimize.linear_sum_assignment(dist, maximize=True)
             assignments = np.asarray(assignments).T
-            new_conns = [(fparts[p[0]], dparts[p[1]]) for p in assignments if dist[p[0], p[1]]>0.20]
+            new_conns = [(fparts[p[0]], dparts[p[1]]) for p in assignments if dist[p[0], p[1]]>0.00]
             joints.extend(new_conns)
 
         return body_parts, joints
@@ -123,10 +124,5 @@ def get_mapped_image(images, pafs, maps, postprocessing, skeleton, parts):
         c = getRGBfromI(16777216//(parts.index(o[0])+1))
         plt.plot(o[1][1], o[1][0],'o',markersize=6, markerfacecolor=c, markeredgecolor='w',markeredgewidth=1)
 
-    buffer_ = BytesIO()
-    plt.savefig(buffer_, format = "png")
-    buffer_.seek(0)
-    image = Image.open(buffer_)
-    image.save('test.png')
-    plt.close()
+    image = plt_to_np(plt)
     return image

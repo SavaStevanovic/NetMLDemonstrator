@@ -17,7 +17,7 @@ class OpenPoseNet(nn.Module, utils.Identifier):
         self.map_planes = map_planes
         self.adapter = nn.Sequential(
             nn.Conv2d(self.backbone.channels   , self.backbone.channels//2, kernel_size=1, bias=True, padding=0),
-            nn.ReLU(inplace=True),
+            nn.PReLU(),
             nn.Conv2d(self.backbone.channels//2, self.backbone.channels//4, kernel_size=1, bias=True, padding=0),
         )
         self.channels = self.backbone.channels//4
@@ -53,13 +53,13 @@ class VGGNetBackbone(nn.Sequential, utils.Identifier):
         self.block_counts = block_counts
         layers = [nn.Conv2d(3, self.channels, kernel_size=3, bias=True, padding=1)]
         for _ in range(self.block_counts[0]-1):
-            layers.extend([nn.ReLU(inplace=True), nn.Conv2d(self.channels, self.channels, kernel_size=3, bias=True, padding=1)])
+            layers.extend([nn.PReLU(), nn.Conv2d(self.channels, self.channels, kernel_size=3, bias=True, padding=1)])
         for b in self.block_counts[1:]:
             layers.append(nn.MaxPool2d(2, 2))
-            layers.extend([nn.ReLU(inplace=True), nn.Conv2d(self.channels, self.channels*2, kernel_size=3, bias=True, padding=1)])
+            layers.extend([nn.PReLU(), nn.Conv2d(self.channels, self.channels*2, kernel_size=3, bias=True, padding=1)])
             self.channels*=2
             for _ in range(b-1):
-                layers.extend([nn.ReLU(inplace=True), nn.Conv2d(self.channels, self.channels, kernel_size=3, bias=True, padding=1)])
+                layers.extend([nn.PReLU(), nn.Conv2d(self.channels, self.channels, kernel_size=3, bias=True, padding=1)])
            
         super(VGGNetBackbone, self).__init__(*layers)
 
@@ -118,7 +118,7 @@ class VGG_Base(nn.Module):
         self.conv3_4 = nn.Conv2d(in_channels = 256, out_channels = 256,  kernel_size = 3, stride = 1, padding = 1)
         self.conv4_1 = nn.Conv2d(in_channels = 256, out_channels = 512,  kernel_size = 3, stride = 1, padding = 1)
         self.conv4_2 = nn.Conv2d(in_channels = 512, out_channels = 512,  kernel_size = 3, stride = 1, padding = 1)
-        self.relu = nn.ReLU()
+        self.relu = nn.PReLU()
         self.max_pooling_2d = nn.MaxPool2d(kernel_size = 2, stride = 2)
     
     def forward(self, x):
@@ -143,7 +143,7 @@ class Base_model(nn.Module):
         self.vgg_base = VGG_Base()
         self.conv4_3_CPM = nn.Conv2d(in_channels=512, out_channels=256,  kernel_size = 3, stride = 1, padding = 1)
         self.conv4_4_CPM = nn.Conv2d(in_channels=256, out_channels=128,  kernel_size = 3, stride = 1, padding = 1)
-        self.relu = nn.ReLU()
+        self.relu = nn.PReLU()
     def forward(self, x):
         x = self.vgg_base(x)
         x = self.relu(self.conv4_3_CPM(x))
@@ -163,7 +163,7 @@ class Stage_1(nn.Module):
         self.conv3_CPM_L2 = nn.Conv2d(in_channels=128, out_channels=128, kernel_size=3, stride=1, padding=1)
         self.conv4_CPM_L2 = nn.Conv2d(in_channels=128, out_channels=512, kernel_size=1, stride=1, padding=0)
         self.conv5_CPM_L2 = nn.Conv2d(in_channels=512, out_channels=18, kernel_size=1, stride=1, padding=0)
-        self.relu = nn.ReLU()
+        self.relu = nn.PReLU()
         
     def forward(self, x):
         h1 = self.relu(self.conv1_CPM_L1(x)) # branch1
@@ -195,7 +195,7 @@ class Stage_x(nn.Module):
         self.conv5_L2 = nn.Conv2d(in_channels = 128, out_channels = 128, kernel_size = 7, stride = 1, padding = 3)
         self.conv6_L2 = nn.Conv2d(in_channels = 128, out_channels = 128, kernel_size = 1, stride = 1, padding = 0)
         self.conv7_L2 = nn.Conv2d(in_channels = 128, out_channels = 18, kernel_size = 1, stride = 1, padding = 0)
-        self.relu = nn.ReLU()
+        self.relu = nn.PReLU()
         
     def forward(self, x):
         h1 = self.relu(self.conv1_L1(x)) # branch1
