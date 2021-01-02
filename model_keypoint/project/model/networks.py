@@ -5,7 +5,7 @@ import functools
 import torch
 import numpy as np
 
-      
+#TODO: add skeleton and parts to model definition
 class OpenPoseNet(nn.Module, utils.Identifier):
     def __init__(self, backbone, paf_stages, map_stages, block, block_count, paf_planes, map_planes):
         super(OpenPoseNet, self).__init__()

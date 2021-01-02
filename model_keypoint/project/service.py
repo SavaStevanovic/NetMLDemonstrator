@@ -6,15 +6,21 @@ from PIL import Image
 from data_loader import augmentation
 import tornado.web
 import io
+import torch.nn.functional as F
 
+#TODO: remove after integrating skeleton and parts to model
+from data_loader.unified_dataset import skeleton
+#--------------------------------------------------------------
 
 camera_models = {}
+torch.no_grad()
+torch.autograd.set_detect_anomaly(False)
+torch.autograd.profiler.emit_nvtx(False)
+torch.autograd.profiler.profile(False)
+# torch.backends.cudnn.benchmark = True
 
 model_paths = {
-        "YoloV2" : {'path': 'checkpoints/YoloV2/64/0,5-1,0-2,0/Coco_checkpoints_final.pth'},
-        "Yolo" : {'path': 'checkpoints/YoloNet/512/0,5-1,0-2,0/ResNetBackbone/512/3-4-6-3/Coco_checkpoints_final.pth'},
-        "RetinaNet" : {'path': 'checkpoints/RetinaNet/512/0,5-1,0-2,0/FeaturePyramidBackbone/512/ResNetBackbone/512/3-4-6-3/Coco_checkpoints_final.pth'},
-        "FPN" : {'path': 'checkpoints/FeaturePyramidNet/512/0,5-1,0-2,0/FeaturePyramidBackbone/512/ResNetBackbone/512/3-4-6-3/SqueezeExcitationBlock/Coco_checkpoints_final.pth'},
+        "OpenPoseV2" : {'path': 'checkpoints/OpenPoseNet/4/1/38/18/PoseCNNStage/VGGNetBackbone/64/2-2-4-2/checkpoints_final.pth'},
     }
 
 class BaseHandler(tornado.web.RequestHandler):
@@ -36,8 +42,7 @@ class GetModelsHandler(BaseHandler):
     def get(self):
         data = {
             'models': list(self.model_paths.keys()),
-            'progress_bars':[{'name':'threshold',  'value':0.5}], 
-            'check_boxes': [{'name':'NMS', 'checked':True}],
+            'progress_bars':[{'name':'threshold',  'value':0.5}], \
         } 
       
         self.write(data)
@@ -59,30 +64,23 @@ class FrameUploadHandler(BaseHandler):
                 raise Exception("Model {} not found.".format(model_key))
             model_path = model_paths[model_key]['path']
             model = torch.load(model_path).eval().cuda()
-            model.target_to_box_transform = output_transform.TargetTransformToBoxes(prior_box_sizes=model.prior_box_sizes,
-                                                                                    classes=model.classes,
-                                                                                    ratios=model.ratios,
-                                                                                    strides=model.strides)
+            model.target_output_transform = output_transform.PartAffinityFieldTransform(skeleton=skeleton, heatmap_distance = 2)
             model.preprocessing = augmentation.PairCompose([
-                augmentation.PaddTransform(pad_size=2**model.depth),
+                augmentation.PaddTransform(pad_size=8),
                 augmentation.OutputTransform()
             ])
-            camera_models[model_key] = model
+            camera_models[model_key] = model.cuda()
         model = camera_models[model_key]
-        img_tensor, _  = model.preprocessing(img_input, None)
+        img_tensor, _, _, _  = model.preprocessing(img_input, None, None)
         img_tensor = img_tensor.unsqueeze(0).float().cuda()
-        outputs = model(img_tensor)
-        outs = [out.cpu().detach().numpy() for out in outputs]
-
-        boxes_pr=[]
-        for i, out in enumerate(outs):
-            boxes_pr += model.target_to_box_transform(out, data['threshold'], scale=img_input.size[::-1], depth = i)
-        if data['NMS']:
-            boxes_pr = apply_output.non_max_suppression(boxes_pr)
-         
-        for b in boxes_pr:
-            b['class'] = model.classes[b['category_id']][1]
-        self.write(tornado.escape.json_encode(boxes_pr))
+        pafs_output, maps_output = model(img_tensor)
+        pafs_output = F.interpolate(pafs_output[-1], img_input.size, mode='bilinear', align_corners=True)[0].detach().cpu().numpy()
+        maps_output = F.interpolate(maps_output[-1], img_input.size, mode='bilinear', align_corners=True)[0].detach().cpu().numpy()
+        outputs = model.target_output_transform(pafs_output, maps_output, data['threshold'])
+        return_msg = {}
+        return_msg['parts']  = [(x[1][1]/img_input.size[1], x[1][0]/img_input.size[0]) for x in outputs[0]]
+        return_msg['joints'] = [((x[0][1][1]/img_input.size[1],x[0][1][0]/img_input.size[0]), (x[1][1][1]/img_input.size[1],x[1][1][0]/img_input.size[0])) for x in outputs[1]]
+        self.write(tornado.escape.json_encode(return_msg))
 
 if __name__ == "__main__":
     import logging
@@ -95,6 +93,6 @@ if __name__ == "__main__":
     )
 
     server = tornado.httpserver.HTTPServer(app)
-    server.listen(5001)
+    server.listen(5004)
    
     tornado.ioloop.IOLoop.current().start()

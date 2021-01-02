@@ -19,4 +19,4 @@ fit(net,
     postprocessing = dataloader.postprocessing, 
     epochs = 1000, 
     lower_learning_period = 3
-)      
+)       

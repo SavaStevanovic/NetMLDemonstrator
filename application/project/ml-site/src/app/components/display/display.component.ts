@@ -98,6 +98,37 @@ export class DisplayComponent implements AfterViewInit, OnInit {
         this.processed_context.stroke();
       }
     }
+    if (data['parts']) {
+      this.processed_context.strokeStyle = "black";
+      this.processed_context.lineWidth = 3;
+      this.processed_context.fillStyle = "blue";
+      for (let bpart of data['parts']) {
+        this.processed_context.beginPath();
+        this.processed_context.arc(
+          bpart[0] * this.processed_context.canvas.width, 
+          bpart[1] * this.processed_context.canvas.height, 
+          10, 
+          0, 
+          Math.PI * 2, 
+          false);
+        this.processed_context.fill()
+        this.processed_context.stroke();
+      }
+    }
+    if (data['joints']) {
+      this.processed_context.lineWidth = 3;
+      this.processed_context.strokeStyle = "blue";
+      for (let joint of data['joints']) {
+        this.processed_context.beginPath();
+        this.processed_context.moveTo(
+          joint[0][0] * this.processed_context.canvas.width, 
+          joint[0][1] * this.processed_context.canvas.height);
+        this.processed_context.lineTo(
+          joint[1][0] * this.processed_context.canvas.width, 
+          joint[1][1] * this.processed_context.canvas.height);
+        this.processed_context.stroke();
+      }
+    }
   }
 
   private toColor(num: number): string {

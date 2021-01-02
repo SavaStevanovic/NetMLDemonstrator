@@ -9,6 +9,7 @@ from skimage.draw import disk
 from itertools import compress
 from scipy.ndimage.filters import gaussian_filter
 from utils import plt_to_np
+from scipy.optimize import linear_sum_assignment
 
 class PartAffinityFieldTransform(object):
     def __init__(self, skeleton, heatmap_distance):
@@ -98,7 +99,7 @@ class PartAffinityFieldTransform(object):
 
             # if len(dist)>=2:
             #     print(dist)
-            assignments = scipy.optimize.linear_sum_assignment(dist, maximize=True)
+            assignments = linear_sum_assignment(dist, maximize=True)
             assignments = np.asarray(assignments).T
             new_conns = [(fparts[p[0]], dparts[p[1]]) for p in assignments if dist[p[0], p[1]]>0.00]
             joints.extend(new_conns)

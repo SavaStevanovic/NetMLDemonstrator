@@ -3,7 +3,8 @@ import time
 import requests
 import sockjs.tornado
 filter_data = {
-    "detection": {'path': 'http://detection:5001/get_models'}
+    "detection": {'path': 'http://detection:5001/get_models'},
+    "keypoint": {'path': 'http://keypoint:5004/get_models'}
 }
 
 class BaseHandler(tornado.web.RequestHandler):
@@ -63,22 +64,30 @@ class FrameUploadConnection(sockjs.tornado.SockJSConnection):
         used_models = [x for x in data['config'] if 'selectedModel' in x 
                                                     and x['selectedModel'] 
                                                     and x['name'] in filter_data.keys()]
-        return_data = {}                                                    
+        return_data = {}                       
+        config_parameters = ['progress_bars', 'check_boxes']                             
         for model_config in used_models:
             model_service = self.filter_data[model_config['name']]
-            data['model_name'] = model_config['selectedModel']
+            msg = {
+                'frame': data['frame'], 
+                'model_name': model_config['selectedModel'],
+            }
+            for x in config_parameters:
+                if x not in model_config:
+                    msg[x]=[]
+                else:
+                    msg[x]=model_config[x]
             r = requests.post(
                 url=model_service['path'].replace('get_models', 'frame_upload'),
-                json = {
-                    'frame': data['frame'], 
-                    'model_name': model_config['selectedModel'],
-                    'progress_bars' : model_config['progress_bars'],
-                    'check_boxes' : model_config['check_boxes']
-                }
+                json = msg
             )
             if model_config['name'] == 'detection':
                 boxes = tornado.escape.json_decode(r.content)
                 return_data['bboxes'] = boxes
+            if model_config['name'] == 'keypoint':
+                content = tornado.escape.json_decode(r.content)
+                return_data['parts'] = content['parts']
+                return_data['joints'] = content['joints']
 
         self.send(tornado.escape.json_encode(return_data))
         print("--- {} ms ---".format((time.time() - start_time)*1000))

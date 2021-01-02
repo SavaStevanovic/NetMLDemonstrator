@@ -129,15 +129,19 @@ class PaddTransform(object):
         padding_y = self.pad_size-image.size[1]%self.pad_size
         padding_y = (padding_y!=self.pad_size) * padding_y
         image_padded = transforms.functional.pad(image, (0, 0, padding_x, padding_y))
-        mask_padded = transforms.functional.pad(mask, (0, 0, padding_x, padding_y))
-        return image_padded, label, mask_padded
+        if mask is not None:
+            mask = transforms.functional.pad(mask, (0, 0, padding_x, padding_y))
+        return image_padded, label, mask
 
 class OutputTransform(object):
     def __call__(self, image, label, mask):
         image = transforms.functional.to_tensor(image)
-        mask = transforms.functional.to_tensor(mask)
+        if mask is not None:
+            mask = transforms.functional.to_tensor(mask)
         if image.shape[0]==1:
             image = torch.cat([image]*3)
+        if label is None:
+            label = [None, None]
         return image, label[0], label[1], mask
 
 # added to reflect inference state
