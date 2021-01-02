@@ -1,6 +1,5 @@
 import torch
 import os
-from model_fitting.metrics import metrics
 from model_fitting.losses import SegmentationLoss
 from datetime import datetime
 from torch.utils.tensorboard import SummaryWriter

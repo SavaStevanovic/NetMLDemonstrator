@@ -2,6 +2,9 @@ import tornado
 import time
 import requests
 import sockjs.tornado
+import json
+import asyncio
+
 filter_data = {
     "detection": {'path': 'http://detection:5001/get_models'},
     "keypoint": {'path': 'http://keypoint:5004/get_models'}
@@ -58,6 +61,7 @@ class FrameUploadConnection(sockjs.tornado.SockJSConnection):
     def on_open(self, info):
         pass
 
+    @tornado.gen.coroutine
     def on_message(self, message):
         start_time = time.time()
         data = tornado.escape.json_decode(message)
@@ -65,7 +69,9 @@ class FrameUploadConnection(sockjs.tornado.SockJSConnection):
                                                     and x['selectedModel'] 
                                                     and x['name'] in filter_data.keys()]
         return_data = {}                       
-        config_parameters = ['progress_bars', 'check_boxes']                             
+        config_parameters = ['progress_bars', 'check_boxes']      
+        model_outputs = []
+        http_client = tornado.httpclient.AsyncHTTPClient()
         for model_config in used_models:
             model_service = self.filter_data[model_config['name']]
             msg = {
@@ -77,15 +83,22 @@ class FrameUploadConnection(sockjs.tornado.SockJSConnection):
                     msg[x]=[]
                 else:
                     msg[x]=model_config[x]
-            r = requests.post(
-                url=model_service['path'].replace('get_models', 'frame_upload'),
-                json = msg
-            )
-            if model_config['name'] == 'detection':
-                boxes = tornado.escape.json_decode(r.content)
-                return_data['bboxes'] = boxes
-            if model_config['name'] == 'keypoint':
-                content = tornado.escape.json_decode(r.content)
+            r = tornado.httpclient.HTTPRequest(
+                                    model_service['path'].replace('get_models', 'frame_upload'),
+                                    body=json.dumps(msg),
+                                    method="POST",
+                                    headers={'model_name':model_config['name']})
+            # model_outputs.append({'request':r, 'model':model_config['name']})
+            r = http_client.fetch(r)
+            r.model_name = model_config['name']
+            model_outputs.append(r)
+        
+        for future in asyncio.as_completed(model_outputs):
+            result = yield future
+            content = tornado.escape.json_decode(result.body)
+            if 'detection' in result.effective_url:
+                return_data['bboxes'] = content
+            if 'keypoint' in result.effective_url:
                 return_data['parts'] = content['parts']
                 return_data['joints'] = content['joints']
 

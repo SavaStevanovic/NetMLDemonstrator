@@ -5,7 +5,6 @@ from data_loader import augmentation
 from visualization import output_transform
 import multiprocessing as mu
 from torch.utils.data import Dataset, DataLoader
-from visualization.output_transform import PartAffinityFieldTransform
 from pycocotools.coco import COCO
 import os
 
@@ -36,7 +35,7 @@ class UnifiedKeypointDataset(Dataset):
         self.debug = debug
         self.train = train
         self.skeleton = skeleton
-        self.parts = list(set(sum(self.skeleton, [])))
+        self.parts = sorted(list(set(sum(self.skeleton, []))))
         sigma = 4
         if train:
             self.transforms = augmentation.PairCompose([
@@ -65,7 +64,7 @@ class UnifiedKeypointDataset(Dataset):
             ]
 
         self.data_ids = [(i, j) for i, dataset in enumerate(self.datasets) for j in range(len(self.datasets[i]))]
-        self.postprocessing = PartAffinityFieldTransform(skeleton, sigma**0.5)
+        self.postprocessing = output_transform.PartAffinityFieldTransform(skeleton, self.parts, sigma**0.5)
 
 
 

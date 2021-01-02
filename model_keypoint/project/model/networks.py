@@ -5,12 +5,14 @@ import functools
 import torch
 import numpy as np
 
-#TODO: add skeleton and parts to model definition
 class OpenPoseNet(nn.Module, utils.Identifier):
-    def __init__(self, backbone, paf_stages, map_stages, block, block_count, paf_planes, map_planes):
+    def __init__(self, backbone, paf_stages, map_stages, block, block_count, paf_planes, map_planes, skeleton, parts):
         super(OpenPoseNet, self).__init__()
         self.backbone = functools.reduce(lambda b,m : m(b),backbone[::-1])
         self.block = block
+        self.skeleton = skeleton
+        self.parts = parts
+        self.depth = self.backbone.depth
         self.paf_stages = paf_stages
         self.map_stages = map_stages
         self.paf_planes = paf_planes
@@ -51,10 +53,12 @@ class VGGNetBackbone(nn.Sequential, utils.Identifier):
         self.channels = inplanes
         self.inplanes = inplanes
         self.block_counts = block_counts
+        blocks = self.block_counts[1:]
+        self.depth = len(blocks)
         layers = [nn.Conv2d(3, self.channels, kernel_size=3, bias=True, padding=1)]
         for _ in range(self.block_counts[0]-1):
             layers.extend([nn.PReLU(), nn.Conv2d(self.channels, self.channels, kernel_size=3, bias=True, padding=1)])
-        for b in self.block_counts[1:]:
+        for b in blocks:
             layers.append(nn.MaxPool2d(2, 2))
             layers.extend([nn.PReLU(), nn.Conv2d(self.channels, self.channels*2, kernel_size=3, bias=True, padding=1)])
             self.channels*=2

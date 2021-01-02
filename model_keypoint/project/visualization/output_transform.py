@@ -12,10 +12,10 @@ from utils import plt_to_np
 from scipy.optimize import linear_sum_assignment
 
 class PartAffinityFieldTransform(object):
-    def __init__(self, skeleton, heatmap_distance):
+    def __init__(self, skeleton, parts, heatmap_distance):
         self.skeleton = skeleton
         self.heatmap_distance = heatmap_distance
-        self.parts = list(set(sum(self.skeleton, [])))
+        self.parts = parts
 
     def conn_cost(self, fpart, dpart, affinity_field):
         fpart = np.array(fpart)
@@ -31,7 +31,7 @@ class PartAffinityFieldTransform(object):
 
         return value
 
-    def __call__(self, affinity_field, part_heatmap, threshold=0.5):
+    def __call__(self, affinity_field, part_heatmap, threshold=0.5, connection_threshold = 0):
         # return [], []
         body_parts = []
         for i, heatmap in enumerate(part_heatmap[:-1]):
@@ -101,7 +101,7 @@ class PartAffinityFieldTransform(object):
             #     print(dist)
             assignments = linear_sum_assignment(dist, maximize=True)
             assignments = np.asarray(assignments).T
-            new_conns = [(fparts[p[0]], dparts[p[1]]) for p in assignments if dist[p[0], p[1]]>0.00]
+            new_conns = [(fparts[p[0]], dparts[p[1]]) for p in assignments if dist[p[0], p[1]]>connection_threshold]
             joints.extend(new_conns)
 
         return body_parts, joints
