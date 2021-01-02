@@ -53,7 +53,6 @@ class FrameUploadHandler(BaseHandler):
         image_data = data['frame'].replace('data:image/jpeg;base64,', "")
         byte_image = io.BytesIO(pybase64._pybase64.b64decode(image_data))
         img_input = Image.open(byte_image)
-
         model_key = data['model_name']
         if model_key not in camera_models:
             if model_key not in model_paths:
@@ -70,8 +69,8 @@ class FrameUploadHandler(BaseHandler):
         img_tensor, _, _, _  = model.preprocessing(img_input, None, None)
         img_tensor = img_tensor.unsqueeze(0).float().cuda()
         pafs_output, maps_output = model(img_tensor)
-        pafs_output = F.interpolate(pafs_output[-1], img_input.size, mode='bilinear', align_corners=True)[0].detach().cpu().numpy()
-        maps_output = F.interpolate(maps_output[-1], img_input.size, mode='bilinear', align_corners=True)[0].detach().cpu().numpy()
+        pafs_output = F.interpolate(pafs_output[-1], img_input.size, mode='bicubic', align_corners=True)[0].detach().cpu().numpy()
+        maps_output = F.interpolate(maps_output[-1], img_input.size, mode='bicubic', align_corners=True)[0].detach().cpu().numpy()
         outputs = model.target_output_transform(pafs_output, maps_output, data['bodypart'], data['joint']*2-1)
         return_msg = {}
         return_msg['parts']  = [(x[1][1]/img_input.size[1], x[1][0]/img_input.size[0]) for x in outputs[0]]

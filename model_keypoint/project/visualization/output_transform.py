@@ -32,20 +32,16 @@ class PartAffinityFieldTransform(object):
         return value
 
     def __call__(self, affinity_field, part_heatmap, threshold=0.5, connection_threshold = 0):
-        # return [], []
         body_parts = []
+        map_left = np.zeros(part_heatmap[0].shape)
+        map_right = np.zeros(part_heatmap[0].shape)
+        map_top = np.zeros(part_heatmap[0].shape)
+        map_bottom = np.zeros(part_heatmap[0].shape)
         for i, heatmap in enumerate(part_heatmap[:-1]):
-            heatmap = gaussian_filter(heatmap, sigma=self.heatmap_distance)
-            map_left = np.zeros(heatmap.shape)
-            map_right = np.zeros(heatmap.shape)
-            map_top = np.zeros(heatmap.shape)
-            map_bottom = np.zeros(heatmap.shape)
-
             map_left[1:, :] = heatmap[:-1, :]
             map_right[:-1, :] = heatmap[1:, :]
             map_top[:, 1:] = heatmap[:, :-1]
             map_bottom[:, :-1] = heatmap[:, 1:]
-
             peaks_binary = np.logical_and.reduce((
                 heatmap > threshold,
                 heatmap > map_left,
@@ -53,7 +49,6 @@ class PartAffinityFieldTransform(object):
                 heatmap > map_top,
                 heatmap > map_bottom,
             ))
-
             heatmap_cordinates = np.where(peaks_binary)
             heatmap_cordinates = np.asarray(heatmap_cordinates).T
             heatmap_cordinates = [(x[0], x[1], heatmap[x[0], x[1]]) for x in heatmap_cordinates]
@@ -64,31 +59,13 @@ class PartAffinityFieldTransform(object):
                 if not peaks_binary[candidate[0], candidate[1]]:
                     continue
                 rr, cc = disk(candidate[:2], self.heatmap_distance*2)
-                # img[rr, cc] = 1
                 list_filter = [rr[i]>=0 and cc[i]>=0 and rr[i]<heatmap.shape[0] and cc[i]<heatmap.shape[1] for i in range(len(rr))]
                 rr = np.array(list(compress(rr, list_filter)))
                 cc = np.array(list(compress(cc, list_filter)))
                 peaks_binary[rr, cc] = False
                 body_parts.append((self.parts[i], candidate[:2]))
-                # points_to_process = [list(candidate[:2])]
-
-                # point_offsets = [np.array([0, 1]), np.array([0, -1]), np.array([1, 0]), np.array([-1, 0])]
-                # j = 0
-                # while j < len(points_to_process):
-                #     point = np.array(points_to_process[j])
-                #     j+=1
-                #     if point[0]<0 or point[0]>=heatmap.shape[0] or point[1]<0 or point[1]>=heatmap.shape[1]:
-                #         continue
-                #     point_distance = np.linalg.norm(candidate[:2]-point)
-                #     if point_distance > self.heatmap_distance:
-                #         continue
-                #     heatmap_candidates[point[0], point[1]] = False
-                #     next_points = [(point + offset).tolist() for offset in point_offsets if (point + offset).tolist() not in points_to_process]
-                #     points_to_process.extend(next_points)
-
+               
         joints = []
-        # body_parts = body_parts[:100]
-        # print(len(body_parts))
         for ind, part_conn in enumerate(self.skeleton):
             fparts = [x for x in body_parts if x[0]==part_conn[0]]
             dparts = [x for x in body_parts if x[0]==part_conn[1]]
@@ -96,7 +73,6 @@ class PartAffinityFieldTransform(object):
             for i, fpart in enumerate(fparts):
                 for j, dpart in enumerate(dparts):
                     dist[i, j] = self.conn_cost(fpart[1], dpart[1], affinity_field[2*ind:2*ind+2])
-
             # if len(dist)>=2:
             #     print(dist)
             assignments = linear_sum_assignment(dist, maximize=True)

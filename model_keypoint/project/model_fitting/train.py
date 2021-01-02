@@ -77,8 +77,8 @@ def fit_epoch(net, dataloader, lr_rate, postprocessing, train, epoch=1):
             mask = mask.detach()
             image = image.detach()
             with torch.no_grad():
-                pafs_output = [F.interpolate(x, image.shape[2:], mode='bilinear', align_corners=True) for x in pafs_output]
-                maps_output = [F.interpolate(x, image.shape[2:], mode='bilinear', align_corners=True) for x in maps_output]
+                pafs_output = [F.interpolate(x, image.shape[2:], mode='bicubic', align_corners=True) for x in pafs_output]
+                maps_output = [F.interpolate(x, image.shape[2:], mode='bicubic', align_corners=True) for x in maps_output]
 
             mapped_image = get_mapped_image((1 - mask) * image, pafs, maps, postprocessing, dataloader.skeleton, dataloader.parts)
             label_images.append(np.array(mapped_image))
