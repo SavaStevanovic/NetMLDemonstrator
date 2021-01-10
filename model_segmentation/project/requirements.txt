@@ -1,0 +1,8 @@
+torchsummary
+imutils
+autopep8
+sockjs-tornado
+pybase64
+pycocotools
+tensorboard==2.4.0
+scikit-image==0.17.2
