@@ -1,6 +1,7 @@
 import torch
 import os
 from model_fitting.losses import SegmentationLoss
+from sklearn.metrics import f1_score
 from datetime import datetime
 from torch.utils.tensorboard import SummaryWriter
 from tqdm import tqdm
@@ -32,113 +33,58 @@ def focal_loss(x, y):
 
     return F_loss.mean()
 
-def fit_epoch(net, dataloader, lr_rate, postprocessing, train, epoch=1):
+def fit_epoch(net, dataloader, lr_rate, train, epoch=1):
     if train:
         net.train()
         optimizer = torch.optim.Adam(net.parameters(), lr_rate)
     else:
         net.eval()
+    criterion = SegmentationLoss()
     torch.set_grad_enabled(train)
     torch.backends.cudnn.benchmark = train
-    criterion = torch.nn.MSELoss(reduction='none')
     losses = 0.0
-    total_pafs_loss = 0.0
-    total_maps_loss = 0.0
+    total_focal_loss = 0.0
+    total_dice_loss = 0.0
+    f1_metric = 0.0
     output_images = []
     label_images = []
-    map_outputs_images = []
-    map_labels_images = []
-    paf_outputs_images = []
-    paf_labels_images = []
-
 
     for i, data in enumerate(tqdm(dataloader)):
-        image, pafs, maps, mask = data
-        # image = (image+0.5)
-        # labels_cuda = labels.cuda()
+        image, labels = data
         if train:
             optimizer.zero_grad()
-        pafs_output, maps_output = net(image.cuda())
-        paf_label = pafs.cuda()
-        map_label = maps.cuda()
-        mask_cuda = mask.cuda()
-        # pafs_loss = torch.stack([mask_cuda * criterion(o, paf_label) for o in pafs_output], dim=0).mean()
-        # maps_loss = torch.stack([mask_cuda * criterion(o, map_label) for o in maps_output], dim=0).mean()
-        # loss = maps_loss + pafs_loss
-        loss, pafs_loss, maps_loss = compute_loss(pafs_output, maps_output, paf_label, map_label, mask_cuda)
+        output = net(image.cuda())
+        labels_cuda = labels.cuda()
+        loss, focal_loss, dice_loss = criterion(output, labels_cuda)
         if train:
             loss.backward()
             optimizer.step()
-        total_pafs_loss += pafs_loss.sum()
-        total_maps_loss += maps_loss.sum()
         losses += loss.item()
+        total_focal_loss += focal_loss
+        total_dice_loss += dice_loss
+        outputs = output.softmax(1).detach().cpu().numpy()
+        output_threshold = (outputs[:, 1] > 0.5).astype('float')
+        f1_metric += f1_score(output_threshold.flatten(), labels.argmax(1).flatten(), average='weighted')
 
         if i>=len(dataloader)-5:
-            mask = mask.detach()
-            image = image.detach()
-            with torch.no_grad():
-                pafs_output = [F.interpolate(x, image.shape[2:], mode='bicubic', align_corners=True) for x in pafs_output]
-                maps_output = [F.interpolate(x, image.shape[2:], mode='bicubic', align_corners=True) for x in maps_output]
+            image = image[0].permute(1,2,0).detach().cpu().numpy()
+            label = labels[0].detach().cpu().numpy()
+            output = output[0].softmax(1).detach().cpu().numpy()
+        
 
-            mapped_image = get_mapped_image((1 - mask) * image, pafs, maps, postprocessing, dataloader.skeleton, dataloader.parts)
-            label_images.append(np.array(mapped_image))
-
-            plt.imshow(maps_output[-1].clamp(0, 1).cpu().numpy()[0, -1])
-            plt.imshow(image[0].permute(1,2,0), alpha=0.2)
-            map_outputs_images.append(plt_to_np(plt))
+            plt.imshow(image)
+            plt.imshow(label.argmax(axis=0), alpha=0.7)
+            label_images.append(plt_to_np(plt))
 
 
-            plt.imshow(maps.cpu().clamp(0, 1).numpy()[0, -1])
-            plt.imshow(image[0].permute(1,2,0), alpha=0.2)
-            map_labels_images.append(plt_to_np(plt))
-            
-            plt.imshow(((pafs_output[-1].clamp(-1, 1).cpu().numpy()[0, :]+1)/2).mean(0))
-            plt.imshow(image[0].permute(1,2,0), alpha=0.2)
-            paf_outputs_images.append(plt_to_np(plt))
-
-
-            plt.imshow(((pafs.clamp(-1, 1).cpu().numpy()[0, :]+1)/2).mean(0))
-            plt.imshow(image[0].permute(1,2,0), alpha=0.2)
-            paf_labels_images.append(plt_to_np(plt))
-
-            mapped_image = get_mapped_image(image, pafs_output[-1], maps_output[-1], postprocessing, dataloader.skeleton, dataloader.parts)
-            output_images.append(np.array(mapped_image))
+            plt.imshow(image)
+            plt.imshow(output.argmax(axis=0), alpha=0.7)
+            output_images.append(plt_to_np(plt))
 
     data_len = len(dataloader)
-    return losses/data_len, total_pafs_loss/data_len, total_maps_loss/data_len, output_images, label_images, map_outputs_images, map_labels_images, paf_outputs_images, paf_labels_images
+    return losses/data_len, output_images, label_images, total_focal_loss/data_len, total_dice_loss/data_len, f1_metric/data_len
 
-def mean_square_error(pred, target):
-    assert pred.shape == target.shape, 'x and y should in same shape'
-    return torch.sum((pred - target) ** 2) / target.nelement()
-
-def compute_loss(pafs_ys, heatmaps_ys, pafs_t, heatmaps_t, ignore_mask):
-    total_loss = 0
-    # compute loss on each stage
-    heatmap_loss_log, loss = pose_loss(heatmaps_ys, heatmaps_t, ignore_mask)
-    total_loss             += loss
-    paf_loss_log    , loss = pose_loss(pafs_ys    , pafs_t    , ignore_mask    )
-    total_loss             += loss
-
-    return total_loss, np.array(paf_loss_log), np.array(heatmap_loss_log)
-
-def pose_loss(ys, t, masks):
-    masks = masks.repeat([1, t.shape[1], 1, 1])
-    sum_loss = 0
-    loss_log = []
-    stage_t = t.clone()
-    stage_masks = masks.clone()
-    for y in ys:
-        if stage_t.shape != y.shape:
-            y = F.interpolate(y, stage_t.shape[2:], mode='bilinear', align_corners=True)
-    
-        y[stage_masks > 0.5] = stage_t.detach()[stage_masks > 0.5]        
-
-        loss = mean_square_error(y, stage_t)
-        sum_loss += loss
-        loss_log.append(loss.item())
-    return loss_log, sum_loss
-
-def fit(net, trainloader, validationloader, postprocessing, epochs=1000, lower_learning_period=10):
+def fit(net, trainloader, validationloader, epochs=1000, lower_learning_period=10):
     model_dir_header = net.get_identifier()
     chp_dir = os.path.join('checkpoints', model_dir_header)
     checkpoint_name_path = os.path.join(chp_dir, 'checkpoints.pth')
@@ -148,44 +94,27 @@ def fit(net, trainloader, validationloader, postprocessing, epochs=1000, lower_l
         net = torch.load(checkpoint_name_path)
         train_config.load(checkpoint_conf_path)
     net.cuda()
-    summary(net, (3, 416, 416))
+    summary(net, (3, 448, 448))
     writer = SummaryWriter(os.path.join('logs', model_dir_header))
-    # images, _, _, _ = next(iter(trainloader))
+    images, _ = next(iter(trainloader))
 
-    # with torch.no_grad():
-    #     writer.add_graph(net, images[:2].cuda())
+    with torch.no_grad():
+        writer.add_graph(net, images[:2].cuda())
     for epoch in range(train_config.epoch, epochs):
-        loss, total_pafs_loss, total_maps_loss, output_images, label_images, map_outputs_images, map_labels_images, paf_outputs_images, paf_labels_images = fit_epoch(net, trainloader, train_config.learning_rate, postprocessing, train = True, epoch=epoch)
-        writer.add_scalars('Train/Metrics', {'total_pafs_loss': total_pafs_loss, 'total_maps_loss': total_maps_loss}, epoch)
-        writer.add_scalar('Train/Metrics/loss', loss, epoch)
+        loss, output_images, label_images, focal_loss, dice_loss, f1_metric = fit_epoch(net, trainloader, train_config.learning_rate, train = True, epoch=epoch)
+        writer.add_scalars('Train/Metrics', {'loss': loss, 'focal_loss': focal_loss, 'dice_loss': dice_loss, 'f1_metric': f1_metric}, epoch)
         grid = join_images(label_images)
         writer.add_images('train_labels', grid, epoch, dataformats='HWC')
         grid = join_images(output_images)
         writer.add_images('train_outputs', grid, epoch, dataformats='HWC')
-        grid = join_images(map_outputs_images)
-        writer.add_images('train_map_outputs_images', grid, epoch, dataformats='HWC')
-        grid = join_images(map_labels_images)
-        writer.add_images('train_map_labels_images', grid, epoch, dataformats='HWC')
-        grid = join_images(paf_outputs_images)
-        writer.add_images('train_paf_outputs_images', grid, epoch, dataformats='HWC')
-        grid = join_images(paf_labels_images)
-        writer.add_images('train_paf_labels_images', grid, epoch, dataformats='HWC')
 
-        loss, total_pafs_loss, total_maps_loss, output_images, label_images, map_outputs_images, map_labels_images, paf_outputs_images, paf_labels_images = fit_epoch(net, validationloader, None, postprocessing, train = False, epoch=epoch)
-        writer.add_scalars('Validation/Metrics', {'total_pafs_loss': total_pafs_loss, 'total_maps_loss': total_maps_loss}, epoch)
-        writer.add_scalar('Validation/Metrics/loss', loss, epoch)
+        loss, output_images, label_images, focal_loss, dice_loss, f1_metric = fit_epoch(net, validationloader, None, train = False, epoch=epoch)
+        writer.add_scalars('Validation/Metrics', {'loss': loss, 'focal_loss': focal_loss, 'dice_loss': dice_loss, 'f1_metric': f1_metric}, epoch)
         grid = join_images(label_images)
         writer.add_images('validation_labels', grid, epoch, dataformats='HWC')
         grid = join_images(output_images)
         writer.add_images('validation_outputs', grid, epoch, dataformats='HWC')
-        grid = join_images(map_outputs_images)
-        writer.add_images('validation_map_outputs_images', grid, epoch, dataformats='HWC')
-        grid = join_images(map_labels_images)
-        writer.add_images('validation_map_labels_images', grid, epoch, dataformats='HWC')
-        grid = join_images(paf_outputs_images)
-        writer.add_images('validation_paf_outputs_images', grid, epoch, dataformats='HWC')
-        grid = join_images(paf_labels_images)
-        writer.add_images('validation_paf_labels_images', grid, epoch, dataformats='HWC')
+        
 
         os.makedirs((chp_dir), exist_ok=True)
         if train_config.best_metric > loss:
@@ -205,4 +134,3 @@ def fit(net, trainloader, validationloader, postprocessing, epochs=1000, lower_l
         torch.save(net, checkpoint_name_path)
         torch.save(net.state_dict(), checkpoint_name_path.replace('.pth', '_final_state_dict.pth'))
     print('Finished Training')
-    return best_map

@@ -8,6 +8,8 @@ from PIL import Image
 from operator import itemgetter
 import numpy as np
 
+classes = [(1, 'person'), (2, 'bicycle'), (3, 'car'), (4, 'motorcycle'), (5, 'airplane'), (6, 'bus'), (7, 'train'), (8, 'truck'), (9, 'boat'), (10, 'traffic light'), (11, 'fire hydrant'), (13, 'stop sign'), (14, 'parking meter'), (15, 'bench'), (16, 'bird'), (17, 'cat'), (18, 'dog'), (19, 'horse'), (20, 'sheep'), (21, 'cow'), (22, 'elephant'), (23, 'bear'), (24, 'zebra'), (25, 'giraffe'), (27, 'backpack'), (28, 'umbrella'), (31, 'handbag'), (32, 'tie'), (33, 'suitcase'), (34, 'frisbee'), (35, 'skis'), (36, 'snowboard'), (37, 'sports ball'), (38, 'kite'), (39, 'baseball bat'), (40, 'baseball glove'), (41, 'skateboard'), (42, 'surfboard'), (43, 'tennis racket'), (44, 'bottle'), (46, 'wine glass'), (47, 'cup'), (48, 'fork'), (49, 'knife'), (50, 'spoon'), (51, 'bowl'), (52, 'banana'), (53, 'apple'), (54, 'sandwich'), (55, 'orange'), (56, 'broccoli'), (57, 'carrot'), (58, 'hot dog'), (59, 'pizza'), (60, 'donut'), (61, 'cake'), (62, 'chair'), (63, 'couch'), (64, 'potted plant'), (65, 'bed'), (67, 'dining table'), (70, 'toilet'), (72, 'tv'), (73, 'laptop'), (74, 'mouse'), (75, 'remote'), (76, 'keyboard'), (77, 'cell phone'), (78, 'microwave'), (79, 'oven'), (80, 'toaster'), (81, 'sink'), (82, 'refrigerator'), (84, 'book'), (85, 'clock'), (86, 'vase'), (87, 'scissors'), (88, 'teddy bear'), (89, 'hair drier'), (90, 'toothbrush')]
+clasess_inds = [x[0] for x in classes]
 class CocoDataset(Dataset):
     def __init__(self, folder, ann_file):
         base_dir = '/Data/keypoint/Coco'
@@ -19,7 +21,6 @@ class CocoDataset(Dataset):
         # self.data.getCatIds()
         # print('sadsd')
         self.ids = self.data.getImgIds()
-        self.keypoint_names = self.data.cats[1]['keypoints']
         valid_ids = []
         for idx in self.ids:
             ann_ids = self.data.getAnnIds(imgIds=idx)
@@ -37,28 +38,12 @@ class CocoDataset(Dataset):
         img_data    = self.data.loadImgs(ids = [self.ids[idx]])[0]
         img = Image.open(os.path.join(self.folder, img_data['file_name']))
 
-        person_keypoints = []
-        mask_ids = []
-        for i, keypoint_ann in enumerate(img_anns):
-            ann = keypoint_ann['keypoints']
-            person = {self.keypoint_names[k]:(ann[k*3], ann[1+k*3]) for k in range(len(self.keypoint_names)) if ann[2+k*3]}
-            person_visible = len([0 for k in range(len(self.keypoint_names)) if ann[2+k*3] == 2])
-
-            if not bool(person) or person_visible==0:
-                mask_ids.append(i)
-            elif bool(person):
-                person_keypoints.append(person)
-        if len(mask_ids)==0:
-            img_anns = []
-        elif len(mask_ids)<=1:
-            img_anns = [itemgetter(*mask_ids)(img_anns)]
-        else:
-            img_anns = list(itemgetter(*mask_ids)(img_anns))
         mask_anns = [self.data.annToMask(ann) for ann in img_anns]
-        mask_anns.append(np.zeros(img.size[:2][::-1], dtype=np.uint8))
-        mask = np.bitwise_or.reduce(mask_anns)
+        for i in range(len(mask_anns)):
+            mask_anns[i]*=clasess_inds.index(img_anns[i]['category_id'])+1
+        label = np.amax(mask_anns, axis=0) 
         # plt.imshow(img); plt.axis('off')
         # self.data.showAnns(img_anns)
-        # plt.imshow(Image.fromarray(mask, 'L'), alpha=0.5)
+        # plt.imshow(label/len(clasess_inds), alpha=0.5); plt.axis('off')
         # plt.show()
-        return img, person_keypoints, Image.fromarray(mask*255, 'L')
+        return img, label
