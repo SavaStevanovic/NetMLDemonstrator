@@ -37,7 +37,7 @@ class RandomCropTransform(object):
         padding_x = max(self.crop_size[0]-image.size[0],0)
         padding_y = max(self.crop_size[1]-image.size[1],0)
         image = transforms.functional.pad(image, (0, 0, padding_x, padding_y))
-        label = np.pad(label, ((0, padding_x),(0, padding_y), (0, 0)))
+        label = transforms.functional.pad(label, (0, 0, padding_x, padding_y))
         x_radius = self.crop_size[0]//2
         y_radius = self.crop_size[1]//2
         x = random.randint(x_radius, image.size[0]-x_radius)
@@ -45,7 +45,7 @@ class RandomCropTransform(object):
         start_point = [x-x_radius,y-y_radius]
         end_point = [x+x_radius, y+y_radius]
         image = image.crop((*start_point, *end_point))
-        label = label[start_point[0]:end_point[0], start_point[1]:end_point[1], :]
+        label = label.crop((*start_point, *end_point))
         
         return image, label
 
@@ -54,7 +54,7 @@ class RandomHorizontalFlipTransform(object):
         p = random.random()
         if p>=0.5:
             image = transforms.functional.hflip(image)
-            label = np.fliplr(label)
+            label = transforms.functional.hflip(label)
 
         return image, label
 
@@ -63,8 +63,7 @@ class RandomResizeTransform(object):
         p = random.random()/2+0.5
         new_size = [np.round(s*p).astype(np.int32) for s in list(image.size)[::-1]]
         image = transforms.functional.resize(image, new_size, Image.ANTIALIAS)
-        ls = [cv2.resize(label[...,i], dsize=tuple(new_size), interpolation=cv2.INTER_AREA) for i in range(label.shape[2])]
-        label = np.transpose(np.array(ls), axes=[1,2,0])
+        label = transforms.functional.resize(label, new_size, Image.NEAREST)
         return image, label
 
 class RandomBlurTransform(object):
@@ -112,9 +111,9 @@ class PaddTransform(object):
         padding_x = (padding_x!=self.pad_size) * padding_x
         padding_y = self.pad_size-image.size[1]%self.pad_size
         padding_y = (padding_y!=self.pad_size) * padding_y
-        image_padded = transforms.functional.pad(image, (0, 0, padding_x, padding_y))
-        label = np.pad(label, ((0, padding_y),(0, padding_x)))
-        return image_padded, label
+        image = transforms.functional.pad(image, (0, 0, padding_x, padding_y))
+        label = transforms.functional.pad(label, (0, 0, padding_x, padding_y))
+        return image, label
 
 class OutputTransform(object):
     def __call__(self, image, label):
@@ -129,6 +128,7 @@ class OneHotTransform(object):
         self.cat_transform = np.eye(cat_count)
 
     def __call__(self, image, label):
+        label = np.array(label)
         label = self.cat_transform[label]
         return image, label
 

@@ -41,7 +41,7 @@ class CocoDataset(Dataset):
         mask_anns = [self.data.annToMask(ann) for ann in img_anns]
         for i in range(len(mask_anns)):
             mask_anns[i]*=clasess_inds.index(img_anns[i]['category_id'])+1
-        label = np.amax(mask_anns, axis=0) 
+        label = Image.fromarray(np.amax(mask_anns, axis=0)) 
         # plt.imshow(img); plt.axis('off')
         # self.data.showAnns(img_anns)
         # plt.imshow(label/len(clasess_inds), alpha=0.5); plt.axis('off')

@@ -62,14 +62,15 @@ def fit_epoch(net, dataloader, lr_rate, train, epoch=1):
         losses += loss.item()
         total_focal_loss += focal_loss
         total_dice_loss += dice_loss
-        outputs = output.softmax(1).detach().cpu().numpy()
-        output_threshold = (outputs[:, 1] > 0.5).astype('float')
-        f1_metric += f1_score(output_threshold.flatten(), labels.argmax(1).flatten(), average='weighted')
+        if not train:
+            outputs = output.detach().softmax(1).cpu().numpy()
+            output_threshold = (outputs[:, 1] > 0.5).astype('float')
+            f1_metric += f1_score(output_threshold.flatten(), labels.argmax(1).flatten(), average='weighted')
 
         if i>=len(dataloader)-5:
             image = image[0].permute(1,2,0).detach().cpu().numpy()
             label = labels[0].detach().cpu().numpy()
-            output = output[0].softmax(1).detach().cpu().numpy()
+            output = output[0].detach().cpu().numpy()
         
 
             plt.imshow(image)

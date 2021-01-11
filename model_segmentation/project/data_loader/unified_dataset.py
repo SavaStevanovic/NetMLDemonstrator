@@ -17,13 +17,13 @@ class UnifiedKeypointDataset(Dataset):
         if train:
             self.transforms = augmentation.PairCompose([
                 augmentation.RandomHorizontalFlipTransform(),
-                augmentation.OneHotTransform(len(clasess_inds)+1),
                 augmentation.RandomResizeTransform(),
-                augmentation.RandomCropTransform((448, 448)),
+                augmentation.RandomCropTransform((384, 384)),
                 augmentation.RandomNoiseTransform(),
                 augmentation.RandomColorJitterTransform(),
                 augmentation.RandomBlurTransform(),
                 augmentation.RandomJPEGcompression(95),
+                augmentation.OneHotTransform(len(clasess_inds)+1),
                 augmentation.OutputTransform()]
             )
             self.datasets = [

@@ -16,8 +16,6 @@ class SegmentationLoss(torch.nn.Module):
         loss = 0.0
 
         output = output.softmax(1)
-        label = label.unsqueeze(1)
-        label = torch.cat([1-label, label], 1)
 
         fc_loss = self.focal_loss_scale * self.focal_loss(output, label)
         total_focal_loss += fc_loss.item()

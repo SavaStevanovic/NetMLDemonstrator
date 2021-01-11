@@ -11,7 +11,7 @@ depth = 4
 dataloader = UnifiedKeypointDataloader(batch_size = 6, depth=4, th_count=th_count)
 
 net = networks.Unet(block = blocks.ConvBlock, 
-    inplanes = 64, 
+    inplanes = 32, 
     in_dim=3, 
     out_dim=len(dataloader.clasess_inds)+1, 
     depth=depth, 
