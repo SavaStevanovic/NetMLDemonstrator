@@ -15,8 +15,8 @@ class PairCompose(object):
     def __init__(self, transforms):
         self.transforms = transforms
 
-    def __call__(self, img, label):
-        data = [img, label]
+    def __call__(self, img, label, dataset_id):
+        data = [img, label, dataset_id]
         for t in self.transforms:
             data = t(*data)
         return tuple(data)
@@ -33,7 +33,7 @@ class RandomCropTransform(object):
     def __init__(self, crop_size):
         self.crop_size = crop_size
 
-    def __call__(self, image, label):
+    def __call__(self, image, label, dataset_id):
         padding_x = max(self.crop_size[0]-image.size[0],0)
         padding_y = max(self.crop_size[1]-image.size[1],0)
         image = transforms.functional.pad(image, (0, 0, padding_x, padding_y))
@@ -47,34 +47,34 @@ class RandomCropTransform(object):
         image = image.crop((*start_point, *end_point))
         label = label.crop((*start_point, *end_point))
         
-        return image, label
+        return image, label, dataset_id
 
 class RandomHorizontalFlipTransform(object):
-    def __call__(self, image, label):
+    def __call__(self, image, label, dataset_id):
         p = random.random()
         if p>=0.5:
             image = transforms.functional.hflip(image)
             label = transforms.functional.hflip(label)
 
-        return image, label
+        return image, label, dataset_id
 
 class RandomResizeTransform(object):
-    def __call__(self, image, label):
+    def __call__(self, image, label, dataset_id):
         p = random.random()/2+0.5
         new_size = [np.round(s*p).astype(np.int32) for s in list(image.size)[::-1]]
         image = transforms.functional.resize(image, new_size, Image.ANTIALIAS)
         label = transforms.functional.resize(label, new_size, Image.NEAREST)
-        return image, label
+        return image, label, dataset_id
 
 class RandomBlurTransform(object):
     def __init__(self):
         self.blur = ImageFilter.GaussianBlur(2)
 
-    def __call__(self, image, label):
+    def __call__(self, image, label, dataset_id):
         p = random.random()
         if p>0.9:
             image = image.filter(self.blur)
-        return image, label
+        return image, label, dataset_id
 
 class RandomColorJitterTransform(object):
     def __init__(self):
@@ -84,62 +84,66 @@ class RandomColorJitterTransform(object):
             saturation=0.2,
         )
 
-    def __call__(self, image, label):
+    def __call__(self, image, label, dataset_id):
         p = random.random()
         if p>0.75:
             image = self.jitt(image)
-        return image, label
+        return image, label, dataset_id
 
 class RandomNoiseTransform(object):
     def __init__(self):
         pass
 
-    def __call__(self, image, label):
+    def __call__(self, image, label, dataset_id):
         p = random.random()
         if p>0.9:
             image = np.array(image)
             image = util.random_noise(image, mode='gaussian', seed=None, clip=True)*255
             image = Image.fromarray(image.astype(np.uint8))
-        return image, label
+        return image, label, dataset_id
 
 class PaddTransform(object):
     def __init__(self, pad_size = 32):
         self.pad_size = pad_size
 
-    def __call__(self, image, label):
+    def __call__(self, image, label, dataset_id):
         padding_x = self.pad_size-image.size[0]%self.pad_size
         padding_x = (padding_x!=self.pad_size) * padding_x
         padding_y = self.pad_size-image.size[1]%self.pad_size
         padding_y = (padding_y!=self.pad_size) * padding_y
         image = transforms.functional.pad(image, (0, 0, padding_x, padding_y))
         label = transforms.functional.pad(label, (0, 0, padding_x, padding_y))
-        return image, label
+        return image, label, dataset_id
 
 class OutputTransform(object):
-    def __call__(self, image, label):
+    def __call__(self, image, label, dataset_id):
         image = transforms.functional.to_tensor(image)
         if image.shape[0]==1:
             image = torch.cat([image]*3)
         label = transforms.functional.to_tensor(label)
-        return image, label
+        return image, label, dataset_id
 
 class OneHotTransform(object):
     def __init__(self, cat_count):
-        self.cat_transform = np.eye(cat_count)
+        self.cat_transform = np.eye(cat_count+1)
+        self.cat_count = cat_count
 
-    def __call__(self, image, label):
+    def __call__(self, image, label, dataset_id):
         label = np.array(label)
+        if (label==self.cat_count).any():
+            print('FUCK')
+        label[label==255] = self.cat_count
         label = self.cat_transform[label]
-        return image, label
+        return image, label, dataset_id
 
 # added to reflect inference state
-class RandomJPEGcompression(object):
+class JPEGcompression(object):
     def __init__(self, quality):
         self.quality = quality
 
-    def __call__(self, image, label):
+    def __call__(self, image, label, dataset_id):
         outputIoStream = io.BytesIO()
         image.save(outputIoStream, "JPEG", quality=self.quality, optimice=True)
         outputIoStream.seek(0)
         image = Image.open(outputIoStream)
-        return image, label
+        return image, label, dataset_id

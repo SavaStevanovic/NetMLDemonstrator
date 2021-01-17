@@ -8,14 +8,15 @@ import os
 th_count = 24
 depth = 4
 
-dataloader = UnifiedKeypointDataloader(batch_size = 6, depth=4, th_count=th_count)
+dataloader = UnifiedKeypointDataloader(batch_size = 1, depth=4, th_count=th_count)
 
 net = networks.Unet(block = blocks.ConvBlock, 
-    inplanes = 32, 
+    inplanes = 64, 
     in_dim=3, 
-    out_dim=len(dataloader.clasess_inds)+1, 
+    out_dim=len(dataloader.labels), 
     depth=depth, 
-    norm_layer=torch.nn.InstanceNorm2d)
+    norm_layer=torch.nn.InstanceNorm2d
+)
 
 fit(net, 
     dataloader.trainloader, 

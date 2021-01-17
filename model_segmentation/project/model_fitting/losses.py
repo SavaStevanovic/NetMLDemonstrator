@@ -15,7 +15,7 @@ class SegmentationLoss(torch.nn.Module):
         total_dice_loss = 0.0
         loss = 0.0
 
-        output = output.softmax(1)
+        output = output.sigmoid()
 
         fc_loss = self.focal_loss_scale * self.focal_loss(output, label)
         total_focal_loss += fc_loss.item()
