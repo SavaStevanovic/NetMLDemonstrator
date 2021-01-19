@@ -65,15 +65,14 @@ def fit_epoch(net, dataloader, lr_rate, train, epoch=1):
         total_focal_loss += focal_loss
         total_dice_loss += dice_loss
         if not train:
-            for j in range(len(labels)):
-                flat_mask = mask.detach().flatten().bool()
-                lab = labels[j, 1:-1].detach()[dataloader.selector[dataset_id]]
-                lab = torch.cat((1-lab.sum(0).unsqueeze(0), lab), 0).argmax(0).flatten()
+            flat_mask = mask_cuda.flatten().bool()
+            lab = labels_cuda[:, dataloader.selector[dataset_id]]
+            lab = torch.cat((1-lab.sum(1, keepdim=True), lab), 1).argmax(1).flatten()
                 lab = lab[flat_mask]
-                out = outputs[j].detach().cpu()[dataloader.selector[dataset_id]]
-                out = torch.cat((1-out.sum(0).unsqueeze(0), out), 0).argmax(0).flatten()
+            out = outputs[:, dataloader.selector[dataset_id]]
+            out = torch.cat((1-out.sum(1, keepdim=True), out), 1).argmax(1).flatten()
                 out = out[flat_mask]
-                accs += lab.eq(out).float().mean()/len(labels)
+            accs += lab.eq(out).float().mean().item()
 
         if i>=len(dataloader)-5:
             image = image[0].permute(1,2,0).detach().cpu().numpy()
