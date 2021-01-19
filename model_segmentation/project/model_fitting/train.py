@@ -21,6 +21,28 @@ from utils import plt_to_np
 from model_fitting import metrics
 from operator import itemgetter
 
+def process_output(lab, selector, dataset_id , flat_mask):
+    if lab.shape[1]>1:
+        lab = lab[:, selector[dataset_id]]
+        lab = torch.cat((1-lab.sum(1, keepdim=True), lab), 1)
+        lab = lab.argmax(1)
+    else:
+        lab = (lab.sigmoid()>0.5)
+    
+    return lab.flatten()[flat_mask]
+
+def output_to_image(lab, selector, dataset_id, color_set):
+    if lab.shape[0]>1:
+        lab = lab[selector[dataset_id]]
+        lab = torch.cat((1-lab.sum(0,  keepdim=True), lab), 0).argmax(0)
+        color_map = list(itemgetter(*selector[dataset_id])(color_set))
+        color_map = [[0, 0, 0]] + color_map
+    else:
+        lab = (lab.sigmoid()>0.5).int().squeeze(0)
+        color_map = [[0, 0, 0], [0, 0.99, 0]]
+    lab = visualize_label(color_map, lab.numpy())
+    return lab
+
 def fit_epoch(net, dataloader, lr_rate, train, epoch=1):
     if train:
         net.train()
@@ -40,14 +62,10 @@ def fit_epoch(net, dataloader, lr_rate, train, epoch=1):
     label_vector = []
     f1_scores = 0
     accs = 0
-    sel_len = len(set(sum(dataloader.selector,[])))
 
     for i, data in enumerate(tqdm(dataloader)):
         image, labels, dataset_id = data
         # print(image.shape)
-        sel = np.zeros((len(dataset_id), sel_len))
-        for j, x in enumerate(dataset_id):
-            sel[j, dataloader.selector[x]]=1
         if train:
             optimizer.zero_grad()
         mask = 1 - labels[:, -1]
@@ -64,28 +82,19 @@ def fit_epoch(net, dataloader, lr_rate, train, epoch=1):
         losses += loss.item()
         total_focal_loss += focal_loss
         total_dice_loss += dice_loss
+        zero_aligned_selector = [[x-1 for x in d] for d in dataloader.selector]
         if not train:
             flat_mask = mask_cuda.flatten().bool()
-            lab = labels_cuda[:, dataloader.selector[dataset_id]]
-            lab = torch.cat((1-lab.sum(1, keepdim=True), lab), 1).argmax(1).flatten()
-                lab = lab[flat_mask]
-            out = outputs[:, dataloader.selector[dataset_id]]
-            out = torch.cat((1-out.sum(1, keepdim=True), out), 1).argmax(1).flatten()
-                out = out[flat_mask]
+            lab = process_output(labels_cuda, zero_aligned_selector, dataset_id, flat_mask)
+            out = process_output(outputs, zero_aligned_selector, dataset_id, flat_mask)
+            
             accs += lab.eq(out).float().mean().item()
 
-        if i>=len(dataloader)-5:
+        if i>=len(dataloader)-10:
             image = image[0].permute(1,2,0).detach().cpu().numpy()
-            label = labels[0, 1:-1].detach().cpu()
-            output = outputs[0].detach().cpu()
-            lab = label[dataloader.selector[dataset_id[0]]]
-            lab = torch.cat((1-lab.sum(0).unsqueeze(0), lab), 0).argmax(0).numpy()
-            out = output.detach().cpu()[dataloader.selector[dataset_id[0]]]
-            out = torch.cat((1-out.sum(0).unsqueeze(0), out), 0).argmax(0).numpy()
-            color_map = list(itemgetter(*dataloader.selector[dataset_id[0]])(dataloader.color_set))
-            color_map = [[0, 0, 0]] + color_map
-            lab = visualize_label(color_map, lab)
-            out = visualize_label(color_map, out)
+            lab = output_to_image(labels[0, 1:-1].detach().cpu(), zero_aligned_selector, dataset_id[0], dataloader.color_set)
+            out = output_to_image(outputs[0].detach().cpu()     , zero_aligned_selector, dataset_id[0], dataloader.color_set)
+
             plt.imshow(image)
             plt.imshow(lab, alpha=0.75)
             label_images.append(plt_to_np(plt))

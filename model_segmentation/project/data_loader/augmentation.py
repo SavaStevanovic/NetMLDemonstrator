@@ -136,7 +136,7 @@ class OneHotTransform(object):
     def __init__(self, cat_count, selector):
         self.cat_transform = np.eye(cat_count+1)
         self.cat_count = cat_count
-        self.selector_mapper = [{i+1:x+1 for i, x in enumerate(m)} for m in selector]
+        self.selector_mapper = [{i+1:x for i, x in enumerate(m)} for m in selector]
         for x in self.selector_mapper:
             x[0] = 0
             x[255] = cat_count

@@ -14,7 +14,7 @@ import random
 
 
 class UnifiedKeypointDataset(Dataset):
-    def __init__(self, train, depth, debug=False):
+    def __init__(self, train, depth, debug=False, category=['person']):
         self.debug = debug
         self.train = train
         train_datasets = [
@@ -24,7 +24,12 @@ class UnifiedKeypointDataset(Dataset):
                 CityscapesDataset('train_extra', 'coarse', 'Cityscapes'),
                 CocoDataset('train2017', 'annotations_trainval2017/annotations/instances_train2017.json'),
             ]
+
         self.labels = sorted(list(set(sum([x.labels for x in train_datasets],[]))))
+        if category!= None:
+            self.supported_labels = [category]
+        else:
+            self.supported_labels = self.labels
         if train:
             self.datasets = train_datasets
             
@@ -36,18 +41,18 @@ class UnifiedKeypointDataset(Dataset):
                 CocoDataset('val2017', 'annotations_trainval2017/annotations/instances_val2017.json'),
             ]
 
-        self.selector = [[self.labels.index(u) for u in x.labels] for x in self.datasets]
+        self.selector = [[self.supported_labels.index(u) + 1 if u in self.supported_labels else 0 for u in x.labels ] for x in self.datasets]
 
         if train:
             self.transforms = augmentation.PairCompose([
                 augmentation.RandomHorizontalFlipTransform(),
                 augmentation.RandomResizeTransform(),
-                augmentation.RandomCropTransform((384, 384)),
+                augmentation.RandomCropTransform((224, 224)),
                 augmentation.RandomNoiseTransform(),
                 augmentation.RandomColorJitterTransform(),
                 augmentation.RandomBlurTransform(),
                 augmentation.JPEGcompression(95),
-                augmentation.OneHotTransform(len(self.labels)+1, self.selector),
+                augmentation.OneHotTransform(len(self.supported_labels)+1, self.selector),
                 augmentation.OutputTransform()]
             )
 
@@ -55,7 +60,7 @@ class UnifiedKeypointDataset(Dataset):
             self.transforms = augmentation.PairCompose([
                 augmentation.ResizeTransform(448),
                 augmentation.PaddTransform(2**depth),
-                augmentation.OneHotTransform(len(self.labels)+1, self.selector),
+                augmentation.OneHotTransform(len(self.supported_labels)+1, self.selector),
                 augmentation.OutputTransform()]
             )
 
@@ -64,7 +69,7 @@ class UnifiedKeypointDataset(Dataset):
         else:
             self.data_ids = [(i, j) for i, dataset in enumerate(self.datasets) for j in range(len(self.datasets[i]))]
         
-        # self.data_ids = self.data_ids[3420:]
+        # self.data_ids = self.data_ids[150:]
         random.seed(0)
         self.color_set = [[random.random() for _ in range(3)] for _ in range(len(self.labels))] 
 
