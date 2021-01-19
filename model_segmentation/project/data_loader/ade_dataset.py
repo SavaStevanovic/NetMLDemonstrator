@@ -170,6 +170,6 @@ class ADEChallengeData2016(Dataset):
             data =  Image.open(img_path , mode='r')
             segm = Image.open(segm_path)
             segm = np.array(segm)
-            segm[segm == 0] = 255
-            segm = Image.fromarray(segm)
+            segm[segm == 0] = 256
+            segm = Image.fromarray(segm-1)
             return data, segm

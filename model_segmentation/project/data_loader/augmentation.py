@@ -9,7 +9,6 @@ import cv2
 import io
 from skimage.draw import polygon
 from itertools import compress
-# from scipy.stats import multivariate_
 
 class PairCompose(object):
     def __init__(self, transforms):
@@ -64,6 +63,16 @@ class RandomResizeTransform(object):
         new_size = [np.round(s*p).astype(np.int32) for s in list(image.size)[::-1]]
         image = transforms.functional.resize(image, new_size, Image.ANTIALIAS)
         label = transforms.functional.resize(label, new_size, Image.NEAREST)
+        return image, label, dataset_id
+
+class ResizeTransform(object):
+    def __init__(self, max_size):
+        self.max_size = max_size
+
+    def __call__(self, image, label, dataset_id):
+        if min(image.size)>self.max_size:
+            image = transforms.functional.resize(image, self.max_size, Image.ANTIALIAS)
+            label = transforms.functional.resize(label, self.max_size, Image.NEAREST)
         return image, label, dataset_id
 
 class RandomBlurTransform(object):
@@ -124,15 +133,18 @@ class OutputTransform(object):
         return image, label, dataset_id
 
 class OneHotTransform(object):
-    def __init__(self, cat_count):
+    def __init__(self, cat_count, selector):
         self.cat_transform = np.eye(cat_count+1)
         self.cat_count = cat_count
+        self.selector_mapper = [{i+1:x+1 for i, x in enumerate(m)} for m in selector]
+        for x in self.selector_mapper:
+            x[0] = 0
+            x[255] = cat_count
 
+        
     def __call__(self, image, label, dataset_id):
         label = np.array(label)
-        if (label==self.cat_count).any():
-            print('FUCK')
-        label[label==255] = self.cat_count
+        label = np.vectorize(self.selector_mapper[dataset_id].__getitem__)(label)
         label = self.cat_transform[label]
         return image, label, dataset_id
 

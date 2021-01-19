@@ -6,7 +6,7 @@ from datetime import datetime
 from torch.utils.tensorboard import SummaryWriter
 from tqdm import tqdm
 from visualization.apply_output import apply_detections
-from visualization.images_display import join_images
+from visualization.images_display import join_images, visualize_label
 from model_fitting.configuration import TrainingConfiguration
 import json
 from functools import reduce
@@ -19,20 +19,7 @@ from PIL import Image
 import torch.nn.functional as F
 from utils import plt_to_np
 from model_fitting import metrics
-
-def focal_loss(x, y):
-    gamma = 2
-    alpha = 0.25
-
-    y = y.unsqueeze(-1)
-    x = x.unsqueeze(-1)
-
-    y = torch.cat([(1-alpha) * y, alpha * (1-y)], -1)
-    x = torch.cat([x, 1-x], -1).clamp(1e-8, 1. - 1e-8)
-
-    F_loss = -y * (1 - x)**gamma * torch.log(x)
-
-    return F_loss.mean()
+from operator import itemgetter
 
 def fit_epoch(net, dataloader, lr_rate, train, epoch=1):
     if train:
@@ -57,19 +44,20 @@ def fit_epoch(net, dataloader, lr_rate, train, epoch=1):
 
     for i, data in enumerate(tqdm(dataloader)):
         image, labels, dataset_id = data
+        # print(image.shape)
         sel = np.zeros((len(dataset_id), sel_len))
-        for i, x in enumerate(dataset_id):
-            sel[i, dataloader.selector[x]]=1
+        for j, x in enumerate(dataset_id):
+            sel[j, dataloader.selector[x]]=1
         if train:
             optimizer.zero_grad()
-
+        mask = 1 - labels[:, -1]
         labels_cuda = labels.cuda()
         labels_cuda = labels_cuda[:, 1:]
-        mask = labels_cuda[:,-1]
+        mask_cuda = mask.cuda()
         labels_cuda = labels_cuda[:, :-1]
-        output = net(image.cuda())
-        output = output*mask.unsqueeze(1)
-        loss, focal_loss, dice_loss = criterion(output, labels_cuda)
+        outputs = net(image.cuda())
+        outputs = outputs * mask_cuda.unsqueeze(1)
+        loss, focal_loss, dice_loss = criterion(outputs, labels_cuda)
         if train:
             loss.backward()
             optimizer.step()
@@ -77,30 +65,35 @@ def fit_epoch(net, dataloader, lr_rate, train, epoch=1):
         total_focal_loss += focal_loss
         total_dice_loss += dice_loss
         if not train:
-        #     label_vector.append(labels.numpy().argmax(1).flatten())
-        #     outputs_vector.append(output.detach().argmax(1).cpu().numpy().flatten())
-            # f1_scores.append(f1_score(labels.numpy().argmax(1).flatten(), output.detach().argmax(1).cpu().numpy().flatten(), average='macro'))
-            # cm.update_matrix(labels.numpy().argmax(1).flatten(), output.detach().argmax(1).cpu().numpy().flatten())
-            for i in range(len(labels)):
-                lab = labels[i, 1:-1][dataloader.selector[dataset_id]]
-                lab = torch.cat((1-lab.sum(0).unsqueeze(0), lab), 0).argmax(0)
-                out = output[i].detach().cpu()[dataloader.selector[dataset_id]]
-                out = torch.cat((1-out.sum(0).unsqueeze(0), out), 0).argmax(0)
+            for j in range(len(labels)):
+                flat_mask = mask.detach().flatten().bool()
+                lab = labels[j, 1:-1].detach()[dataloader.selector[dataset_id]]
+                lab = torch.cat((1-lab.sum(0).unsqueeze(0), lab), 0).argmax(0).flatten()
+                lab = lab[flat_mask]
+                out = outputs[j].detach().cpu()[dataloader.selector[dataset_id]]
+                out = torch.cat((1-out.sum(0).unsqueeze(0), out), 0).argmax(0).flatten()
+                out = out[flat_mask]
                 accs += lab.eq(out).float().mean()/len(labels)
 
         if i>=len(dataloader)-5:
             image = image[0].permute(1,2,0).detach().cpu().numpy()
-            label = labels[0].detach().cpu().numpy()
-            output = output[0].detach().cpu().numpy()
-        
-
+            label = labels[0, 1:-1].detach().cpu()
+            output = outputs[0].detach().cpu()
+            lab = label[dataloader.selector[dataset_id[0]]]
+            lab = torch.cat((1-lab.sum(0).unsqueeze(0), lab), 0).argmax(0).numpy()
+            out = output.detach().cpu()[dataloader.selector[dataset_id[0]]]
+            out = torch.cat((1-out.sum(0).unsqueeze(0), out), 0).argmax(0).numpy()
+            color_map = list(itemgetter(*dataloader.selector[dataset_id[0]])(dataloader.color_set))
+            color_map = [[0, 0, 0]] + color_map
+            lab = visualize_label(color_map, lab)
+            out = visualize_label(color_map, out)
             plt.imshow(image)
-            plt.imshow(label.argmax(axis=0)>0, alpha=0.5)
+            plt.imshow(lab, alpha=0.75)
             label_images.append(plt_to_np(plt))
 
 
             plt.imshow(image)
-            plt.imshow(output.argmax(axis=0)>0, alpha=0.5)
+            plt.imshow(out, alpha=0.75)
             output_images.append(plt_to_np(plt))
 
     # miou = cm.compute_current_mean_intersection_over_union()

@@ -8,15 +8,15 @@ import torch.nn.functional as F
 
 class Unet(nn.Module, utils.Identifier):
 
-    def __init__(self, block, inplanes, in_dim, out_dim, depth=4, norm_layer=None):
+    def __init__(self, block, inplanes, in_dim, labels, depth=4, norm_layer=None):
         super(Unet, self).__init__()
-
+        self.labels = labels
         self.depth = depth
         self.block = block
         self._norm_layer = norm_layer
         self.inplanes = inplanes
         self.in_dim = in_dim
-        self.out_dim = out_dim
+        self.out_dim = len(labels)
 
         self.first_layer = block(in_dim, inplanes, norm_layer=norm_layer)
         self.down_layers = nn.ModuleList([self._make_down_layer(block, inplanes*2**i) for i in range(depth)])
@@ -25,7 +25,7 @@ class Unet(nn.Module, utils.Identifier):
         self.mid_layer = self._make_mid_layer(block, mid_planes)
         self.up_layers = nn.ModuleList([self._make_up_layer(block, inplanes*2**i) for i in range(depth)])
         self.lateral_layers = nn.ModuleList([self._make_lateral_layer(block, inplanes*2**i) for i in range(depth)])
-        self.out_layer = nn.Conv2d(inplanes, out_dim, 1)
+        self.out_layer = nn.Conv2d(inplanes, self.out_dim, 1)
            
     def _make_down_layer(self, block, planes):
         return block(planes, planes*2, norm_layer=self._norm_layer)

@@ -5,7 +5,7 @@ import numpy as np
 
 class VOCDataset(Dataset):
     def __init__(self, mode, directory):
-       self.data = datasets.VOCSegmentation(os.path.join('/Data/segmentation', directory), image_set = mode, download = True)
+       self.data = datasets.VOCSegmentation(os.path.join('/Data/segmentation', directory), image_set = mode, download = False)
        self.labels =[
             'airplane',
             'bicycle',
