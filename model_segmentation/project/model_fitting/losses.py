@@ -29,7 +29,7 @@ class SegmentationLoss(torch.nn.Module):
 
     def focal_loss(self, probs, target):
         gamma = 2
-        alpha = .80
+        alpha = .60
         eps = 1e-8
 
         F_loss = -alpha * torch.pow((1. - probs), gamma) * target * torch.log(probs + eps) \

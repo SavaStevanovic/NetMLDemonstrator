@@ -1,7 +1,6 @@
 import torch
 import os
 from model_fitting.losses import SegmentationLoss
-from sklearn.metrics import f1_score
 from datetime import datetime
 from torch.utils.tensorboard import SummaryWriter
 from tqdm import tqdm
@@ -20,6 +19,7 @@ import torch.nn.functional as F
 from utils import plt_to_np
 from model_fitting import metrics
 from operator import itemgetter
+import seaborn as sn
 
 def process_output(lab, flat_mask):
     lab = (lab>0.5)  
@@ -39,7 +39,7 @@ def fit_epoch(net, dataloader, lr_rate, train, epoch=1):
         optimizer = torch.optim.Adam(net.parameters(), lr_rate)
     else:
         net.eval()
-        cm = metrics.RunningConfusionMatrix(range(net.out_dim))
+    cm = metrics.RunningConfusionMatrix()
     criterion = SegmentationLoss()
     torch.set_grad_enabled(train)
     torch.backends.cudnn.benchmark = train
@@ -50,10 +50,9 @@ def fit_epoch(net, dataloader, lr_rate, train, epoch=1):
     label_images = []
     outputs_vector = []
     label_vector = []
-    f1_scores = 0
     accs = 0
-    miou = 0
-    
+    f1_score = 0
+
     for i, data in enumerate(tqdm(dataloader)):
         image, labels, dataset_id = data
         # print(image.shape)
@@ -73,13 +72,12 @@ def fit_epoch(net, dataloader, lr_rate, train, epoch=1):
         losses += loss.item()
         total_focal_loss += focal_loss
         total_dice_loss += dice_loss
-        if not train:
-            flat_mask = mask_cuda.flatten().bool()
-            lab = process_output(labels_cuda, flat_mask)
-            out = process_output(outputs.sigmoid(), flat_mask)
-            
-            accs += lab.eq(out).float().mean().item()
-            cm.update_matrix(lab.int(), out.int())
+
+        flat_mask = mask_cuda.flatten().bool()
+        lab = process_output(labels_cuda, flat_mask)
+        out = process_output(outputs.sigmoid(), flat_mask)
+        
+        cm.update_matrix(lab.int(), out.int())
 
         if i>=len(dataloader)-10:
             image = image[0].permute(1,2,0).detach().cpu().numpy()
@@ -94,12 +92,15 @@ def fit_epoch(net, dataloader, lr_rate, train, epoch=1):
             plt.imshow(image)
             plt.imshow(out, alpha=0.55)
             output_images.append(plt_to_np(plt))
-    if not train:
-        miou = cm.compute_current_mean_intersection_over_union()
-    # if not train:
-        # f1_scores = f1_score(np.concatenate(label_vector).flatten(), np.concatenate(outputs_vector).flatten(), average='macro')
+
+    f1_score, accs, confusion_matrix = cm.compute_metrics()
+    sn.heatmap(confusion_matrix, annot=True)
+    plt.xlabel('Predicted')
+    plt.ylabel('True')
+    cm_img = plt_to_np(plt)
+
     data_len = len(dataloader)
-    return losses/data_len, output_images, label_images, total_focal_loss/data_len, total_dice_loss/data_len, accs/data_len, miou
+    return losses/data_len, output_images, label_images, total_focal_loss/data_len, total_dice_loss/data_len, accs, f1_score, cm_img
 
 def fit(net, trainloader, validationloader, epochs=1000, lower_learning_period=10):
     model_dir_header = net.get_identifier()
@@ -118,19 +119,21 @@ def fit(net, trainloader, validationloader, epochs=1000, lower_learning_period=1
     with torch.no_grad():
         writer.add_graph(net, images[:2].cuda())
     for epoch in range(train_config.epoch, epochs):
-        loss, output_images, label_images, focal_loss, dice_loss, _, _ = fit_epoch(net, trainloader, train_config.learning_rate, train = True, epoch=epoch)
-        writer.add_scalars('Train/Metrics', {'loss': loss, 'focal_loss': focal_loss, 'dice_loss': dice_loss}, epoch)
+        loss, output_images, label_images, focal_loss, dice_loss, accs, f1_score, cm = fit_epoch(net, trainloader, train_config.learning_rate, train = True, epoch=epoch)
+        writer.add_scalars('Train/Metrics', {'loss': loss, 'focal_loss': focal_loss, 'dice_loss': dice_loss, 'accs': accs, 'f1_score': f1_score}, epoch)
         grid = join_images(label_images)
         writer.add_images('train_labels', grid, epoch, dataformats='HWC')
         grid = join_images(output_images)
         writer.add_images('train_outputs', grid, epoch, dataformats='HWC')
+        writer.add_images('train_confusion_matrix', cm, epoch, dataformats='HWC')
 
-        loss, output_images, label_images, focal_loss, dice_loss, accs, miou = fit_epoch(net, validationloader, None, train = False, epoch=epoch)
-        writer.add_scalars('Validation/Metrics', {'loss': loss, 'focal_loss': focal_loss, 'dice_loss': dice_loss, 'accs': accs, 'miou': miou}, epoch)
+        loss, output_images, label_images, focal_loss, dice_loss, accs, f1_score, cm = fit_epoch(net, validationloader, None, train = False, epoch=epoch)
+        writer.add_scalars('Validation/Metrics', {'loss': loss, 'focal_loss': focal_loss, 'dice_loss': dice_loss, 'accs': accs, 'f1_score': f1_score}, epoch)
         grid = join_images(label_images)
         writer.add_images('validation_labels', grid, epoch, dataformats='HWC')
         grid = join_images(output_images)
         writer.add_images('validation_outputs', grid, epoch, dataformats='HWC')
+        writer.add_images('validation_confusion_matrix', cm, epoch, dataformats='HWC')
         
 
         os.makedirs((chp_dir), exist_ok=True)
