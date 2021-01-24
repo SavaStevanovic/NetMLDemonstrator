@@ -14,14 +14,13 @@ import random
 
 
 class UnifiedKeypointDataset(Dataset):
-    def __init__(self, train, depth, debug=False, category=['person']):
+    def __init__(self, train, depth, debug=False, category='person'):
         self.debug = debug
         self.train = train
         train_datasets = [
                 VOCDataset('train', 'Voc'),
                 ADEChallengeData2016('train', 'ADEChallengeData2016'),
                 CityscapesDataset('train', 'fine', 'Cityscapes'),
-                CityscapesDataset('train_extra', 'coarse', 'Cityscapes'),
                 CocoDataset('train2017', 'annotations_trainval2017/annotations/instances_train2017.json'),
             ]
 
@@ -41,13 +40,13 @@ class UnifiedKeypointDataset(Dataset):
                 CocoDataset('val2017', 'annotations_trainval2017/annotations/instances_val2017.json'),
             ]
 
-        self.selector = [[self.supported_labels.index(u) + 1 if u in self.supported_labels else 0 for u in x.labels ] for x in self.datasets]
+        self.selector = [[self.supported_labels.index(u) + 1 if u in self.supported_labels else 0 for u in x.labels] for x in self.datasets]
 
         if train:
             self.transforms = augmentation.PairCompose([
                 augmentation.RandomHorizontalFlipTransform(),
                 augmentation.RandomResizeTransform(),
-                augmentation.RandomCropTransform((224, 224)),
+                augmentation.RandomCropTransform((448, 448)),
                 augmentation.RandomNoiseTransform(),
                 augmentation.RandomColorJitterTransform(),
                 augmentation.RandomBlurTransform(),
@@ -58,8 +57,8 @@ class UnifiedKeypointDataset(Dataset):
 
         if not train:
             self.transforms = augmentation.PairCompose([
-                augmentation.ResizeTransform(448),
                 augmentation.PaddTransform(2**depth),
+                augmentation.JPEGcompression(95),
                 augmentation.OneHotTransform(len(self.supported_labels)+1, self.selector),
                 augmentation.OutputTransform()]
             )

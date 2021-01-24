@@ -158,7 +158,8 @@ class ADEChallengeData2016(Dataset):
             'shower',
             'radiator',
             'glass',
-            'clock'
+            'clock',
+            'flag'
         ]
        
     def __len__(self):
@@ -169,7 +170,4 @@ class ADEChallengeData2016(Dataset):
             img_path, segm_path = self.data[index]
             data =  Image.open(img_path , mode='r')
             segm = Image.open(segm_path)
-            segm = np.array(segm)
-            segm[segm == 0] = 256
-            segm = Image.fromarray(segm-1)
             return data, segm

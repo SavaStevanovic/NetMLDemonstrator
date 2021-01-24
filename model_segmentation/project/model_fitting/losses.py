@@ -7,7 +7,7 @@ class SegmentationLoss(torch.nn.Module):
 
     def __init__(self):
         super(SegmentationLoss, self).__init__()
-        self.focal_loss_scale = 5.0
+        self.focal_loss_scale = 20.0
         self.dice_loss_scale = 1.0
 
     def forward(self, output, label):
@@ -27,18 +27,24 @@ class SegmentationLoss(torch.nn.Module):
 
         return loss, total_focal_loss, total_dice_loss
 
-    def focal_loss(self, x, y):
+    def focal_loss(self, probs, target):
         gamma = 2
+        alpha = .80
+        eps = 1e-8
 
-        x = x.clamp(1e-8, 1. - 1e-8)
-
-        F_loss = -y * (1 - x)**gamma * torch.log(x)
+        F_loss = -alpha * torch.pow((1. - probs), gamma) * target * torch.log(probs + eps) \
+               - (1. - alpha) * torch.pow(probs, gamma) * (1. - target) * torch.log(1. - probs + eps)
 
         return F_loss.mean()
 
     def dice_loss(self, x, y):
-        smooth = 1.
+        x = torch.cat([1-x, x], 1)
+        y = torch.cat([1-y, y], 1)
+        eps = 1e-8
+        dims = (1, 2, 3)
+        intersection = torch.sum(x * y, dims)
+        cardinality = torch.sum(x + y, dims)
 
-        intersection = (x * y).sum()
-        
-        return 1 - (2. * intersection + smooth) / (x.sum() + y.sum() + smooth)
+        dice_score = 2. * intersection / (cardinality + eps)
+
+        return dice_score.mean()

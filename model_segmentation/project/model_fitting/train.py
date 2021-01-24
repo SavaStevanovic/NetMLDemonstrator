@@ -21,26 +21,16 @@ from utils import plt_to_np
 from model_fitting import metrics
 from operator import itemgetter
 
-def process_output(lab, selector, dataset_id , flat_mask):
-    if lab.shape[1]>1:
-        lab = lab[:, selector[dataset_id]]
-        lab = torch.cat((1-lab.sum(1, keepdim=True), lab), 1)
-        lab = lab.argmax(1)
-    else:
-        lab = (lab.sigmoid()>0.5)
-    
+def process_output(lab, flat_mask):
+    lab = (lab>0.5)  
+
     return lab.flatten()[flat_mask]
 
-def output_to_image(lab, selector, dataset_id, color_set):
-    if lab.shape[0]>1:
-        lab = lab[selector[dataset_id]]
-        lab = torch.cat((1-lab.sum(0,  keepdim=True), lab), 0).argmax(0)
-        color_map = list(itemgetter(*selector[dataset_id])(color_set))
-        color_map = [[0, 0, 0]] + color_map
-    else:
-        lab = (lab.sigmoid()>0.5).int().squeeze(0)
-        color_map = [[0, 0, 0], [0, 0.99, 0]]
+def output_to_image(lab):
+    lab = (lab>0.5).int().squeeze(0)
+    color_map = [[0, 0, 0], [0, 0.99, 0]]
     lab = visualize_label(color_map, lab.numpy())
+    
     return lab
 
 def fit_epoch(net, dataloader, lr_rate, train, epoch=1):
@@ -62,7 +52,8 @@ def fit_epoch(net, dataloader, lr_rate, train, epoch=1):
     label_vector = []
     f1_scores = 0
     accs = 0
-
+    miou = 0
+    
     for i, data in enumerate(tqdm(dataloader)):
         image, labels, dataset_id = data
         # print(image.shape)
@@ -82,33 +73,33 @@ def fit_epoch(net, dataloader, lr_rate, train, epoch=1):
         losses += loss.item()
         total_focal_loss += focal_loss
         total_dice_loss += dice_loss
-        zero_aligned_selector = [[x-1 for x in d] for d in dataloader.selector]
         if not train:
             flat_mask = mask_cuda.flatten().bool()
-            lab = process_output(labels_cuda, zero_aligned_selector, dataset_id, flat_mask)
-            out = process_output(outputs, zero_aligned_selector, dataset_id, flat_mask)
+            lab = process_output(labels_cuda, flat_mask)
+            out = process_output(outputs.sigmoid(), flat_mask)
             
             accs += lab.eq(out).float().mean().item()
+            cm.update_matrix(lab.int(), out.int())
 
         if i>=len(dataloader)-10:
             image = image[0].permute(1,2,0).detach().cpu().numpy()
-            lab = output_to_image(labels[0, 1:-1].detach().cpu(), zero_aligned_selector, dataset_id[0], dataloader.color_set)
-            out = output_to_image(outputs[0].detach().cpu()     , zero_aligned_selector, dataset_id[0], dataloader.color_set)
+            lab = output_to_image(labels[0, 1:-1].detach().cpu())
+            out = output_to_image(outputs[0].detach().sigmoid().cpu())
 
             plt.imshow(image)
-            plt.imshow(lab, alpha=0.75)
+            plt.imshow(lab, alpha=0.55)
             label_images.append(plt_to_np(plt))
 
 
             plt.imshow(image)
-            plt.imshow(out, alpha=0.75)
+            plt.imshow(out, alpha=0.55)
             output_images.append(plt_to_np(plt))
-
-    # miou = cm.compute_current_mean_intersection_over_union()
+    if not train:
+        miou = cm.compute_current_mean_intersection_over_union()
     # if not train:
         # f1_scores = f1_score(np.concatenate(label_vector).flatten(), np.concatenate(outputs_vector).flatten(), average='macro')
     data_len = len(dataloader)
-    return losses/data_len, output_images, label_images, total_focal_loss/data_len, total_dice_loss/data_len, accs/data_len
+    return losses/data_len, output_images, label_images, total_focal_loss/data_len, total_dice_loss/data_len, accs/data_len, miou
 
 def fit(net, trainloader, validationloader, epochs=1000, lower_learning_period=10):
     model_dir_header = net.get_identifier()
@@ -127,15 +118,15 @@ def fit(net, trainloader, validationloader, epochs=1000, lower_learning_period=1
     with torch.no_grad():
         writer.add_graph(net, images[:2].cuda())
     for epoch in range(train_config.epoch, epochs):
-        loss, output_images, label_images, focal_loss, dice_loss, _ = fit_epoch(net, trainloader, train_config.learning_rate, train = True, epoch=epoch)
+        loss, output_images, label_images, focal_loss, dice_loss, _, _ = fit_epoch(net, trainloader, train_config.learning_rate, train = True, epoch=epoch)
         writer.add_scalars('Train/Metrics', {'loss': loss, 'focal_loss': focal_loss, 'dice_loss': dice_loss}, epoch)
         grid = join_images(label_images)
         writer.add_images('train_labels', grid, epoch, dataformats='HWC')
         grid = join_images(output_images)
         writer.add_images('train_outputs', grid, epoch, dataformats='HWC')
 
-        loss, output_images, label_images, focal_loss, dice_loss, accs = fit_epoch(net, validationloader, None, train = False, epoch=epoch)
-        writer.add_scalars('Validation/Metrics', {'loss': loss, 'focal_loss': focal_loss, 'dice_loss': dice_loss, 'accs': accs}, epoch)
+        loss, output_images, label_images, focal_loss, dice_loss, accs, miou = fit_epoch(net, validationloader, None, train = False, epoch=epoch)
+        writer.add_scalars('Validation/Metrics', {'loss': loss, 'focal_loss': focal_loss, 'dice_loss': dice_loss, 'accs': accs, 'miou': miou}, epoch)
         grid = join_images(label_images)
         writer.add_images('validation_labels', grid, epoch, dataformats='HWC')
         grid = join_images(output_images)

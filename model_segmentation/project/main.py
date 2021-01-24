@@ -8,7 +8,7 @@ import os
 th_count = 24
 depth = 4
 
-dataloader = UnifiedKeypointDataloader(batch_size = 2, depth=4, th_count=th_count)
+dataloader = UnifiedKeypointDataloader(batch_size = 4, depth=4, th_count=th_count)
 
 net = networks.Unet(block = blocks.ConvBlock, 
     inplanes = 64, 
@@ -22,5 +22,5 @@ fit(net,
     dataloader.trainloader, 
     dataloader.validationloader, 
     epochs = 1000, 
-    lower_learning_period = 3
+    lower_learning_period = 2
 )       
