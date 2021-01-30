@@ -7,7 +7,9 @@
     <app-display #disp ></app-display>
   </mat-drawer-content>
 </mat-drawer-container>
-<button mat-raised-button (click)="drawer.toggle()" [color]="drawer.opened? 'warn' : 'primary'" class="menu_toggle" >
-  Menu
+<button mat-mini-fab (click)="drawer.toggle()" [color]="drawer.opened? 'warn' : 'primary'" class="menu_toggle" >
+  <mat-icon >
+    menu
+  </mat-icon>
 </button>
 <router-outlet></router-outlet>
