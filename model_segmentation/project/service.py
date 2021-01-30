@@ -13,10 +13,7 @@ FILTERS_TIME = Summary('get_filters', 'Time spent processing filters')
 MESSAGE_TIME = Summary('on_message', 'Time spent processing messages')
 
 camera_models = {}
-torch.no_grad()
-torch.autograd.set_detect_anomaly(False)
-torch.autograd.profiler.emit_nvtx(False)
-torch.autograd.profiler.profile(False)
+torch.set_grad_enabled(False)
 
 model_paths = {
         "UNet" : {'path': 'checkpoints/Unet/64/ConvBlock/checkpoints_final.pth'},
@@ -72,9 +69,12 @@ class FrameUploadHandler(BaseHandler):
         model = camera_models[model_key]
         img_tensor, _, _ = model.preprocessing(img_input, None, None)
         img_tensor = img_tensor.unsqueeze(0).float().cuda()
-        output = model(img_tensor).detach()[0, 0, :img_input.size[1], :img_input.size[0]].sigmoid().cpu().numpy().tolist()
-        
-        self.write(tornado.escape.json_encode(output))
+        output = model(img_tensor).detach()[0, 0, :img_input.size[1], :img_input.size[0]].sigmoid().cpu().numpy()
+
+        mask_byte_arr = io.BytesIO()
+        Image.fromarray((output*255).astype('uint8')).save(mask_byte_arr, format='jpeg')
+        encoded_mask = 'data:image/jpeg;base64,' + pybase64.b64encode(mask_byte_arr.getvalue()).decode('utf-8')
+        self.write(tornado.escape.json_encode(encoded_mask))
 
 if __name__ == "__main__":
     import logging

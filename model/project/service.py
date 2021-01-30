@@ -12,10 +12,7 @@ FILTERS_TIME = Summary('get_filters', 'Time spent processing filters')
 MESSAGE_TIME = Summary('on_message', 'Time spent processing messages')
 
 camera_models = {}
-torch.no_grad()
-torch.autograd.set_detect_anomaly(False)
-torch.autograd.profiler.emit_nvtx(False)
-torch.autograd.profiler.profile(False)
+torch.set_grad_enabled(False)
 
 model_paths = {
         "YoloV2" : {'path': 'checkpoints/YoloV2/64/0,5-1,0-2,0/Coco_checkpoints_final.pth'},

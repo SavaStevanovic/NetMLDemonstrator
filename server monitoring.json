@@ -15,7 +15,7 @@
   "editable": true,
   "gnetId": null,
   "graphTooltip": 0,
-  "id": 5,
+  "id": 1,
   "links": [],
   "panels": [
     {
@@ -80,7 +80,7 @@
       "steppedLine": false,
       "targets": [
         {
-          "expr": "rate(get_filters_count[5m])",
+          "expr": "rate(get_filters_count[1m])",
           "interval": "",
           "legendFormat": "",
           "refId": "A"
@@ -175,7 +175,7 @@
       "steppedLine": false,
       "targets": [
         {
-          "expr": "rate(on_message_count[5m])",
+          "expr": "rate(on_message_count[1m])",
           "interval": "",
           "legendFormat": "",
           "refId": "A"
@@ -270,7 +270,7 @@
       "steppedLine": false,
       "targets": [
         {
-          "expr": "sum(rate(on_message_sum[5m])) / (sum(rate(on_message_count[5m])) + 0.00000000001) * 1000",
+          "expr": "rate(on_message_sum[1m])/rate(on_message_count[1m])",
           "interval": "",
           "legendFormat": "",
           "refId": "A"
@@ -484,7 +484,7 @@
       "timeFrom": null,
       "timeRegions": [],
       "timeShift": null,
-      "title": "nvidia_gpu_power_usage_milliwatts",
+      "title": "nvidia_gpu_power_usage_watts",
       "tooltip": {
         "shared": true,
         "sort": 0,
@@ -769,7 +769,7 @@
       "timeFrom": null,
       "timeRegions": [],
       "timeShift": null,
-      "title": "nvidia_gpu_memory_used_bytes",
+      "title": "nvidia_gpu_memory_used_gigabytes",
       "tooltip": {
         "shared": true,
         "sort": 0,
@@ -878,7 +878,7 @@
       "timeFrom": null,
       "timeRegions": [],
       "timeShift": null,
-      "title": "process_virtual_memory_bytes",
+      "title": "process_virtual_memory_gigabytes",
       "tooltip": {
         "shared": true,
         "sort": 0,
@@ -973,7 +973,7 @@
       "timeFrom": null,
       "timeRegions": [],
       "timeShift": null,
-      "title": "process_resident_memory_bytes",
+      "title": "process_resident_memory_gigabytes",
       "tooltip": {
         "shared": true,
         "sort": 0,
@@ -1058,7 +1058,7 @@
       "steppedLine": false,
       "targets": [
         {
-          "expr": "avg by (instance) (irate(process_cpu_seconds_total[1m]))",
+          "expr": "avg by (instance) (rate(process_cpu_seconds_total[1m]))",
           "interval": "",
           "legendFormat": "",
           "refId": "A"

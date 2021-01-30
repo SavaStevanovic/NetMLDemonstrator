@@ -13,10 +13,7 @@ FILTERS_TIME = Summary('get_filters', 'Time spent processing filters')
 MESSAGE_TIME = Summary('on_message', 'Time spent processing messages')
 
 camera_models = {}
-torch.no_grad()
-torch.autograd.set_detect_anomaly(False)
-torch.autograd.profiler.emit_nvtx(False)
-torch.autograd.profiler.profile(False)
+torch.set_grad_enabled(False)
 
 model_paths = {
         "OpenPoseV2" : {'path': 'checkpoints/OpenPoseNet/4/1/38/18/PoseCNNStage/VGGNetBackbone/64/2-2-4-2/checkpoints_final.pth'},
