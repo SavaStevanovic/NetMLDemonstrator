@@ -1,0 +1,38 @@
+global:
+  scrape_interval: 15s 
+
+  # Attach these labels to any time series or alerts when communicating with
+  # external systems (federation, remote storage, Alertmanager).
+  external_labels:
+    monitor: 'codelab-monitor'
+
+scrape_configs:
+  - job_name: 'prometheus'
+    metrics_path: /metrics
+
+    static_configs:
+      - targets: ['0.0.0.0:9090']
+      
+  - job_name: 'menager'
+    metrics_path: /metrics
+
+    static_configs:
+      - targets: [menager:8000]
+      
+  - job_name: 'detection'
+    metrics_path: /metrics
+
+    static_configs:
+      - targets: [detection:8000]
+      
+  - job_name: 'keypoint'
+    metrics_path: /metrics
+
+    static_configs:
+      - targets: [keypoint:8000]
+      
+  - job_name: 'nvidia'
+    metrics_path: /metrics
+
+    static_configs:
+      - targets: [nvidia:9445]

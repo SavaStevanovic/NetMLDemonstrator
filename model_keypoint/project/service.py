@@ -7,13 +7,16 @@ from data_loader import augmentation
 import tornado.web
 import io
 import torch.nn.functional as F
+from prometheus_client import start_http_server, Summary
+
+FILTERS_TIME = Summary('get_filters', 'Time spent processing filters')
+MESSAGE_TIME = Summary('on_message', 'Time spent processing messages')
 
 camera_models = {}
 torch.no_grad()
 torch.autograd.set_detect_anomaly(False)
 torch.autograd.profiler.emit_nvtx(False)
 torch.autograd.profiler.profile(False)
-# torch.backends.cudnn.benchmark = True
 
 model_paths = {
         "OpenPoseV2" : {'path': 'checkpoints/OpenPoseNet/4/1/38/18/PoseCNNStage/VGGNetBackbone/64/2-2-4-2/checkpoints_final.pth'},
@@ -35,6 +38,7 @@ class GetModelsHandler(BaseHandler):
     def initialize(self, model_paths):
         self.model_paths = model_paths
     
+    @FILTERS_TIME.time()
     def get(self):
         data = {
             'models': list(self.model_paths.keys()),
@@ -44,6 +48,7 @@ class GetModelsHandler(BaseHandler):
         self.write(data)
 
 class FrameUploadHandler(BaseHandler):
+    @MESSAGE_TIME.time()
     def post(self):
         data = tornado.escape.json_decode(self.request.body)
         for d in data['progress_bars']:
@@ -86,7 +91,7 @@ if __name__ == "__main__":
         (r'/get_models', GetModelsHandler, dict(model_paths=model_paths)),
         (r'/frame_upload', FrameUploadHandler),] 
     )
-
+    start_http_server(8000)
     server = tornado.httpserver.HTTPServer(app)
     server.listen(5004)
    

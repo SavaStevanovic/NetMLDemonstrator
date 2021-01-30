@@ -4,6 +4,10 @@ import requests
 import sockjs.tornado
 import json
 import asyncio
+from prometheus_client import start_http_server, Summary
+
+FILTERS_TIME = Summary('get_filters', 'Time spent processing filters')
+MESSAGE_TIME = Summary('on_message', 'Time spent processing messages')
 
 filter_data = {
     "detection": {'path': 'http://detection:5001/get_models'},
@@ -28,6 +32,7 @@ class GetFilterHandler(BaseHandler):
         self.filter_data = filter_data
 
     @tornado.gen.coroutine
+    @FILTERS_TIME.time()
     def get(self):
         filters = [{
             'name': "Test", 
@@ -62,6 +67,7 @@ class FrameUploadConnection(sockjs.tornado.SockJSConnection):
         pass
 
     @tornado.gen.coroutine
+    @MESSAGE_TIME.time()
     def on_message(self, message):
         start_time = time.time()
         data = tornado.escape.json_decode(message)
@@ -114,11 +120,11 @@ if __name__ == "__main__":
     logging.getLogger().setLevel(logging.INFO)
 
     FrameRouter = sockjs.tornado.SockJSRouter(FrameUploadConnection, r'/menager/frame_upload_stream')
-    # 2. Create Tornado application
     app = tornado.web.Application([
-        (r'/menager/get_filters', GetFilterHandler, dict(filter_data=filter_data)),] 
-        + FrameRouter.urls)
-
+        (r'/menager/get_filters', GetFilterHandler, dict(filter_data=filter_data)),
+        ] + FrameRouter.urls
+    )
+    start_http_server(8000)
     server = tornado.httpserver.HTTPServer(app)
     server.listen(4321)
    

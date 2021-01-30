@@ -3,3 +3,4 @@ imutils
 autopep8
 sockjs-tornado
 pybase64
+prometheus_client
