@@ -39,7 +39,7 @@ class GetModelsHandler(BaseHandler):
     def get(self):
         data = {
             'models': list(self.model_paths.keys()),
-            'progress_bars':[{'name':'bodypart', 'value':0.5}, {'name':'joint', 'value':0.5}], 
+            'progress_bars':[{'name':'bodypart', 'value':0.5}, {'name':'joint', 'value':0.75}], 
         } 
       
         self.write(data)
