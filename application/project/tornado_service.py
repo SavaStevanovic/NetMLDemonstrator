@@ -107,7 +107,7 @@ class FrameUploadConnection(sockjs.tornado.SockJSConnection):
                 return_data['parts'] = content['parts']
                 return_data['joints'] = content['joints']
             if 'segmentation' in result.effective_url:
-                return_data['frame'] = content
+                return_data['mask'] = content
 
 
         self.send(tornado.escape.json_encode(return_data))

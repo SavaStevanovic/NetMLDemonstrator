@@ -32,17 +32,6 @@ export class DisplayComponent implements AfterViewInit, OnInit {
     private snackBar: MatSnackBar) {
   }
 
-  // private applyBlending(bottomImageData, topImageData):void {
-  //   // create the canvas
-  //   var canvas = document.createElement('canvas');
-  //   canvas.width = 500;
-  //   canvas.height = 500;
-  //   var ctx = canvas.getContext('2d');
-  
-  //   // will be more
-  //   ...
-  // }
-
   private capture():void {
     this.setPlaying();
     if (!this.videoPlaying) {
@@ -66,15 +55,12 @@ export class DisplayComponent implements AfterViewInit, OnInit {
     this.getFilters();
     this.mask = new Image();
     this.mask.onload = () => {
-      // var canvas = document.createElement('canvas');
-      // canvas.width = this.processedCanvas.nativeElement.width;
-      // canvas.height = this.processedCanvas.nativeElement.height;
-      // var canvasctx = canvas.getContext('2d');
-      // canvasctx.drawImage(this.video_native_element, 0, 0, this.video_native_element.clientWidth, this.video_native_element.clientHeight, 0, 0, this.processedCanvas.nativeElement.width, this.processedCanvas.nativeElement.height);
-      // canvasctx.globalCompositeOperation = 'multiply';
-      // canvasctx.drawImage(this.mask, 0, 0, this.mask.width, this.mask.height, 0, 0, this.processedCanvas.nativeElement.width, this.processedCanvas.nativeElement.height);
-      // this.processed_context.drawImage(canvas, 0, 0, this.processedCanvas.nativeElement.width, this.processedCanvas.nativeElement.height);
-    };
+      this.processed_context.globalCompositeOperation = 'source-over';
+      this.processed_context.drawImage(this.video_native_element, 0, 0, this.processedCanvas.nativeElement.width, this.processedCanvas.nativeElement.height);
+      this.processed_context.globalCompositeOperation = 'multiply';
+      this.processed_context.drawImage(this.mask, 0, 0, this.processedCanvas.nativeElement.width, this.processedCanvas.nativeElement.height);
+      this.processResponse(this.mask.data);
+    }
   }
 
   private shouldSendReques (): boolean {
@@ -93,23 +79,22 @@ export class DisplayComponent implements AfterViewInit, OnInit {
     this.sock = this.frameService.openImageConnection();
     this.sock.onmessage = (v) => {
       let data = JSON.parse(v['data'])
-      this.processed_context.globalCompositeOperation = 'source-over';
-      this.processed_context.drawImage(this.video_native_element, 0, 0, this.processedCanvas.nativeElement.width, this.processedCanvas.nativeElement.height);
       this.processResponse(data);
       requestAnimationFrame(this.capture.bind(this));
     };
   }
 
   private processResponse(data: any): void {
-    if (data['frame']) {
-      if (this.mask.complete){
-        // this.processed_context.globalCompositeOperation = 'source-over';
-        // this.processed_context.drawImage(this.video_native_element, 0, 0, this.processedCanvas.nativeElement.width, this.processedCanvas.nativeElement.height);
-        this.processed_context.globalCompositeOperation = 'multiply';
-        this.processed_context.drawImage(this.mask, 0, 0, this.processedCanvas.nativeElement.width, this.processedCanvas.nativeElement.height);
-      
-      }
-      this.mask.src = data['frame']
+    if (!data['mask']){
+      this.processed_context.globalCompositeOperation = 'source-over';
+      this.processed_context.drawImage(this.video_native_element, 0, 0, this.processedCanvas.nativeElement.width, this.processedCanvas.nativeElement.height);
+    }
+    else if (data['mask'] != 'processed') {
+      let mask_src = data['mask']
+      data['mask'] = 'processed'
+      this.mask.data = data
+      this.mask.src = mask_src;
+      return;
     }
     
     if (data['bboxes']) {
