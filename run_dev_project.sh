@@ -8,6 +8,9 @@ cd ..
 cd model_keypoint
 ./docker.sh
 cd ..
+cd model_segmentation
+./docker.sh
+cd ..
 cd prometheus
 ./docker.sh
 cd ..

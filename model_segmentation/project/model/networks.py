@@ -86,7 +86,7 @@ class ResNetBackbone(nn.Module, utils.Identifier):
         if stride != 1 or expansion != 1:
             downsample = nn.Sequential(
                 nn.Conv2d(self.inplanes, outplanes, kernel_size = 1, stride=stride, bias=False), 
-                nn.BatchNorm2d(outplanes)
+                nn.InstanceNorm2d(outplanes)
             )
         layers = []
         layers.append(block(self.inplanes, outplanes, stride, downsample=downsample, norm_layer=self._norm_layer))
@@ -107,7 +107,7 @@ class ResNetBackbone(nn.Module, utils.Identifier):
 
 
 class DeepLabV3Plus(nn.Module, utils.Identifier):
-    def __init__(self, backbone, classes):
+    def __init__(self, backbone, labels):
         super(DeepLabV3Plus, self).__init__()
         
         self.feature_count = 1
@@ -115,16 +115,16 @@ class DeepLabV3Plus(nn.Module, utils.Identifier):
         self.depth = self.backbone.depth
         self.feature_start_layer = 1
         self.inplanes = self.backbone.inplanes
-        self.classes = classes
+        self.out_dim = len(labels)
         self.head = DeepLabHead(self.inplanes, 256)
-        self.mid_layer = nn.Conv2d(self.inplanes//4, 256, kernel_size=1, bias=False)
+        self.mid_layer = nn.Conv2d(self.inplanes//4, 256, kernel_size=1, bias=True)
         self.lateral_layers = nn.Sequential(nn.Conv2d(512, 256, kernel_size=3, stride=1, padding=1, bias=False),
                                             nn.BatchNorm2d(256),
                                             nn.ReLU(),
                                             nn.Conv2d(256, 256, kernel_size=3, stride=1, padding=1, bias=False),
                                             nn.BatchNorm2d(256),
                                             nn.ReLU(),
-                                            nn.Conv2d(256, classes, kernel_size=1, stride=1))
+                                            nn.Conv2d(256, self.out_dim, kernel_size=1, stride=1))
 
 
     def forward(self, x):
@@ -133,10 +133,10 @@ class DeepLabV3Plus(nn.Module, utils.Identifier):
         bmid_out = self.mid_layer(bmid_out)
         boutput = features[-1]
         head = self.head(boutput)
-        m_out = F.upsample(head, size=[x for x in bmid_out.size()[-2:]], mode='bilinear', align_corners=True)
+        m_out = F.interpolate(head, size=[x for x in bmid_out.size()[-2:]], mode='bilinear', align_corners=True)
         m_out = torch.cat((m_out, bmid_out), dim = 1)
         m_out = self.lateral_layers(m_out)
-        output = F.upsample(m_out, size=[x*4 for x in bmid_out.size()[-2:]], mode='bilinear', align_corners=True)
+        output = F.interpolate(m_out, size=[x*4 for x in bmid_out.size()[-2:]], mode='bilinear', align_corners=True)
         return output
 
 

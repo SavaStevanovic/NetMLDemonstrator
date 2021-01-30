@@ -1,17 +1,21 @@
 import tornado
 import time
-import requests
 import sockjs.tornado
 import json
 import asyncio
 from prometheus_client import start_http_server, Summary
+import numpy as np
+import pybase64
+from PIL import Image
+import io
 
 FILTERS_TIME = Summary('get_filters', 'Time spent processing filters')
 MESSAGE_TIME = Summary('on_message', 'Time spent processing messages')
 
 filter_data = {
     "detection": {'path': 'http://detection:5001/get_models'},
-    "keypoint": {'path': 'http://keypoint:5004/get_models'}
+    "keypoint": {'path': 'http://keypoint:5004/get_models'},
+    "segmentation": {'path': 'http://segmentation:5005/get_models'},
 }
 
 class BaseHandler(tornado.web.RequestHandler):
@@ -94,7 +98,6 @@ class FrameUploadConnection(sockjs.tornado.SockJSConnection):
                                     body=json.dumps(msg),
                                     method="POST",
                                     headers={'model_name':model_config['name']})
-            # model_outputs.append({'request':r, 'model':model_config['name']})
             r = http_client.fetch(r)
             r.model_name = model_config['name']
             model_outputs.append(r)
@@ -107,6 +110,21 @@ class FrameUploadConnection(sockjs.tornado.SockJSConnection):
             if 'keypoint' in result.effective_url:
                 return_data['parts'] = content['parts']
                 return_data['joints'] = content['joints']
+            if 'segmentation' in result.effective_url:
+                # mask = np.expand_dims(np.array(content), -1)
+                # image_data = data['frame'].replace('data:image/jpeg;base64,', "")
+                # byte_image = io.BytesIO(pybase64._pybase64.b64decode(image_data))
+                # img_input = np.array(Image.open(byte_image), dtype=np.float32)
+                # img_input *= mask
+                # frame = Image.fromarray(img_input.astype(np.uint8))
+                # frame_byte_arr = io.BytesIO()
+                # frame.save(frame_byte_arr, format='jpeg')
+                # frame_byte_arr = frame_byte_arr.getvalue()
+                mask = np.array(content)
+                mask_byte_arr = io.BytesIO()
+                Image.fromarray((mask*255).astype(np.uint8)).save(mask_byte_arr, format='png')
+                return_data['frame'] = 'data:image/png;base64,' + pybase64.b64encode(mask_byte_arr.getvalue()).decode('utf-8')
+
 
         self.send(tornado.escape.json_encode(return_data))
         print("--- {} ms ---".format((time.time() - start_time)*1000))

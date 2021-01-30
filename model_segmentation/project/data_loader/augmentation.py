@@ -121,7 +121,8 @@ class PaddTransform(object):
         padding_y = self.pad_size-image.size[1]%self.pad_size
         padding_y = (padding_y!=self.pad_size) * padding_y
         image = transforms.functional.pad(image, (0, 0, padding_x, padding_y))
-        label = transforms.functional.pad(label, (0, 0, padding_x, padding_y))
+        if label is not None:
+            label = transforms.functional.pad(label, (0, 0, padding_x, padding_y))
         return image, label, dataset_id
 
 class OutputTransform(object):
@@ -129,7 +130,8 @@ class OutputTransform(object):
         image = transforms.functional.to_tensor(image)
         if image.shape[0]==1:
             image = torch.cat([image]*3)
-        label = transforms.functional.to_tensor(label)
+        if label is not None:
+            label = transforms.functional.to_tensor(label)
         return image, label, dataset_id
 
 class OneHotTransform(object):

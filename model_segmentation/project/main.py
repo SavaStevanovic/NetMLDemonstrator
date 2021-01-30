@@ -6,21 +6,17 @@ from model_fitting.train import fit
 import os
 
 th_count = 24
-depth = 4
+block_counts = [3, 4, 6]
+depth = len(block_counts)+2
 
-dataloader = UnifiedKeypointDataloader(batch_size = 4, depth=4, th_count=th_count)
+dataloader = UnifiedKeypointDataloader(batch_size = 16, depth=depth, th_count=th_count)
 
-net = networks.Unet(block = blocks.ConvBlock, 
-    inplanes = 64, 
-    in_dim=3, 
-    labels=dataloader.labels,
-    depth=depth, 
-    norm_layer=torch.nn.InstanceNorm2d
-)
+net_backbone = networks.ResNetBackbone(block = blocks.BasicBlock, block_counts = block_counts, inplanes=64)
+net = networks.DeepLabV3Plus(net_backbone, dataloader.labels)
 
 fit(net, 
     dataloader.trainloader, 
     dataloader.validationloader, 
     epochs = 1000, 
-    lower_learning_period = 2
+    lower_learning_period = 3
 )       

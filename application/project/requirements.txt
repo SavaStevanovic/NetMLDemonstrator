@@ -1,8 +1,8 @@
 flask
 opencv-contrib-python
 pillow
-requests
 flask-cors
 autopep8
 sockjs-tornado
 prometheus_client
+pybase64

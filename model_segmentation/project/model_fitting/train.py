@@ -112,7 +112,7 @@ def fit(net, trainloader, validationloader, epochs=1000, lower_learning_period=1
         net = torch.load(checkpoint_name_path)
         train_config.load(checkpoint_conf_path)
     net.cuda()
-    summary(net, (3, 448, 448))
+    summary(net, (3, 512, 512))
     writer = SummaryWriter(os.path.join('logs', model_dir_header))
     images, _, _ = next(iter(trainloader))
 
@@ -137,14 +137,14 @@ def fit(net, trainloader, validationloader, epochs=1000, lower_learning_period=1
         
 
         os.makedirs((chp_dir), exist_ok=True)
-        if train_config.best_metric > loss:
+        if train_config.best_metric < f1_score:
             train_config.iteration_age = 0
-            train_config.best_metric = loss
-            print('Epoch {}. Saving model with metric: {}'.format(epoch, loss))
+            train_config.best_metric = f1_score
+            print('Epoch {}. Saving model with metric: {}'.format(epoch, f1_score))
             torch.save(net, checkpoint_name_path.replace('.pth', '_final.pth'))
         else:
             train_config.iteration_age+=1
-            print('Epoch {} metric: {}'.format(epoch, loss))
+            print('Epoch {} metric: {}'.format(epoch, f1_score))
         if train_config.iteration_age==lower_learning_period:
             train_config.learning_rate*=0.5
             train_config.iteration_age=0

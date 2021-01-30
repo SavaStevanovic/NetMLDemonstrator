@@ -183,7 +183,7 @@ class ASPPConv(nn.Sequential):
     def __init__(self, in_channels, out_channels, dilation):
         modules = [
             nn.Conv2d(in_channels, out_channels, 3, padding=dilation, dilation=dilation, bias=False),
-            nn.InstanceNorm2d(out_channels),
+            nn.BatchNorm2d(out_channels),
             nn.ReLU()
         ]
         super(ASPPConv, self).__init__(*modules)
@@ -196,7 +196,7 @@ class ASPPPooling(nn.Sequential):
         super(ASPPPooling, self).__init__(
             nn.AdaptiveAvgPool2d(1),
             nn.Conv2d(in_channels, out_channels, 1, bias=False),
-            nn.InstanceNorm2d(out_channels),
+            nn.BatchNorm2d(out_channels),
             nn.ReLU())
 
     def forward(self, x):
@@ -212,7 +212,7 @@ class ASPP(nn.Module):
         modules = []
         modules.append(nn.Sequential(
             nn.Conv2d(in_channels, out_channels, 1, bias=False),
-            nn.InstanceNorm2d(out_channels),
+            nn.BatchNorm2d(out_channels),
             nn.ReLU()))
 
         rates = tuple(atrous_rates)
@@ -225,7 +225,7 @@ class ASPP(nn.Module):
 
         self.project = nn.Sequential(
             nn.Conv2d(5 * out_channels, out_channels, 1, bias=False),
-            nn.InstanceNorm2d(out_channels),
+            nn.BatchNorm2d(out_channels),
             nn.ReLU())
 
     def forward(self, x):
