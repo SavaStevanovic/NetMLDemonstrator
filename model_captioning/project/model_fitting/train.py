@@ -22,11 +22,15 @@ from operator import itemgetter
 import seaborn as sn
 
 def get_acc(output, label):
-    acc = (label == output).float().sum() / len(label)
+    label_trim = label[label!=0]
+    acc = (label_trim == output[:len(label_trim)]).float().sum() / len(label_trim)
     return acc.item()
 
-def get_output_text(vocab, output):
-    output_text = ' '.join([vocab[x] for x in output])
+def get_output_text(vectorizer, output):
+    eos_index = vectorizer.vocab.index(vectorizer.eos_token)
+    if eos_index in output:
+        output = output[:output.index(eos_index)]
+    output_text = ' '.join([vectorizer.vocab[x] for x in output])
     return output_text
 
 
@@ -91,8 +95,8 @@ def fit_epoch(net, dataloader, lr_rate, train, epoch=1):
             for t, m, s in zip(image, [0.485, 0.456, 0.406], [0.229, 0.224, 0.225]):
                 t.mul_(s).add_(m)
             image = image.permute(1,2,0).detach().cpu().numpy()
-            lab_text = get_output_text(net.vocab, labels[0, 1:].detach().cpu().numpy().tolist())
-            out_text = get_output_text(net.vocab, outputs[0].detach().argmax(0).cpu().numpy().tolist())
+            lab_text = get_output_text(net.vectorizer, labels[0, 1:].detach().cpu().numpy().tolist())
+            out_text = get_output_text(net.vectorizer, outputs[0].detach().argmax(0).cpu().numpy().tolist())
 
             plt.gcf().subplots_adjust(bottom=0.15)
             plt.imshow(image)

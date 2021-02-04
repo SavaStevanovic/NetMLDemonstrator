@@ -10,12 +10,18 @@ import torchvision.transforms as transforms
 
 class ConceptualDataset(Dataset):
     def __init__(self, mode, directory):
-        dataset_dir = os.path.join('/Data/captioning', directory)
-        self.image_dir = os.path.join(dataset_dir, 'images')
-        data_path = os.path.join(dataset_dir, mode + '.tsv')
-        os.makedirs(self.image_dir, exist_ok = True)
-        data = pd.read_csv(data_path, sep = '\t')
-        self.data = data
+        dataset_dirs = [os.path.join('/Data/captioning', directory), os.path.join('/Data1/captioning', directory)]
+        self.image_dirs = [os.path.join(d, mode, 'images') for d in dataset_dirs]
+        
+        for d in self.image_dirs:
+            os.makedirs(d, exist_ok = True)
+
+        for d in dataset_dirs:
+            data_path = os.path.join(d, mode + '.tsv')    
+            data = pd.read_csv(data_path, sep = '\t')
+            self.data = data
+            break
+
         self.vocab_list = self.data.iloc[:, 0].values.tolist()
 
     def __len__(self):
@@ -31,7 +37,11 @@ class ConceptualDataset(Dataset):
 
     def __getitem__(self, idx):
         label, image_url = self.data.iloc[idx]
-        filename = os.path.join(self.image_dir, str(idx)+'.png')
+        filenames = [os.path.join(d, str(idx)+'.png') for d in self.image_dirs]
+        file_index = np.where([os.path.exists(f) for f in filenames])[0]
+        filename = filenames[-1]
+        if len(file_index):
+            filename = filenames[file_index[0]]
         if not os.path.exists(filename):
             self.__download_image__(filename, image_url)
         try:

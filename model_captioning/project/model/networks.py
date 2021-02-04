@@ -8,20 +8,20 @@ import torchvision.models as models
 
 class LSTM(nn.Module, utils.Identifier):
 
-    def __init__(self, inplanes, input_size, vocab):
+    def __init__(self, inplanes, input_size, vectorizer):
         super(LSTM, self).__init__()
         self.inplanes = inplanes
         self.input_size = input_size
-        self.vocab = vocab
+        self.vectorizer = vectorizer
 
-        modules = list(models.resnet50().children())[:-2]
+        modules = list(models.resnet50().children())[:-1]
         self.backbone = nn.Sequential(*modules)
         self.depth = 5
-        self.encoder_layer = nn.Linear(2048 * self.input_size[0] * self.input_size[1] // 4**self.depth, self.inplanes)
+        self.encoder_layer = nn.Linear(2048, self.inplanes)
         self.sequence_cell = nn.LSTMCell(self.inplanes, self.inplanes)
-        self.word_encoder = nn.Embedding(len(self.vocab), self.inplanes)
+        self.word_encoder = nn.Embedding(len(self.vectorizer.vocab), self.inplanes)
 
-        self.out_layer = nn.Linear(self.inplanes, len(self.vocab))
+        self.out_layer = nn.Linear(self.inplanes, len(self.vectorizer.vocab))
 
     def forward(self, x, state = None):
         if state:

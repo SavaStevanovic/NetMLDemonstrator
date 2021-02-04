@@ -5,11 +5,11 @@ from data_loader.unified_dataloader import UnifiedKeypointDataloader
 from model_fitting.train import fit
 import os
 
-th_count = 96
+th_count = 24
 
 dataloader = UnifiedKeypointDataloader(batch_size = 16, th_count=th_count)
 
-net = networks.LSTM(256, (224, 224), dataloader.vectorizer.vocab)
+net = networks.LSTM(256, (224, 224), dataloader.vectorizer)
 
 fit(net, 
     dataloader.trainloader, 
