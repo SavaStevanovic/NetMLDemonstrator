@@ -141,10 +141,12 @@ def fit(net, trainloader, validationloader, epochs=1000, lower_learning_period=1
         else:
             train_config.iteration_age+=1
             print('Epoch {} metric: {}'.format(epoch, accs))
-        if train_config.iteration_age==lower_learning_period:
+        if (train_config.iteration_age % lower_learning_period) == 0:
             train_config.learning_rate*=0.5
-            train_config.iteration_age=0
             print("Learning rate lowered to {}".format(train_config.learning_rate))
+        if train_config.iteration_age == 2 * lower_learning_period:
+            net.grad_backbone(True)
+            print("Model unfrozen")
         train_config.epoch = epoch+1
         train_config.save(checkpoint_conf_path)
         torch.save(net, checkpoint_name_path)

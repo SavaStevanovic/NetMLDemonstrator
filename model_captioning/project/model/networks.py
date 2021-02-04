@@ -23,6 +23,10 @@ class LSTM(nn.Module, utils.Identifier):
 
         self.out_layer = nn.Linear(self.inplanes, len(self.vectorizer.vocab))
 
+    def grad_backbone(self, freeze):
+        for param in self.backbone.parameters():
+            param.requires_grad = freeze
+
     def forward(self, x, state = None):
         if state:
             x = self.word_encoder(x)
