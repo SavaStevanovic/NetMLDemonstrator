@@ -21,7 +21,7 @@ class UnifiedKeypointDataset(Dataset):
         self.debug = debug
         self.train = train
         train_datasets = [
-                ConceptualDataset('train', 'google'),
+                ConceptualDataset('train', 'google', False),
             ]
 
         if train:
@@ -29,7 +29,7 @@ class UnifiedKeypointDataset(Dataset):
             
         if not train:
             self.datasets = [
-                ConceptualDataset('val', 'google'),
+                ConceptualDataset('val', 'google', False),
             ]
         normalize = transforms.Normalize(mean=[0.485, 0.456, 0.406],
                                  std=[0.229, 0.224, 0.225])
@@ -39,14 +39,16 @@ class UnifiedKeypointDataset(Dataset):
                 transforms.RandomHorizontalFlip(),
                 transforms.ColorJitter(brightness=0.2, contrast=0.2, saturation=0.2),
                 augmentation.OutputTransform(),
-                normalize,]
+                normalize,
+                ]
             )
 
         if not train:
             self.transforms = transforms.Compose([
                 transforms.Resize((224, 224)),
                 augmentation.OutputTransform(),
-                normalize,]
+                normalize,
+                ]
             )
 
         vectorizer_path = 'vectorizer.p'

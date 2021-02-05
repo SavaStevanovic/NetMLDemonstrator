@@ -21,13 +21,7 @@ class UnifiedKeypointDataloader(object):
         self.vectorizer = train_dataset.vectorizer
 
     def collate_fn(self, batch):
-            imgs = []
-            seqs = []
-            for img, seq in batch:
-                if img is not None:
-                    imgs.append(img.unsqueeze(0))
-                    seqs.append(seq)
-                    
-            if not imgs:
-                return None, None
-            return torch.cat(imgs), pad_sequence(seqs, True)
+        batch = list(zip(*[(x[0].unsqueeze(0), x[1]) for x in batch if x[0]!= None]))
+        if not batch:
+            return None, None
+        return torch.cat(batch[0]), pad_sequence(batch[1], True)

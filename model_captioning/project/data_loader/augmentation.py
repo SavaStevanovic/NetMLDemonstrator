@@ -130,6 +130,8 @@ class OutputTransform(object):
         image = transforms.functional.to_tensor(image)
         if image.shape[0]==1:
             image = torch.cat([image]*3)
+        if image.shape[0]==4:
+            image = image[:3]
         return image
 
 class OneHotTransform(object):

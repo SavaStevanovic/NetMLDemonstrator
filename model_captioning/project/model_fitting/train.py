@@ -141,7 +141,7 @@ def fit(net, trainloader, validationloader, epochs=1000, lower_learning_period=1
         else:
             train_config.iteration_age+=1
             print('Epoch {} metric: {}'.format(epoch, accs))
-        if (train_config.iteration_age % lower_learning_period) == 0:
+        if train_config.iteration_age and (train_config.iteration_age % lower_learning_period) == 0:
             train_config.learning_rate*=0.5
             print("Learning rate lowered to {}".format(train_config.learning_rate))
         if train_config.iteration_age == 2 * lower_learning_period:
