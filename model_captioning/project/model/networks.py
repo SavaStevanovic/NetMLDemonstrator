@@ -19,7 +19,8 @@ class LSTM(nn.Module, utils.Identifier):
         self.depth = 5
         self.encoder_layer = nn.Linear(2048, self.inplanes)
         self.sequence_cell = nn.LSTMCell(self.inplanes, self.inplanes)
-        self.word_encoder = nn.Embedding(len(self.vectorizer.vocab), self.inplanes)
+        self.word_encoder = nn.Embedding(len(self.vectorizer.vocab), 300)
+        self.word_compresser = nn.Linear(300, self.inplanes)
 
         self.out_layer = nn.Linear(self.inplanes, len(self.vectorizer.vocab))
 
@@ -30,6 +31,7 @@ class LSTM(nn.Module, utils.Identifier):
     def forward(self, x, state = None):
         if state:
             x = self.word_encoder(x)
+            x = self.word_compresser(x)
         else:
             x = self.backbone(x)
             x = self.encoder_layer(x.flatten(1))

@@ -48,7 +48,7 @@ def fit_epoch(net, dataloader, lr_rate, train, epoch=1):
     else:
         net.eval()
     cm = metrics.RunningConfusionMatrix()
-    criterion = torch.nn.CrossEntropyLoss()
+    criterion = torch.nn.CrossEntropyLoss(ignore_index = net.vectorizer.vocab.index(net.vectorizer.pad_token))
     torch.set_grad_enabled(train)
     torch.backends.cudnn.benchmark = train
     losses = 0.0
@@ -63,31 +63,38 @@ def fit_epoch(net, dataloader, lr_rate, train, epoch=1):
     skip_count = 0
 
     for i, data in enumerate(tqdm(dataloader)):
-        image, labels = data
+        image, labels, label_lens = data
+        # labels_lens (seq_length, batch_size)
         if image is None:
             continue    
-        # print(image.shape)
         if train:
             optimizer.zero_grad()
         labels_cuda = labels.cuda()
 
         state = None
+        outputs = torch.zeros((labels.shape[0], len(net.vectorizer.vocab), labels.shape[1]), device = 'cuda')
         d = image.cuda()
-        outputs = []
-        for j in range(labels_cuda.shape[1]):
-            output, state = net(d, state)
-            outputs.append(output.unsqueeze(-1))
-            d = labels_cuda[:, j]        
-        outputs = torch.cat(outputs[1:], -1)
+        start = 0
+        init_axis = 0
+        for l in label_lens:
+            end = l[0]
+            for j in range(start, end):
+                output, state = net(d, state)
+                outputs[-len(output):, :, j] = output
+                d = labels_cuda[init_axis:, j] 
+            state = (state[0][l[1]:], state[1][l[1]:])
+            init_axis += l[1]
+            d = labels_cuda[init_axis:, j]
+            start = end
 
-        loss = criterion(outputs, labels_cuda[:, 1:])
+        loss = criterion(outputs[:, :, 1:], labels_cuda[:, 1:])
         if train:
             loss.backward()
             optimizer.step()
-        losses += loss.item()
+        losses += loss.item()*labels.shape[0]
 
         for j in range(outputs.shape[0]):
-            acc = get_acc(outputs[j].argmax(0), labels_cuda[j, 1:])
+            acc = get_acc(outputs[j, :, 1:].argmax(0), labels_cuda[j, 1:])
             accs.append(acc)
         
         if i>=len(dataloader)-10:
@@ -96,7 +103,7 @@ def fit_epoch(net, dataloader, lr_rate, train, epoch=1):
                 t.mul_(s).add_(m)
             image = image.permute(1,2,0).detach().cpu().numpy()
             lab_text = get_output_text(net.vectorizer, labels[0, 1:].detach().cpu().numpy().tolist())
-            out_text = get_output_text(net.vectorizer, outputs[0].detach().argmax(0).cpu().numpy().tolist())
+            out_text = get_output_text(net.vectorizer, outputs[0, :, 1:].detach().argmax(0).cpu().numpy().tolist())
 
             plt.gcf().subplots_adjust(bottom=0.15)
             plt.imshow(image)
@@ -117,7 +124,7 @@ def fit(net, trainloader, validationloader, epochs=1000, lower_learning_period=1
     net.cuda()
     summary(net, (3, *net.input_size))
     writer = SummaryWriter(os.path.join('logs', model_dir_header))
-    images, _ = next(iter(trainloader))
+    images, _, _ = next(iter(trainloader))
 
     with torch.no_grad():
         writer.add_graph(net, images[:2].cuda())

@@ -8,6 +8,7 @@ from torch.utils.data import Dataset, DataLoader
 from data_loader.unified_dataset import UnifiedKeypointDataset
 import os
 from torch.nn.utils.rnn import pad_sequence
+from itertools import groupby
 
 class UnifiedKeypointDataloader(object):
     def __init__(self, batch_size=1, th_count=mu.cpu_count()):
@@ -21,7 +22,9 @@ class UnifiedKeypointDataloader(object):
         self.vectorizer = train_dataset.vectorizer
 
     def collate_fn(self, batch):
-        batch = list(zip(*[(x[0].unsqueeze(0), x[1]) for x in batch if x[0]!= None]))
+        batch = sorted(batch, key=lambda x: len(x[1]))
+        batch = list(zip(*[(x[0].unsqueeze(0), x[1], len(x[1])) for x in batch if x[0]!= None]))
         if not batch:
             return None, None
-        return torch.cat(batch[0]), pad_sequence(batch[1], True)
+        batch_per_length = [(key, len(list(group))) for key, group in groupby(batch[2])]
+        return torch.cat(batch[0]), pad_sequence(batch[1], True), batch_per_length

@@ -7,9 +7,9 @@ import os
 
 th_count = 24
 
-dataloader = UnifiedKeypointDataloader(batch_size = 64, th_count=th_count)
+dataloader = UnifiedKeypointDataloader(batch_size = 128, th_count=th_count)
 
-net = networks.LSTM(256, (224, 224), dataloader.vectorizer)
+net = networks.LSTM(512, (224, 224), dataloader.vectorizer)
 net.grad_backbone(False)
 
 fit(net, 

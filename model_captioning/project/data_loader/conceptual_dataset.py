@@ -70,8 +70,6 @@ class ConceptualDataset(Dataset):
             self.__download_image__(filename, image_url)
         try:
             image = Image.open(filename)
-            # image = None
-            # image.convert("RGB")
         except Exception as e:
             print(e)
             image = None
