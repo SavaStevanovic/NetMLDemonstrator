@@ -1,5 +1,6 @@
 import torch
 from data_loader.conceptual_dataset import ConceptualDataset
+from data_loader.sbu_dataset import SBUDataset
 import torchvision.transforms as transforms
 from data_loader import augmentation
 from visualization import output_transform
@@ -8,9 +9,6 @@ from torch.utils.data import Dataset, DataLoader
 from pycocotools.coco import COCO
 import os
 import random
-from torchtext.data import get_tokenizer, Field
-from torchtext.vocab import build_vocab_from_iterator
-from torchtext.utils import download_from_url, extract_archive
 import io 
 import pickle
 from model.utils import WordVocabulary
@@ -21,6 +19,7 @@ class UnifiedKeypointDataset(Dataset):
         self.debug = debug
         self.train = train
         train_datasets = [
+                SBUDataset(False),
                 ConceptualDataset('train', 'google', False),
             ]
 
@@ -64,7 +63,7 @@ class UnifiedKeypointDataset(Dataset):
         if self.debug==1:
             self.data_ids = [(i, j) for i, dataset in enumerate(self.datasets) for j in range(50)]
         else:
-            self.data_ids = [(i, j) for i, dataset in enumerate(self.datasets) for j in range(len(self.datasets[i]))]
+            self.data_ids = [(i, j) for i, dataset in enumerate(self.datasets) for j in range(200000)]
 
     def __len__(self):
         return len(self.data_ids)

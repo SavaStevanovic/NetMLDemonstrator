@@ -10,8 +10,8 @@ import torchvision.transforms as transforms
 
 class ConceptualDataset(Dataset):
     def __init__(self, mode, directory, download = True):
-        # dataset_dirs = [os.path.join('/Data/captioning', directory), os.path.join('/Data1/captioning', directory)]
-        dataset_dirs = [os.path.join('/Data/captioning', directory)]
+        dataset_dirs = [os.path.join('/Data/captioning', directory), os.path.join('/Data1/captioning', directory)]
+        # dataset_dirs = [os.path.join('/Data/captioning', directory)]
         self.download = download
         self.image_dirs = [os.path.join(d, mode, 'images') for d in dataset_dirs]
         
@@ -73,5 +73,8 @@ class ConceptualDataset(Dataset):
         except Exception as e:
             print(e)
             image = None
+        
+        if ':' in label:
+            label = label.split(':')[-1]
         return image, label
 

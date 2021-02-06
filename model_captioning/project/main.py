@@ -16,5 +16,5 @@ fit(net,
     dataloader.trainloader, 
     dataloader.validationloader, 
     epochs = 1000, 
-    lower_learning_period = 2
+    lower_learning_period = 1
 )       

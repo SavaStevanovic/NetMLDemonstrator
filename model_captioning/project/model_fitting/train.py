@@ -20,6 +20,7 @@ from utils import plt_to_np
 from model_fitting import metrics
 from operator import itemgetter
 import seaborn as sn
+from nlgeval import NLGEval
 
 def get_acc(output, label):
     label_trim = label[label!=0]
@@ -47,20 +48,17 @@ def fit_epoch(net, dataloader, lr_rate, train, epoch=1):
         optimizer = torch.optim.Adam(net.parameters(), lr_rate)
     else:
         net.eval()
-    cm = metrics.RunningConfusionMatrix()
     criterion = torch.nn.CrossEntropyLoss(ignore_index = net.vectorizer.vocab.index(net.vectorizer.pad_token))
     torch.set_grad_enabled(train)
     torch.backends.cudnn.benchmark = train
     losses = 0.0
-    total_focal_loss = 0.0
-    total_dice_loss = 0.0
     output_images = []
-    label_images = []
-    outputs_vector = []
-    label_vector = []
     accs = []
-    f1_score = 0
-    skip_count = 0
+    label_texts = []
+    output_texts = []
+    nlgeval = NLGEval()
+    out_file = open("output.txt", "w")
+    lab_file = open("labels.txt", "w")
 
     for i, data in enumerate(tqdm(dataloader)):
         image, labels, label_lens = data
@@ -96,21 +94,27 @@ def fit_epoch(net, dataloader, lr_rate, train, epoch=1):
         for j in range(outputs.shape[0]):
             acc = get_acc(outputs[j, :, 1:].argmax(0), labels_cuda[j, 1:])
             accs.append(acc)
-        
+            lab_text = get_output_text(net.vectorizer, labels[j, 1:].detach().cpu().numpy().tolist())
+            out_text = get_output_text(net.vectorizer, outputs[j, :, 1:].detach().argmax(0).cpu().numpy().tolist())
+            lab_file.write(lab_text + os.linesep)
+            out_file.write(out_text + os.linesep)
+
         if i>=len(dataloader)-10:
             image = image[0]
             for t, m, s in zip(image, [0.485, 0.456, 0.406], [0.229, 0.224, 0.225]):
                 t.mul_(s).add_(m)
             image = image.permute(1,2,0).detach().cpu().numpy()
-            lab_text = get_output_text(net.vectorizer, labels[0, 1:].detach().cpu().numpy().tolist())
-            out_text = get_output_text(net.vectorizer, outputs[0, :, 1:].detach().argmax(0).cpu().numpy().tolist())
+            
 
             plt.gcf().subplots_adjust(bottom=0.15)
             plt.imshow(image)
             plt.xlabel(out_text + '\n' + lab_text)
             output_images.append(plt_to_np(plt))
 
-    return losses/len(accs), output_images, sum(accs)/len(accs)
+    out_file.close()
+    lab_file.close()
+    metrics_dict = nlgeval.compute_individual_metrics('labels.txt', 'output.txt')
+    return losses/len(accs), output_images, sum(accs)/len(accs), metrics_dict
 
 def fit(net, trainloader, validationloader, epochs=1000, lower_learning_period=10):
     model_dir_header = net.get_identifier()
@@ -129,13 +133,17 @@ def fit(net, trainloader, validationloader, epochs=1000, lower_learning_period=1
     with torch.no_grad():
         writer.add_graph(net, images[:2].cuda())
     for epoch in range(train_config.epoch, epochs):
-        loss, output_images, accs = fit_epoch(net, trainloader, train_config.learning_rate, train = True, epoch=epoch)
-        writer.add_scalars('Train/Metrics', {'loss': loss, 'accs': accs}, epoch)
+        loss, output_images, accs, metrics_dict = fit_epoch(net, trainloader, train_config.learning_rate, train = True, epoch=epoch)
+        writer.add_scalars('Train/Metrics', metrics_dict, epoch)
+        writer.add_scalar('Train/Metrics_loss', loss, epoch)
+        writer.add_scalar('Train/Metrics_accs', accs, epoch)
         grid = join_images(output_images)
         writer.add_images('train_outputs', grid, epoch, dataformats='HWC')
 
-        loss, output_images, accs = fit_epoch(net, validationloader, None, train = False, epoch=epoch)
-        writer.add_scalars('Validation/Metrics', {'loss': loss, 'accs': accs}, epoch)
+        loss, output_images, accs, metrics_dict = fit_epoch(net, validationloader, None, train = False, epoch=epoch)
+        writer.add_scalars('Validation/Metrics', metrics_dict, epoch)
+        writer.add_scalar('Validation/Metrics_loss', loss, epoch)
+        writer.add_scalar('Validation/Metrics_accs', accs, epoch)
         grid = join_images(output_images)
         writer.add_images('validation_outputs', grid, epoch, dataformats='HWC')
 

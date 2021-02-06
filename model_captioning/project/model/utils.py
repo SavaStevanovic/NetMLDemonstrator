@@ -38,8 +38,6 @@ class WordVocabulary(object):
 
     def __preprocess__(self, sentence):
         sentence = sentence.lower()
-        if ':' in sentence:
-            sentence = sentence.split(':')[-1]
         sentence = re.sub(r'[^a-zA-Z0-9_\s]+', '', sentence)
         sentence = sentence.split()
 
