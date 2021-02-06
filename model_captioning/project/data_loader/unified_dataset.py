@@ -63,7 +63,7 @@ class UnifiedKeypointDataset(Dataset):
         if self.debug==1:
             self.data_ids = [(i, j) for i, dataset in enumerate(self.datasets) for j in range(50)]
         else:
-            self.data_ids = [(i, j) for i, dataset in enumerate(self.datasets) for j in range(200000)]
+            self.data_ids = [(i, j) for i, dataset in enumerate(self.datasets) for j in range(len(self.datasets[i]))]
 
     def __len__(self):
         return len(self.data_ids)
