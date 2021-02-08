@@ -4,7 +4,6 @@ from model_fitting.losses import SegmentationLoss
 from datetime import datetime
 from torch.utils.tensorboard import SummaryWriter
 from tqdm import tqdm
-from visualization.apply_output import apply_detections
 from visualization.images_display import join_images, visualize_label
 from model_fitting.configuration import TrainingConfiguration
 import json
@@ -13,7 +12,6 @@ from torchsummary import summary
 from torchvision.transforms.functional import to_pil_image
 import matplotlib.pyplot as plt
 import numpy as np
-from visualization.output_transform import get_mapped_image 
 from PIL import Image
 import torch.nn.functional as F
 from utils import plt_to_np
@@ -28,9 +26,9 @@ def get_acc(output, label):
     return acc.item()
 
 def get_output_text(vectorizer, output):
-    eos_index = vectorizer.vocab.index(vectorizer.eos_token)
+    eos_index = np.where(vectorizer.vocab == vectorizer.eos_token)[0][0]
     if eos_index in output:
-        output = output[:output.index(eos_index)]
+        output = output[:np.where(output == eos_index)[0][0]]
     output_text = ' '.join([vectorizer.vocab[x] for x in output])
     return output_text
 
@@ -48,12 +46,13 @@ def fit_epoch(net, dataloader, lr_rate, train, epoch=1):
         optimizer = torch.optim.Adam(net.parameters(), lr_rate)
     else:
         net.eval()
-    criterion = torch.nn.CrossEntropyLoss(ignore_index = net.vectorizer.vocab.index(net.vectorizer.pad_token))
+    criterion = torch.nn.CrossEntropyLoss(ignore_index = np.where(net.vectorizer.vocab == net.vectorizer.pad_token)[0][0])
     torch.set_grad_enabled(train)
-    torch.backends.cudnn.benchmark = train
+    # torch.backends.cudnn.benchmark = train
     losses = 0.0
     output_images = []
-    accs = []
+    accs = 0
+    sample_count = 0
     label_texts = []
     output_texts = []
     nlgeval = NLGEval()
@@ -89,11 +88,12 @@ def fit_epoch(net, dataloader, lr_rate, train, epoch=1):
         if train:
             loss.backward()
             optimizer.step()
-        losses += loss.item()*labels.shape[0]
 
+        losses += loss.item() * labels.shape[0]
+
+        sample_count += outputs.shape[0]
         for j in range(outputs.shape[0]):
-            acc = get_acc(outputs[j, :, 1:].argmax(0), labels_cuda[j, 1:])
-            accs.append(acc)
+            accs += get_acc(outputs[j, :, 1:].argmax(0), labels_cuda[j, 1:])
             lab_text = get_output_text(net.vectorizer, labels[j, 1:].detach().cpu().numpy().tolist())
             out_text = get_output_text(net.vectorizer, outputs[j, :, 1:].detach().argmax(0).cpu().numpy().tolist())
             lab_file.write(lab_text + os.linesep)
@@ -114,7 +114,7 @@ def fit_epoch(net, dataloader, lr_rate, train, epoch=1):
     out_file.close()
     lab_file.close()
     metrics_dict = nlgeval.compute_individual_metrics('labels.txt', 'output.txt')
-    return losses/len(accs), output_images, sum(accs)/len(accs), metrics_dict
+    return losses/sample_count, output_images, accs/sample_count, metrics_dict
 
 def fit(net, trainloader, validationloader, epochs=1000, lower_learning_period=10):
     model_dir_header = net.get_identifier()

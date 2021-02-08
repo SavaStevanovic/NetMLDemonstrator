@@ -13,7 +13,7 @@ class ConceptualDataset(Dataset):
         dataset_dirs = [os.path.join('/Data/captioning', directory), os.path.join('/Data1/captioning', directory)]
         # dataset_dirs = [os.path.join('/Data/captioning', directory)]
         self.download = download
-        self.image_dirs = [os.path.join(d, mode, 'images') for d in dataset_dirs]
+        self.image_dirs = np.array([os.path.join(d, mode, 'images') for d in dataset_dirs])
         
         for d in self.image_dirs:
             os.makedirs(d, exist_ok = True)
@@ -32,7 +32,9 @@ class ConceptualDataset(Dataset):
             else:
                 self.data = self.data[self.data['index'].map(lambda x: len(self.get_file_index(x))>0)]
                 self.data.to_csv(restricted_data_path, sep = '\t', index = False)
-        self.vocab_list = self.data.iloc[:, 0].values.tolist()
+        
+    def get_vocab_list(self):
+        return self.data.iloc[:, 0].values
 
     def __len__(self):
         return len(self.data)
@@ -68,11 +70,7 @@ class ConceptualDataset(Dataset):
                 break
         if self.download and not os.path.exists(filename):
             self.__download_image__(filename, image_url)
-        try:
-            image = Image.open(filename)
-        except Exception as e:
-            print(e)
-            image = None
+        image = Image.open(filename)
         
         if ':' in label:
             label = label.split(':')[-1]

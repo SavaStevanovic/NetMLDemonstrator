@@ -3,7 +3,6 @@ from data_loader.conceptual_dataset import ConceptualDataset
 from data_loader.sbu_dataset import SBUDataset
 import torchvision.transforms as transforms
 from data_loader import augmentation
-from visualization import output_transform
 import multiprocessing as mu
 from torch.utils.data import Dataset, DataLoader
 from pycocotools.coco import COCO
@@ -12,6 +11,9 @@ import random
 import io 
 import pickle
 from model.utils import WordVocabulary
+import warnings
+import numpy as np
+from PIL import Image
 
 
 class UnifiedKeypointDataset(Dataset):
@@ -55,7 +57,7 @@ class UnifiedKeypointDataset(Dataset):
             self.vectorizer = pickle.load(open(vectorizer_path, "rb"))
         else:
             self.vectorizer = WordVocabulary(32768)
-            texts = sum([x.vocab_list for x in self.datasets], [])
+            texts = np.concatenate([x.get_vocab_list() for x in self.datasets])
             self.vectorizer.build_vocab(texts)
             with open(vectorizer_path, 'wb') as handle:
                 pickle.dump(self.vectorizer, handle)
@@ -64,19 +66,29 @@ class UnifiedKeypointDataset(Dataset):
             self.data_ids = [(i, j) for i, dataset in enumerate(self.datasets) for j in range(50)]
         else:
             self.data_ids = [(i, j) for i, dataset in enumerate(self.datasets) for j in range(len(self.datasets[i]))]
+        
+        self.data_ids = np.array(self.data_ids)
 
     def __len__(self):
         return len(self.data_ids)
 
     def __getitem__(self, idx):
+        warnings.filterwarnings("error")
         identifier = self.data_ids[idx]
         image, label = self.datasets[identifier[0]][identifier[1]]
-        try:
-            if image is None:
-                return None, None
-            if self.transforms:
-                image = self.transforms(image)
-        except Exception as e:
-            image = None
+        if image.mode not in ("RGB", "L", "RGBA", "P", "1", "LA"):
+            print(image.mode)
+        if image.mode=='LA':
+            image = Image.fromarray(np.array(image)[..., 0])
+        if image.mode=='P':
+            image = image.convert('RGBA')
+        if image.mode=='RGBA':
+            image = Image.fromarray(np.array(image)[..., :3])
+        if any([m == image.mode for m in ("RGB", "1", "P")]):
+            image = image.convert('RGB')
+
+        if self.transforms:
+            image = self.transforms(image)
+
         label_tokenized = torch.tensor(self.vectorizer(label), dtype=torch.long)
         return image, label_tokenized

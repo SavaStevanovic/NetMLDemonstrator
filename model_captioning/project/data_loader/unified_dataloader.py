@@ -2,7 +2,6 @@ import torch
 from data_loader.coco_dataset import CocoDataset
 import torchvision.transforms as transforms
 from data_loader import augmentation
-from visualization import output_transform
 import multiprocessing as mu
 from torch.utils.data import Dataset, DataLoader
 from data_loader.unified_dataset import UnifiedKeypointDataset
@@ -23,8 +22,6 @@ class UnifiedKeypointDataloader(object):
 
     def collate_fn(self, batch):
         batch = sorted(batch, key=lambda x: len(x[1]))
-        batch = list(zip(*[(x[0].unsqueeze(0), x[1], len(x[1])) for x in batch if x[0]!= None]))
-        if not batch:
-            return None, None
+        batch = list(zip(*[(x[0].unsqueeze(0), x[1], len(x[1])) for x in batch]))
         batch_per_length = [(key, len(list(group))) for key, group in groupby(batch[2])]
         return torch.cat(batch[0]), pad_sequence(batch[1], True), batch_per_length

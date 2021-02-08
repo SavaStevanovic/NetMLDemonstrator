@@ -1,7 +1,5 @@
 import pybase64
 import torch
-from visualization import output_transform
-from visualization import apply_output
 from PIL import Image
 from data_loader import augmentation
 import tornado.web

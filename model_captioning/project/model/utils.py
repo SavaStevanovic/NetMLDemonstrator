@@ -1,5 +1,6 @@
 import re
 from operator import itemgetter
+import numpy as np
 
 class Identifier(object):
     def __init__(self):
@@ -35,6 +36,7 @@ class WordVocabulary(object):
         self.sos_token = '<sos>'
         self.unk_token = '<unk>'
         self.pad_token = '<pad>'
+        self.vec_numerizer = None
 
     def __preprocess__(self, sentence):
         sentence = sentence.lower()
@@ -54,10 +56,13 @@ class WordVocabulary(object):
         vocab = sorted(list(self.words.items()), key=itemgetter(1), reverse=True)
         tokens = [self.pad_token, self.sos_token, self.eos_token, self.unk_token]
         vocab_size = min(self.max_vocab_size, len(vocab)) - len(tokens)
-        self.vocab = tokens + [x[0] for x in vocab[:vocab_size]]
+        self.vocab = np.array(tokens + [x[0] for x in vocab[:vocab_size]])
 
     def __call__(self, sentence):
+        if self.vec_numerizer is None:
+            numerizer = numerizer = lambda x: np.where(self.vocab == x)[0][0] if x in self.vocab else np.where(self.vocab == self.unk_token)[0][0]
+            self.vec_numerizer = np.vectorize(numerizer)
         sentence = [self.sos_token] + self.__preprocess__(sentence) + [self.eos_token]
-        sentence = [self.vocab.index(x) if x in self.vocab else self.vocab.index(self.unk_token) for x in sentence]
+        sentence = self.vec_numerizer(sentence)
 
         return sentence

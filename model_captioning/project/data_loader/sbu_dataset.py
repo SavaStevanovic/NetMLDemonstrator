@@ -9,7 +9,7 @@ class SBUDataset(Dataset):
     def __init__(self, clean = False):
         dataset_dir = '/Data2/SBUCaptionedPhotoDataset/dataset'
         captions_file = open(os.path.join(dataset_dir, 'SBU_captioned_photo_dataset_captions.txt'), 'r')
-        self.captions = [x.replace('\n', '') for x in captions_file.readlines()]
+        self.captions = np.array([x.replace('\n', '') for x in captions_file.readlines()])
         images_dir = os.path.join(dataset_dir, 'images')
         self.images_paths = [os.path.join(images_dir, img_path) for img_path in os.listdir(images_dir)]
         if clean:
@@ -20,8 +20,11 @@ class SBUDataset(Dataset):
                     print(filename, e)
                     if any([x in str(e) for x in ["cannot identify image file", "Decompressed Data Too Large"]]):
                         os.remove(filename)
-            self.images_paths = [os.path.join(images_dir, img_path) for img_path in os.listdir(images_dir)]
-        self.vocab_list = self.captions
+            self.images_paths = np.array([os.path.join(images_dir, img_path) for img_path in os.listdir(images_dir)])
+    
+    def get_vocab_list(self):
+        return self.captions
+
     def __len__(self):
         return len(self.images_paths)
 
