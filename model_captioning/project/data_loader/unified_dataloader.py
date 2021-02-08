@@ -4,19 +4,19 @@ import torchvision.transforms as transforms
 from data_loader import augmentation
 import multiprocessing as mu
 from torch.utils.data import Dataset, DataLoader
-from data_loader.unified_dataset import UnifiedKeypointDataset
+from data_loader.unified_dataset import UnifiedDataset
 import os
 from torch.nn.utils.rnn import pad_sequence
 from itertools import groupby
 
-class UnifiedKeypointDataloader(object):
+class UnifiedDataloader(object):
     def __init__(self, batch_size=1, th_count=mu.cpu_count()):
         self.th_count = th_count
         self.batch_size = batch_size 
-        train_dataset = UnifiedKeypointDataset(True , debug=self.th_count)
-        val_dataset   = UnifiedKeypointDataset(False, debug=self.th_count)
+        train_dataset = UnifiedDataset(True , debug=self.th_count)
+        val_dataset   = UnifiedDataset(False, debug=self.th_count)
 
-        self.trainloader      = torch.utils.data.DataLoader(train_dataset, batch_size=(th_count>1)*(batch_size-1)+1, shuffle=th_count>1, num_workers=th_count   , collate_fn = self.collate_fn)
+        self.trainloader      = torch.utils.data.DataLoader(train_dataset, batch_size=(batch_size-1)+1, shuffle=th_count>1, num_workers=th_count   , collate_fn = self.collate_fn)
         self.validationloader = torch.utils.data.DataLoader(val_dataset  , batch_size=1                            , shuffle=False     , num_workers=th_count//2, collate_fn = self.collate_fn)
         self.vectorizer = train_dataset.vectorizer
 

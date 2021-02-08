@@ -18,7 +18,8 @@ from utils import plt_to_np
 from model_fitting import metrics
 from operator import itemgetter
 import seaborn as sn
-from nlgeval import NLGEval
+from nlgeval import compute_metrics
+
 
 def get_acc(output, label):
     label_trim = label[label!=0]
@@ -48,14 +49,13 @@ def fit_epoch(net, dataloader, lr_rate, train, epoch=1):
         net.eval()
     criterion = torch.nn.CrossEntropyLoss(ignore_index = np.where(net.vectorizer.vocab == net.vectorizer.pad_token)[0][0])
     torch.set_grad_enabled(train)
-    # torch.backends.cudnn.benchmark = train
+    torch.backends.cudnn.benchmark = train
     losses = 0.0
     output_images = []
     accs = 0
     sample_count = 0
     label_texts = []
     output_texts = []
-    nlgeval = NLGEval()
     out_file = open("output.txt", "w")
     lab_file = open("labels.txt", "w")
 
@@ -94,13 +94,16 @@ def fit_epoch(net, dataloader, lr_rate, train, epoch=1):
         sample_count += outputs.shape[0]
         for j in range(outputs.shape[0]):
             accs += get_acc(outputs[j, :, 1:].argmax(0), labels_cuda[j, 1:])
-            lab_text = get_output_text(net.vectorizer, labels[j, 1:].detach().cpu().numpy().tolist())
-            out_text = get_output_text(net.vectorizer, outputs[j, :, 1:].detach().argmax(0).cpu().numpy().tolist())
-            lab_file.write(lab_text + os.linesep)
-            out_file.write(out_text + os.linesep)
+            if not train:
+                lab_text = get_output_text(net.vectorizer, labels[j, 1:].detach().cpu().numpy().tolist())
+                out_text = get_output_text(net.vectorizer, outputs[j, :, 1:].detach().argmax(0).cpu().numpy().tolist())
+                lab_file.write(lab_text + os.linesep)
+                out_file.write(out_text + os.linesep)
 
         if i>=len(dataloader)-10:
             image = image[0]
+            lab_text = get_output_text(net.vectorizer, labels[0, 1:].detach().cpu().numpy().tolist())
+            out_text = get_output_text(net.vectorizer, outputs[0, :, 1:].detach().argmax(0).cpu().numpy().tolist())
             for t, m, s in zip(image, [0.485, 0.456, 0.406], [0.229, 0.224, 0.225]):
                 t.mul_(s).add_(m)
             image = image.permute(1,2,0).detach().cpu().numpy()
@@ -113,7 +116,9 @@ def fit_epoch(net, dataloader, lr_rate, train, epoch=1):
 
     out_file.close()
     lab_file.close()
-    metrics_dict = nlgeval.compute_individual_metrics('labels.txt', 'output.txt')
+    metrics_dict = {}
+    if not train:
+        metrics_dict = compute_metrics(references=['labels.txt'], hypothesis='output.txt', no_overlap=False, no_skipthoughts=True, no_glove=True)
     return losses/sample_count, output_images, accs/sample_count, metrics_dict
 
 def fit(net, trainloader, validationloader, epochs=1000, lower_learning_period=10):
@@ -133,8 +138,7 @@ def fit(net, trainloader, validationloader, epochs=1000, lower_learning_period=1
     with torch.no_grad():
         writer.add_graph(net, images[:2].cuda())
     for epoch in range(train_config.epoch, epochs):
-        loss, output_images, accs, metrics_dict = fit_epoch(net, trainloader, train_config.learning_rate, train = True, epoch=epoch)
-        writer.add_scalars('Train/Metrics', metrics_dict, epoch)
+        loss, output_images, accs, _ = fit_epoch(net, trainloader, train_config.learning_rate, train = True, epoch=epoch)
         writer.add_scalar('Train/Metrics_loss', loss, epoch)
         writer.add_scalar('Train/Metrics_accs', accs, epoch)
         grid = join_images(output_images)

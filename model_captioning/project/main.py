@@ -1,13 +1,13 @@
 import torch
 from model import blocks
 from model import networks
-from data_loader.unified_dataloader import UnifiedKeypointDataloader
+from data_loader.unified_dataloader import UnifiedDataloader
 from model_fitting.train import fit
 import os
 
 th_count = 24
 
-dataloader = UnifiedKeypointDataloader(batch_size = 128, th_count=th_count)
+dataloader = UnifiedDataloader(batch_size = 128, th_count=th_count)
 
 net = networks.LSTM(512, (224, 224), dataloader.vectorizer)
 net.grad_backbone(False)

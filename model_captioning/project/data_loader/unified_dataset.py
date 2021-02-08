@@ -1,6 +1,7 @@
 import torch
 from data_loader.conceptual_dataset import ConceptualDataset
 from data_loader.sbu_dataset import SBUDataset
+from data_loader.coco_dataset import CocoDataset
 import torchvision.transforms as transforms
 from data_loader import augmentation
 import multiprocessing as mu
@@ -16,13 +17,12 @@ import numpy as np
 from PIL import Image
 
 
-class UnifiedKeypointDataset(Dataset):
+class UnifiedDataset(Dataset):
     def __init__(self, train, debug=False):
         self.debug = debug
         self.train = train
         train_datasets = [
-                SBUDataset(False),
-                ConceptualDataset('train', 'google', False),
+                CocoDataset('train2017', 'annotations_trainval2017/annotations/captions_train2017.json')
             ]
 
         if train:
@@ -30,7 +30,7 @@ class UnifiedKeypointDataset(Dataset):
             
         if not train:
             self.datasets = [
-                ConceptualDataset('val', 'google', False),
+                CocoDataset('val2017', 'annotations_trainval2017/annotations/captions_val2017.json')
             ]
         normalize = transforms.Normalize(mean=[0.485, 0.456, 0.406],
                                  std=[0.229, 0.224, 0.225])
@@ -84,7 +84,7 @@ class UnifiedKeypointDataset(Dataset):
             image = image.convert('RGBA')
         if image.mode=='RGBA':
             image = Image.fromarray(np.array(image)[..., :3])
-        if any([m == image.mode for m in ("RGB", "1", "P")]):
+        if any([m == image.mode for m in ("1", "P")]):
             image = image.convert('RGB')
 
         if self.transforms:
