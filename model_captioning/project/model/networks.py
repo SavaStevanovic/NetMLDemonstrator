@@ -28,58 +28,89 @@ class LSTM(nn.Module, utils.Identifier):
         for param in self.backbone.parameters():
             param.requires_grad = freeze
 
-    def forward(self, x, state = None):
-        if state:
-            x = self.word_encoder(x)
-            x = self.word_compresser(x)
-        else:
-            x = self.backbone(x)
-            x = self.encoder_layer(x.flatten(1))
-        state = self.sequence_cell(x, state)
-        return self.out_layer(state[0]), state
+    def forward(self, encoder_input, x, state = None):
+        state = None
+        outputs = torch.zeros((labels.shape[0], len(net.vectorizer.vocab), labels.shape[1]), device = 'cuda')
+        d = image.cuda()
+        start = 0
+        init_axis = 0
+        for l in label_lens:
+            end = l[0]
+            for j in range(start, end):
+                output, state = net(d, state)
+                outputs[-len(output):, :, j] = output
+                d = labels_cuda[init_axis:, j] 
+            state = (state[0][l[1]:], state[1][l[1]:])
+            init_axis += l[1]
+            d = labels_cuda[init_axis:, j]
+            start = end
+
+        # if state:
+        #     x = self.word_encoder(x)
+        #     x = self.word_compresser(x)
+        # else:    
+        #     x = self.encoder_layer(encoder_input.flatten(1))
+        # state = self.sequence_cell(x, state)
+
+        # return self.out_layer(state[0]), state
            
-    
 
-class DeepLabV3Plus(nn.Module, utils.Identifier):
-    def __init__(self, backbone, labels):
-        super(DeepLabV3Plus, self).__init__()
-        
-        self.feature_count = 1
-        self.backbone = backbone
-        self.depth = self.backbone.depth
-        self.feature_start_layer = 1
-        self.inplanes = self.backbone.inplanes
-        self.out_dim = len(labels)
-        self.head = DeepLabHead(self.inplanes, 256)
-        self.mid_layer = nn.Conv2d(self.inplanes//4, 256, kernel_size=1, bias=True)
-        self.lateral_layers = nn.Sequential(nn.Conv2d(512, 256, kernel_size=3, stride=1, padding=1, bias=False),
-                                            nn.BatchNorm2d(256),
-                                            nn.ReLU(),
-                                            nn.Conv2d(256, 256, kernel_size=3, stride=1, padding=1, bias=False),
-                                            nn.BatchNorm2d(256),
-                                            nn.ReLU(),
-                                            nn.Conv2d(256, self.out_dim, kernel_size=1, stride=1))
+class AttLSTM(nn.Module, utils.Identifier):
 
+    def __init__(self, inplanes, input_size, vectorizer):
+        super(AttLSTM, self).__init__()
+        self.inplanes = inplanes
+        self.input_size = input_size
+        self.vectorizer = vectorizer
+        self.embed_layer = 300
+        self.depth = 5
 
-    def forward(self, x):
-        features = self.backbone(x)
-        bmid_out = features[-3]
-        bmid_out = self.mid_layer(bmid_out)
-        boutput = features[-1]
-        head = self.head(boutput)
-        m_out = F.interpolate(head, size=[x for x in bmid_out.size()[-2:]], mode='bilinear', align_corners=True)
-        m_out = torch.cat((m_out, bmid_out), dim = 1)
-        m_out = self.lateral_layers(m_out)
-        output = F.interpolate(m_out, size=[x*4 for x in bmid_out.size()[-2:]], mode='bilinear', align_corners=True)
-        return output
+        modules = list(models.resnet50().children())[:-2]
+        self.backbone = nn.Sequential(*modules)
 
+        self.attention = blocks.AttentionBlock(2048, self.inplanes, self.inplanes)
+        self.state_layer  = nn.Linear(2048, self.inplanes, 1)
+        self.hidden_layer = nn.Linear(2048, self.inplanes, 1)
+        self.beta_layer   = nn.Linear(self.inplanes, 2048, 1)
 
-class DeepLabHead(nn.Sequential):
-    def __init__(self, in_channels, out_channels):
-        super(DeepLabHead, self).__init__(
-            blocks.ASPP(in_channels, [6, 12, 18]),
-            nn.Conv2d(256, 256, 3, padding=1, bias=False),
-            nn.BatchNorm2d(256),
-            nn.ReLU(),
-            nn.Conv2d(256, out_channels, 1)
-        )
+        self.sequence_cell = nn.LSTMCell(2048 + self.embed_layer, self.inplanes)
+
+        self.word_encoder = nn.Embedding(len(self.vectorizer.vocab), self.embed_layer)
+
+        self.out_layer = nn.Linear(self.inplanes, len(self.vectorizer.vocab))
+
+    def grad_backbone(self, freeze):
+        for param in self.backbone.parameters():
+            param.requires_grad = freeze
+
+    def forward(self, images, labels, label_lens):
+        start = 0
+        init_axis = 0
+        img_encoded = self.backbone(images)
+        outputs    = torch.zeros((labels.shape[0], len(self.vectorizer.vocab)                 , labels.shape[1]+1), device = 'cuda')
+        attentions = torch.zeros((labels.shape[0], img_encoded.shape[2] * img_encoded.shape[3], labels.shape[1]+1), device = 'cuda')
+        image_enc_mean = img_encoded.mean((2, 3))
+        state = self.hidden_layer(image_enc_mean), self.state_layer(image_enc_mean)
+        # word_enc = torch.zeros((labels.shape[0], self.embed_layer), device = 'cuda')
+        for l in label_lens:
+            end = l[0]
+            for j in range(start, end):
+                d = labels[init_axis:, j] 
+                word_enc = self.word_encoder(d)
+                # word_enc = word_enc + word_enc_c
+                beta = self.beta_layer(state[0]).sigmoid()
+                att_output, att = self.attention(img_encoded, state[0])
+                attention = beta * att_output
+                state = self.sequence_cell(torch.cat((word_enc, attention), 1), state)
+                # state = state[0] + state_c[0], state[1] + state_c[1]
+                output = self.out_layer(state[0])
+                # output, state = net(d, state)
+                outputs[-len(output):, :, j+1]    = output
+                attentions[-len(output):, :, j+1] = att
+            state = (state[0][l[1]:], state[1][l[1]:])
+            word_enc = word_enc[l[1]:]
+            img_encoded = img_encoded[l[1]:]
+            init_axis += l[1]
+            start = end
+
+        return outputs[..., :-1], attentions[..., :-1]

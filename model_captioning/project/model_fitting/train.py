@@ -51,6 +51,8 @@ def fit_epoch(net, dataloader, lr_rate, train, epoch=1):
     torch.set_grad_enabled(train)
     torch.backends.cudnn.benchmark = train
     losses = 0.0
+    att_losses = 0.0
+    crit_losses = 0.0
     output_images = []
     accs = 0
     sample_count = 0
@@ -68,28 +70,18 @@ def fit_epoch(net, dataloader, lr_rate, train, epoch=1):
             optimizer.zero_grad()
         labels_cuda = labels.cuda()
 
-        state = None
-        outputs = torch.zeros((labels.shape[0], len(net.vectorizer.vocab), labels.shape[1]), device = 'cuda')
-        d = image.cuda()
-        start = 0
-        init_axis = 0
-        for l in label_lens:
-            end = l[0]
-            for j in range(start, end):
-                output, state = net(d, state)
-                outputs[-len(output):, :, j] = output
-                d = labels_cuda[init_axis:, j] 
-            state = (state[0][l[1]:], state[1][l[1]:])
-            init_axis += l[1]
-            d = labels_cuda[init_axis:, j]
-            start = end
+        outputs, atts = net(image.cuda(), labels_cuda, label_lens)
 
-        loss = criterion(outputs[:, :, 1:], labels_cuda[:, 1:])
+        att_loss = 5 * ((1 - atts.sum(2)) ** 2).mean() 
+        crit_loss = criterion(outputs[:, :, 1:], labels_cuda[:, 1:])
+        loss = crit_loss + att_loss
         if train:
             loss.backward()
             optimizer.step()
 
         losses += loss.item() * labels.shape[0]
+        att_losses += att_loss.item() * labels.shape[0]
+        crit_losses += crit_loss.item() * labels.shape[0]
 
         sample_count += outputs.shape[0]
         for j in range(outputs.shape[0]):
@@ -119,7 +111,7 @@ def fit_epoch(net, dataloader, lr_rate, train, epoch=1):
     metrics_dict = {}
     if not train:
         metrics_dict = compute_metrics(references=['labels.txt'], hypothesis='output.txt', no_overlap=False, no_skipthoughts=True, no_glove=True)
-    return losses/sample_count, output_images, accs/sample_count, metrics_dict
+    return losses/sample_count, att_losses/sample_count, crit_losses/sample_count, output_images, accs/sample_count, metrics_dict
 
 def fit(net, trainloader, validationloader, epochs=1000, lower_learning_period=10):
     model_dir_header = net.get_identifier()
@@ -131,21 +123,21 @@ def fit(net, trainloader, validationloader, epochs=1000, lower_learning_period=1
         net = torch.load(checkpoint_name_path)
         train_config.load(checkpoint_conf_path)
     net.cuda()
-    summary(net, (3, *net.input_size))
-    writer = SummaryWriter(os.path.join('logs', model_dir_header))
-    images, _, _ = next(iter(trainloader))
 
-    with torch.no_grad():
-        writer.add_graph(net, images[:2].cuda())
+    writer = SummaryWriter(os.path.join('logs', model_dir_header))
     for epoch in range(train_config.epoch, epochs):
-        loss, output_images, accs, _ = fit_epoch(net, trainloader, train_config.learning_rate, train = True, epoch=epoch)
+        loss, att_losses, crit_losses, output_images, accs, _ = fit_epoch(net, trainloader, train_config.learning_rate, train = True, epoch=epoch)
+        writer.add_scalar('Train/Metrics_att_losses', att_losses, epoch)
+        writer.add_scalar('Train/Metrics_crit_losses', crit_losses, epoch)
         writer.add_scalar('Train/Metrics_loss', loss, epoch)
         writer.add_scalar('Train/Metrics_accs', accs, epoch)
         grid = join_images(output_images)
         writer.add_images('train_outputs', grid, epoch, dataformats='HWC')
 
-        loss, output_images, accs, metrics_dict = fit_epoch(net, validationloader, None, train = False, epoch=epoch)
+        loss, att_losses, crit_losses, output_images, accs, metrics_dict = fit_epoch(net, validationloader, None, train = False, epoch=epoch)
         writer.add_scalars('Validation/Metrics', metrics_dict, epoch)
+        writer.add_scalar('Validation/Metrics_att_losses', att_losses, epoch)
+        writer.add_scalar('Validation/Metrics_crit_losses', crit_losses, epoch)
         writer.add_scalar('Validation/Metrics_loss', loss, epoch)
         writer.add_scalar('Validation/Metrics_accs', accs, epoch)
         grid = join_images(output_images)
