@@ -65,6 +65,8 @@ class AttLSTM(nn.Module, utils.Identifier):
         self.embed_layer = 300
         self.depth = 5
 
+        self.dropout = nn.Dropout(p=0.5)
+
         modules = list(models.resnet50().children())[:-2]
         self.backbone = nn.Sequential(*modules)
 
@@ -83,7 +85,11 @@ class AttLSTM(nn.Module, utils.Identifier):
         for param in self.backbone.parameters():
             param.requires_grad = freeze
 
-    def forward(self, images, labels, label_lens):
+    def forward(self, images, labels, label_lens = None):
+        #for summary
+        if label_lens is None:
+            label_lens = [(1, 1)]
+            labels = labels.long()
         start = 0
         init_axis = 0
         img_encoded = self.backbone(images)
@@ -103,7 +109,7 @@ class AttLSTM(nn.Module, utils.Identifier):
                 attention = beta * att_output
                 state = self.sequence_cell(torch.cat((word_enc, attention), 1), state)
                 # state = state[0] + state_c[0], state[1] + state_c[1]
-                output = self.out_layer(state[0])
+                output = self.out_layer(self.dropout(state[0]))
                 # output, state = net(d, state)
                 outputs[-len(output):, :, j+1]    = output
                 attentions[-len(output):, :, j+1] = att

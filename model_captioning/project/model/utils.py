@@ -29,7 +29,8 @@ class Identifier(object):
         return idt
 
 class WordVocabulary(object):
-    def __init__(self, max_vocab_size):
+    def __init__(self, max_vocab_size, min_word_count = 6):
+        self.min_word_count = 5
         self.words = {}
         self.max_vocab_size = max_vocab_size
         self.eos_token = '<eos>'
@@ -56,7 +57,7 @@ class WordVocabulary(object):
         vocab = sorted(list(self.words.items()), key=itemgetter(1), reverse=True)
         tokens = [self.pad_token, self.sos_token, self.eos_token, self.unk_token]
         vocab_size = min(self.max_vocab_size, len(vocab)) - len(tokens)
-        self.vocab = np.array(tokens + [x[0] for x in vocab[:vocab_size]])
+        self.vocab = np.array(tokens + [x[0] for x in vocab[:vocab_size] if x[1]>=self.min_word_count])
 
     def __call__(self, sentence):
         if self.vec_numerizer is None:

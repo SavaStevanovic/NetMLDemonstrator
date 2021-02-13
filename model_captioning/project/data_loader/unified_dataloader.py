@@ -22,6 +22,6 @@ class UnifiedDataloader(object):
 
     def collate_fn(self, batch):
         batch = sorted(batch, key=lambda x: len(x[1]))
-        batch = list(zip(*[(x[0].unsqueeze(0), x[1], len(x[1])) for x in batch]))
-        batch_per_length = [(key, len(list(group))) for key, group in groupby(batch[2])]
-        return torch.cat(batch[0]), pad_sequence(batch[1], True), batch_per_length
+        batch = list(zip(*[(x[0].unsqueeze(0), x[1], x[2], len(x[1])) for x in batch]))
+        batch_per_length = [(key, len(list(group))) for key, group in groupby(batch[3])]
+        return torch.cat(batch[0]), pad_sequence(batch[1], True), batch_per_length, batch[2]

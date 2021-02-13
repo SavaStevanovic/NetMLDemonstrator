@@ -19,7 +19,7 @@ from model_fitting import metrics
 from operator import itemgetter
 import seaborn as sn
 from nlgeval import compute_metrics
-
+from nltk.translate.bleu_score import corpus_bleu
 
 def get_acc(output, label):
     label_trim = label[label!=0]
@@ -58,11 +58,14 @@ def fit_epoch(net, dataloader, lr_rate, train, epoch=1):
     sample_count = 0
     label_texts = []
     output_texts = []
+    references = []
+    hypotheses = []
     out_file = open("output.txt", "w")
-    lab_file = open("labels.txt", "w")
+    lab_file_names = ["labels{}.txt".format(i) for i in range(5)]
+    lab_files = [open(f, "w") for f in lab_file_names]
 
     for i, data in enumerate(tqdm(dataloader)):
-        image, labels, label_lens = data
+        image, labels, label_lens, all_labels = data
         # labels_lens (seq_length, batch_size)
         if image is None:
             continue    
@@ -72,11 +75,12 @@ def fit_epoch(net, dataloader, lr_rate, train, epoch=1):
 
         outputs, atts = net(image.cuda(), labels_cuda, label_lens)
 
-        att_loss = 5 * ((1 - atts.sum(2)) ** 2).mean() 
+        att_loss = 10 * ((atts.mean((1,2)).unsqueeze(-1)-atts.sum(2)) ** 2).mean() 
         crit_loss = criterion(outputs[:, :, 1:], labels_cuda[:, 1:])
         loss = crit_loss + att_loss
         if train:
             loss.backward()
+            torch.nn.utils.clip_grad_norm_(net.parameters(), 5)
             optimizer.step()
 
         losses += loss.item() * labels.shape[0]
@@ -87,9 +91,17 @@ def fit_epoch(net, dataloader, lr_rate, train, epoch=1):
         for j in range(outputs.shape[0]):
             accs += get_acc(outputs[j, :, 1:].argmax(0), labels_cuda[j, 1:])
             if not train:
+                h = outputs[j, :, 1:].detach().argmax(0).cpu().numpy().tolist()
+                hypotheses.append(h)
                 lab_text = get_output_text(net.vectorizer, labels[j, 1:].detach().cpu().numpy().tolist())
-                out_text = get_output_text(net.vectorizer, outputs[j, :, 1:].detach().argmax(0).cpu().numpy().tolist())
-                lab_file.write(lab_text + os.linesep)
+                out_text = get_output_text(net.vectorizer, h)
+                ls = []
+                for p, l in enumerate(all_labels[j]):
+                    ll = l[1:].detach().cpu().numpy().tolist()
+                    ls.append(ll)
+                    l_text = get_output_text(net.vectorizer, ll)
+                    lab_files[p].write(l_text + os.linesep)
+                references.append(ls)
                 out_file.write(out_text + os.linesep)
 
         if i>=len(dataloader)-10:
@@ -107,10 +119,13 @@ def fit_epoch(net, dataloader, lr_rate, train, epoch=1):
             output_images.append(plt_to_np(plt))
 
     out_file.close()
-    lab_file.close()
+    for l in lab_files:
+        l.close()
     metrics_dict = {}
     if not train:
-        metrics_dict = compute_metrics(references=['labels.txt'], hypothesis='output.txt', no_overlap=False, no_skipthoughts=True, no_glove=True)
+        metrics_dict = compute_metrics(references=lab_file_names, hypothesis='output.txt', no_overlap=False, no_skipthoughts=True, no_glove=True)
+        bleu4 = corpus_bleu(references, hypotheses)
+        print(bleu4)
     return losses/sample_count, att_losses/sample_count, crit_losses/sample_count, output_images, accs/sample_count, metrics_dict
 
 def fit(net, trainloader, validationloader, epochs=1000, lower_learning_period=10):
@@ -125,6 +140,14 @@ def fit(net, trainloader, validationloader, epochs=1000, lower_learning_period=1
     net.cuda()
 
     writer = SummaryWriter(os.path.join('logs', model_dir_header))
+
+
+    writer = SummaryWriter(os.path.join('logs', model_dir_header))
+    images, label, lengths, _ = next(iter(trainloader))
+    summary(net, [tuple(images.shape[1:]), tuple(label.shape[1:])])
+    with torch.no_grad():
+        writer.add_graph(net, (images[:2].cuda(), label[:2].cuda()))
+
     for epoch in range(train_config.epoch, epochs):
         loss, att_losses, crit_losses, output_images, accs, _ = fit_epoch(net, trainloader, train_config.learning_rate, train = True, epoch=epoch)
         writer.add_scalar('Train/Metrics_att_losses', att_losses, epoch)

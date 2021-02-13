@@ -32,4 +32,11 @@ class CocoDataset(Dataset):
         # img_anns = self.data.loadAnns(ann_ids)
         label = item['caption']
 
-        return image, label
+        ann_ids = self.data.getAnnIds(imgIds=img_id)
+        img_anns = self.data.loadAnns(ann_ids)
+        labels = [x['caption'] for x in img_anns]
+        labels = labels[:5]
+        # if len(labels)!=5:
+        #     print(len(labels))
+        #     labels = labels[:5]
+        return image, label, labels
