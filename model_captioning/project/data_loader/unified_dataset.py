@@ -73,7 +73,7 @@ class UnifiedDataset(Dataset):
         return len(self.data_ids)
 
     def __getitem__(self, idx):
-        warnings.filterwarnings("error")
+        # warnings.filterwarnings("error")
         identifier = self.data_ids[idx]
         image, label, labels = self.datasets[identifier[0]][identifier[1]]
         if image.mode not in ("RGB", "L", "RGBA", "P", "1", "LA"):
@@ -91,5 +91,5 @@ class UnifiedDataset(Dataset):
             image = self.transforms(image)
 
         label_tokenized = torch.tensor(self.vectorizer(label), dtype=torch.long)
-        labels_tokenized = [torch.tensor(self.vectorizer(l), dtype=torch.long) for l in labels]
+        labels_tokenized = [self.vectorizer(l).tolist() for l in labels]
         return image, label_tokenized, labels_tokenized

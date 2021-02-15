@@ -65,7 +65,7 @@ def fit_epoch(net, dataloader, lr_rate, train, epoch=1):
     lab_files = [open(f, "w") for f in lab_file_names]
 
     for i, data in enumerate(tqdm(dataloader)):
-        image, labels, label_lens, all_labels = data
+        image, labels, all_labels = data
         # labels_lens (seq_length, batch_size)
         if image is None:
             continue    
@@ -73,10 +73,10 @@ def fit_epoch(net, dataloader, lr_rate, train, epoch=1):
             optimizer.zero_grad()
         labels_cuda = labels.cuda()
 
-        outputs, atts = net(image.cuda(), labels_cuda, label_lens)
+        outputs, atts = net(image.cuda(), labels_cuda[:, :-1])
 
         att_loss = 10 * ((atts.mean((1,2)).unsqueeze(-1)-atts.sum(2)) ** 2).mean() 
-        crit_loss = criterion(outputs[:, :, 1:], labels_cuda[:, 1:])
+        crit_loss = criterion(outputs, labels_cuda[:, 1:])
         loss = crit_loss + att_loss
         if train:
             loss.backward()
@@ -87,17 +87,17 @@ def fit_epoch(net, dataloader, lr_rate, train, epoch=1):
         att_losses += att_loss.item() * labels.shape[0]
         crit_losses += crit_loss.item() * labels.shape[0]
 
-        sample_count += outputs.shape[0]
+        sample_count += labels_cuda.shape[0]
         for j in range(outputs.shape[0]):
-            accs += get_acc(outputs[j, :, 1:].argmax(0), labels_cuda[j, 1:])
+            accs += get_acc(outputs[j].argmax(0), labels_cuda[j, 1:])
             if not train:
-                h = outputs[j, :, 1:].detach().argmax(0).cpu().numpy().tolist()
+                h = outputs[j].detach().argmax(0).cpu().numpy().tolist()
                 hypotheses.append(h)
                 lab_text = get_output_text(net.vectorizer, labels[j, 1:].detach().cpu().numpy().tolist())
                 out_text = get_output_text(net.vectorizer, h)
                 ls = []
                 for p, l in enumerate(all_labels[j]):
-                    ll = l[1:].detach().cpu().numpy().tolist()
+                    ll = l[1:]
                     ls.append(ll)
                     l_text = get_output_text(net.vectorizer, ll)
                     lab_files[p].write(l_text + os.linesep)
@@ -107,7 +107,7 @@ def fit_epoch(net, dataloader, lr_rate, train, epoch=1):
         if i>=len(dataloader)-10:
             image = image[0]
             lab_text = get_output_text(net.vectorizer, labels[0, 1:].detach().cpu().numpy().tolist())
-            out_text = get_output_text(net.vectorizer, outputs[0, :, 1:].detach().argmax(0).cpu().numpy().tolist())
+            out_text = get_output_text(net.vectorizer, outputs[0].detach().argmax(0).cpu().numpy().tolist())
             for t, m, s in zip(image, [0.485, 0.456, 0.406], [0.229, 0.224, 0.225]):
                 t.mul_(s).add_(m)
             image = image.permute(1,2,0).detach().cpu().numpy()
@@ -125,7 +125,6 @@ def fit_epoch(net, dataloader, lr_rate, train, epoch=1):
     if not train:
         metrics_dict = compute_metrics(references=lab_file_names, hypothesis='output.txt', no_overlap=False, no_skipthoughts=True, no_glove=True)
         bleu4 = corpus_bleu(references, hypotheses)
-        print(bleu4)
     return losses/sample_count, att_losses/sample_count, crit_losses/sample_count, output_images, accs/sample_count, metrics_dict
 
 def fit(net, trainloader, validationloader, epochs=1000, lower_learning_period=10):
@@ -141,9 +140,7 @@ def fit(net, trainloader, validationloader, epochs=1000, lower_learning_period=1
 
     writer = SummaryWriter(os.path.join('logs', model_dir_header))
 
-
-    writer = SummaryWriter(os.path.join('logs', model_dir_header))
-    images, label, lengths, _ = next(iter(trainloader))
+    images, label, _ = next(iter(trainloader))
     summary(net, [tuple(images.shape[1:]), tuple(label.shape[1:])])
     with torch.no_grad():
         writer.add_graph(net, (images[:2].cuda(), label[:2].cuda()))

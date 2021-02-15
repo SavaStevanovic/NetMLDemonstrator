@@ -67,9 +67,8 @@ class AttLSTM(nn.Module, utils.Identifier):
 
         self.dropout = nn.Dropout(p=0.5)
 
-        modules = list(models.resnet50().children())[:-2]
+        modules = list(models.resnet50(pretrained=True).children())[:-2]
         self.backbone = nn.Sequential(*modules)
-
         self.attention = blocks.AttentionBlock(2048, self.inplanes, self.inplanes)
         self.state_layer  = nn.Linear(2048, self.inplanes, 1)
         self.hidden_layer = nn.Linear(2048, self.inplanes, 1)
@@ -81,42 +80,29 @@ class AttLSTM(nn.Module, utils.Identifier):
 
         self.out_layer = nn.Linear(self.inplanes, len(self.vectorizer.vocab))
 
-    def grad_backbone(self, freeze):
+    def grad_backbone(self, enable):
         for param in self.backbone.parameters():
-            param.requires_grad = freeze
+            param.requires_grad = enable
 
-    def forward(self, images, labels, label_lens = None):
+    def forward(self, images, labels):
         #for summary
-        if label_lens is None:
-            label_lens = [(1, 1)]
-            labels = labels.long()
-        start = 0
-        init_axis = 0
+        if labels.type()=='torch.cuda.FloatTensor':
+            labels = torch.ones((len(images), 1)).long().cuda()
+
         img_encoded = self.backbone(images)
-        outputs    = torch.zeros((labels.shape[0], len(self.vectorizer.vocab)                 , labels.shape[1]+1), device = 'cuda')
-        attentions = torch.zeros((labels.shape[0], img_encoded.shape[2] * img_encoded.shape[3], labels.shape[1]+1), device = 'cuda')
+        outputs    = []
+        attentions = []
         image_enc_mean = img_encoded.mean((2, 3))
         state = self.hidden_layer(image_enc_mean), self.state_layer(image_enc_mean)
-        # word_enc = torch.zeros((labels.shape[0], self.embed_layer), device = 'cuda')
-        for l in label_lens:
-            end = l[0]
-            for j in range(start, end):
-                d = labels[init_axis:, j] 
-                word_enc = self.word_encoder(d)
-                # word_enc = word_enc + word_enc_c
-                beta = self.beta_layer(state[0]).sigmoid()
-                att_output, att = self.attention(img_encoded, state[0])
-                attention = beta * att_output
-                state = self.sequence_cell(torch.cat((word_enc, attention), 1), state)
-                # state = state[0] + state_c[0], state[1] + state_c[1]
-                output = self.out_layer(self.dropout(state[0]))
-                # output, state = net(d, state)
-                outputs[-len(output):, :, j+1]    = output
-                attentions[-len(output):, :, j+1] = att
-            state = (state[0][l[1]:], state[1][l[1]:])
-            word_enc = word_enc[l[1]:]
-            img_encoded = img_encoded[l[1]:]
-            init_axis += l[1]
-            start = end
+        for j in range(labels.shape[1]):
+            d = labels[:, j] 
+            word_enc = self.word_encoder(d)
+            beta = self.beta_layer(state[0]).sigmoid()
+            att_output, att = self.attention(img_encoded, state[0])
+            attention = beta * att_output
+            state = self.sequence_cell(torch.cat((word_enc, attention), 1), state)
+            output = self.out_layer(self.dropout(state[0]))
+            outputs.append(output)
+            attentions.append(att)
 
-        return outputs[..., :-1], attentions[..., :-1]
+        return torch.stack(outputs, -1), torch.stack(attentions, -1)

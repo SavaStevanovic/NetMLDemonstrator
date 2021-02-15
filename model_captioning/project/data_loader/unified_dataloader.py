@@ -17,11 +17,10 @@ class UnifiedDataloader(object):
         val_dataset   = UnifiedDataset(False, debug=self.th_count)
 
         self.trainloader      = torch.utils.data.DataLoader(train_dataset, batch_size=batch_size, shuffle=th_count>1, num_workers=th_count   , collate_fn = self.collate_fn)
-        self.validationloader = torch.utils.data.DataLoader(val_dataset  , batch_size=1         , shuffle=False     , num_workers=th_count//2, collate_fn = self.collate_fn)
+        self.validationloader = torch.utils.data.DataLoader(val_dataset  , batch_size=batch_size, shuffle=False     , num_workers=th_count   , collate_fn = self.collate_fn)
         self.vectorizer = train_dataset.vectorizer
 
     def collate_fn(self, batch):
         batch = sorted(batch, key=lambda x: len(x[1]))
         batch = list(zip(*[(x[0].unsqueeze(0), x[1], x[2], len(x[1])) for x in batch]))
-        batch_per_length = [(key, len(list(group))) for key, group in groupby(batch[3])]
-        return torch.cat(batch[0]), pad_sequence(batch[1], True), batch_per_length, batch[2]
+        return torch.cat(batch[0]), pad_sequence(batch[1], True), batch[2]
