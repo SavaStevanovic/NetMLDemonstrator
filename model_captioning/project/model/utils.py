@@ -67,3 +67,15 @@ class WordVocabulary(object):
         sentence = self.vec_numerizer(sentence)
 
         return sentence
+
+def get_acc(output, label):
+    label_trim = label[label!=0]
+    acc = (label_trim == output[:len(label_trim)]).float().sum() / len(label_trim)
+    return acc.item()
+
+def get_output_text(vectorizer, output):
+    eos_index = np.where(vectorizer.vocab == vectorizer.eos_token)[0][0]
+    if eos_index in output:
+        output = output[:np.where(output == eos_index)[0][0]]
+    output_text = ' '.join([vectorizer.vocab[x] for x in output])
+    return output_text

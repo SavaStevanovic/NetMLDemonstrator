@@ -1,38 +1,38 @@
-import numpy as np
-from multiprocessing import Pool
 import os
-import sys
-import warnings
-from joblib import parallel_backend
+import torch
+from nlgeval import compute_metrics
+from tqdm import tqdm
+from model import utils
 
-class RunningConfusionMatrix():    
-    def __init__(self):
-        self.tp = 0
-        self.tn = 0
-        self.fp = 0
-        self.fn = 0
-        
-    def update_matrix(self, y_true, y_pred):
-        self.tp += (y_true * y_pred).sum()
-        self.tn += ((1 - y_true) * (1 - y_pred)).sum()
-        self.fp += ((1 - y_true) * y_pred).sum()
-        self.fn += (y_true * (1 - y_pred)).sum()
-    
-    
-    def compute_metrics(self):
-        self.tp = self.tp.item()
-        self.tn = self.tn.item()
-        self.fp = self.fp.item()
-        self.fn = self.fn.item()
-        
-        epsilon = 1e-7
-        total = self.tp + self.tn + self.fp + self.fn + epsilon
 
-        precision = self.tp / (self.tp + self.fp + epsilon)
-        recall = self.tp / (self.tp + self.fn + epsilon)
-        f1 = 2 * (precision*recall) / (precision + recall + epsilon)
-        acc = (self.tp + self.tn) / total
-        confusion_matrix = np.matrix([[self.tp, self.fn], [self.fp, self.tn]])/total
+def eval(net, dataloader, beam_size):
+    net.eval()
+    torch.set_grad_enabled(False)
+    torch.backends.cudnn.benchmark = False
+    sample_count = 0
+    out_file = open("output.txt", "w")
+    lab_file_names = ["labels{}.txt".format(i) for i in range(5)]
+    lab_files = [open(f, "w") for f in lab_file_names]
 
-        print(confusion_matrix)
-        return f1, acc, confusion_matrix
+    for i, data in enumerate(tqdm(dataloader)):
+        image, _, all_labels = data
+        image_cuda = image.cuda()
+        outputs = net.forward_single_inference(image.cuda(), beam_size)
+
+        sample_count += image.shape[0]
+        for j in range(image.shape[0]):
+            h = outputs[j]
+            ls = []
+            for p, l in enumerate(all_labels[j]):
+                ll = l[1:]
+                ls.append(ll)
+                l_text = utils.get_output_text(net.vectorizer, ll)
+                lab_files[p].write(l_text + os.linesep)
+            out_text = utils.get_output_text(net.vectorizer, h)
+            out_file.write(out_text + os.linesep)
+
+    out_file.close()
+    for l in lab_files:
+        l.close()
+    metrics_dict = compute_metrics(references=lab_file_names, hypothesis='output.txt', no_overlap=False, no_skipthoughts=True, no_glove=True)
+    return metrics_dict

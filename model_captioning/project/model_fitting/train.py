@@ -21,26 +21,7 @@ from model_fitting import metrics
 from operator import itemgetter
 import seaborn as sn
 from nlgeval import compute_metrics
-
-def get_acc(output, label):
-    label_trim = label[label!=0]
-    acc = (label_trim == output[:len(label_trim)]).float().sum() / len(label_trim)
-    return acc.item()
-
-def get_output_text(vectorizer, output):
-    eos_index = np.where(vectorizer.vocab == vectorizer.eos_token)[0][0]
-    if eos_index in output:
-        output = output[:np.where(output == eos_index)[0][0]]
-    output_text = ' '.join([vectorizer.vocab[x] for x in output])
-    return output_text
-
-
-def output_to_image(lab):
-    lab = (lab>0.5).int().squeeze(0)
-    color_map = [[0, 0, 0], [0, 0.99, 0]]
-    lab = visualize_label(color_map, lab.numpy())
-    
-    return lab
+from model import utils
 
 def fit_epoch(net, dataloader, lr_rate, train, epoch=1):
     if train:
@@ -90,25 +71,25 @@ def fit_epoch(net, dataloader, lr_rate, train, epoch=1):
 
         sample_count += labels_cuda.shape[0]
         for j in range(outputs.shape[0]):
-            accs += get_acc(outputs[j].argmax(0), labels_cuda[j, 1:])
+            accs += utils.get_acc(outputs[j].argmax(0), labels_cuda[j, 1:])
             if not train:
                 h = outputs[j].detach().argmax(0).cpu().numpy().tolist()
                 hypotheses.append(h)
-                lab_text = get_output_text(net.vectorizer, labels[j, 1:].detach().cpu().numpy().tolist())
-                out_text = get_output_text(net.vectorizer, h)
+                lab_text = utils.get_output_text(net.vectorizer, labels[j, 1:].detach().cpu().numpy().tolist())
+                out_text = utils.get_output_text(net.vectorizer, h)
                 ls = []
                 for p, l in enumerate(all_labels[j]):
                     ll = l[1:]
                     ls.append(ll)
-                    l_text = get_output_text(net.vectorizer, ll)
+                    l_text = utils.get_output_text(net.vectorizer, ll)
                     lab_files[p].write(l_text + os.linesep)
                 references.append(ls)
                 out_file.write(out_text + os.linesep)
 
         if i>=len(dataloader)-10:
             image = image[0]
-            lab_text = get_output_text(net.vectorizer, labels[0, 1:].detach().cpu().numpy().tolist())
-            out_text = get_output_text(net.vectorizer, outputs[0].detach().argmax(0).cpu().numpy().tolist())
+            lab_text = utils.get_output_text(net.vectorizer, labels[0, 1:].detach().cpu().numpy().tolist())
+            out_text = utils.get_output_text(net.vectorizer, outputs[0].detach().argmax(0).cpu().numpy().tolist())
             for t, m, s in zip(image, [0.485, 0.456, 0.406], [0.229, 0.224, 0.225]):
                 t.mul_(s).add_(m)
             image = image.permute(1,2,0).detach().cpu().numpy()
@@ -182,4 +163,12 @@ def fit(net, trainloader, validationloader, epochs=1000, lower_learning_period=1
         train_config.save(checkpoint_conf_path)
         torch.save(net, checkpoint_name_path)
         torch.save(net.state_dict(), checkpoint_name_path.replace('.pth', '_final_state_dict.pth'))
+
+    checkpoint_name_path = os.path.join(chp_dir, 'checkpoints_final.pth')
+    net = torch.load(checkpoint_name_path)
+    net.cuda()
+
+    for beam_size in range(1, 10):
+        metrics_dict = metrics.eval(net, validationloader, beam_size)
+        writer.add_scalars('Validation/Metrics@{}'.format(beam_size), metrics_dict, 0)
     print('Finished Training')
