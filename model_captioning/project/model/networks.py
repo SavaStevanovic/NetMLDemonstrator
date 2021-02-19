@@ -67,7 +67,7 @@ class AttLSTM(nn.Module, utils.Identifier):
 
         self.dropout = nn.Dropout(p=0.5)
 
-        modules = list(models.resnet50(pretrained=True).children())[:-2]
+        modules = list(models.resnet152(pretrained=True).children())[:-2]
         self.backbone = nn.Sequential(*modules)
         self.attention = blocks.AttentionBlock(2048, self.inplanes, self.inplanes)
         self.state_layer  = nn.Linear(2048, self.inplanes, 1)

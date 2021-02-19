@@ -2,7 +2,6 @@ from torch.utils.data import Dataset, DataLoader
 import os
 import json
 from pycocotools.coco import COCO
-import matplotlib.pyplot as plt
 from skimage import io
 from PIL import Image
 from operator import itemgetter

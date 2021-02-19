@@ -10,6 +10,8 @@ import json
 from functools import reduce
 from torchsummary import summary
 from torchvision.transforms.functional import to_pil_image
+import matplotlib
+matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 import numpy as np
 from PIL import Image
@@ -19,7 +21,6 @@ from model_fitting import metrics
 from operator import itemgetter
 import seaborn as sn
 from nlgeval import compute_metrics
-from nltk.translate.bleu_score import corpus_bleu
 
 def get_acc(output, label):
     label_trim = label[label!=0]
@@ -75,7 +76,7 @@ def fit_epoch(net, dataloader, lr_rate, train, epoch=1):
 
         outputs, atts = net(image.cuda(), labels_cuda[:, :-1])
 
-        att_loss = 10 * ((atts.mean((1,2)).unsqueeze(-1)-atts.sum(2)) ** 2).mean() 
+        att_loss = 5 * ((atts.mean((1,2)).unsqueeze(-1)-atts.sum(2)) ** 2).mean() 
         crit_loss = criterion(outputs, labels_cuda[:, 1:])
         loss = crit_loss + att_loss
         if train:
@@ -124,7 +125,6 @@ def fit_epoch(net, dataloader, lr_rate, train, epoch=1):
     metrics_dict = {}
     if not train:
         metrics_dict = compute_metrics(references=lab_file_names, hypothesis='output.txt', no_overlap=False, no_skipthoughts=True, no_glove=True)
-        bleu4 = corpus_bleu(references, hypotheses)
     return losses/sample_count, att_losses/sample_count, crit_losses/sample_count, output_images, accs/sample_count, metrics_dict
 
 def fit(net, trainloader, validationloader, epochs=1000, lower_learning_period=10):
@@ -175,7 +175,7 @@ def fit(net, trainloader, validationloader, epochs=1000, lower_learning_period=1
         if train_config.iteration_age and (train_config.iteration_age % lower_learning_period) == 0:
             train_config.learning_rate*=0.5
             print("Learning rate lowered to {}".format(train_config.learning_rate))
-        if train_config.iteration_age == 2 * lower_learning_period:
+        if train_config.iteration_age == 1 + lower_learning_period:
             net.grad_backbone(True)
             print("Model unfrozen")
         train_config.epoch = epoch+1

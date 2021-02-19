@@ -4,7 +4,6 @@ import numpy as np
 from PIL import Image, ImageFilter
 from skimage import util
 import torch
-import matplotlib.pyplot as plt
 import cv2
 import io
 from skimage.draw import polygon
