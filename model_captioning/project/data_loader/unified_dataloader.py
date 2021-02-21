@@ -16,8 +16,8 @@ class UnifiedDataloader(object):
         train_dataset = UnifiedDataset(True , debug=self.th_count)
         val_dataset   = UnifiedDataset(False, debug=self.th_count)
 
-        self.trainloader      = torch.utils.data.DataLoader(train_dataset, batch_size=batch_size, shuffle=th_count>1, num_workers=th_count   , collate_fn = self.collate_fn)
-        self.validationloader = torch.utils.data.DataLoader(val_dataset  , batch_size=batch_size, shuffle=False     , num_workers=th_count   , collate_fn = self.collate_fn)
+        self.trainloader      = torch.utils.data.DataLoader(train_dataset, batch_size=batch_size, shuffle=th_count>1, num_workers=th_count, collate_fn = self.collate_fn)
+        self.validationloader = torch.utils.data.DataLoader(val_dataset  , batch_size=batch_size, shuffle=False     , num_workers=th_count, collate_fn = self.collate_fn)
         self.vectorizer = train_dataset.vectorizer
 
     def collate_fn(self, batch):

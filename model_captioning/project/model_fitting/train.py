@@ -45,7 +45,7 @@ def fit_epoch(net, dataloader, lr_rate, train, epoch=1):
     out_file = open("output.txt", "w")
     lab_file_names = ["labels{}.txt".format(i) for i in range(5)]
     lab_files = [open(f, "w") for f in lab_file_names]
-
+    att_loss = torch.tensor(0)
     for i, data in enumerate(tqdm(dataloader)):
         image, labels, all_labels = data
         # labels_lens (seq_length, batch_size)
@@ -57,9 +57,13 @@ def fit_epoch(net, dataloader, lr_rate, train, epoch=1):
 
         outputs, atts = net(image.cuda(), labels_cuda[:, :-1])
 
-        att_loss = 5 * ((atts.mean((1,2)).unsqueeze(-1)-atts.sum(2)) ** 2).mean() 
+
+        if len(atts) != 0:
+            att_loss = 5 * ((atts.mean((1,2)).unsqueeze(-1)-atts.sum(2)) ** 2).mean() 
+
         crit_loss = criterion(outputs, labels_cuda[:, 1:])
         loss = crit_loss + att_loss
+
         if train:
             loss.backward()
             torch.nn.utils.clip_grad_norm_(net.parameters(), 5)

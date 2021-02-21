@@ -11,10 +11,9 @@ from itertools import compress
 
 class LSTM(nn.Module, utils.Identifier):
 
-    def __init__(self, inplanes, input_size, vectorizer):
+    def __init__(self, inplanes, vectorizer):
         super(LSTM, self).__init__()
         self.inplanes = inplanes
-        self.input_size = input_size
         self.vectorizer = vectorizer
 
         modules = list(models.resnet50().children())[:-1]
@@ -60,10 +59,9 @@ class LSTM(nn.Module, utils.Identifier):
 
 class AttLSTM(nn.Module, utils.Identifier):
 
-    def __init__(self, inplanes, input_size, vectorizer):
+    def __init__(self, inplanes, vectorizer):
         super(AttLSTM, self).__init__()
         self.inplanes = inplanes
-        self.input_size = input_size
         self.vectorizer = vectorizer
         self.embed_layer = 300
         self.depth = 5
@@ -161,3 +159,52 @@ class AttLSTM(nn.Module, utils.Identifier):
                 break
             
         return [o[0].detach().cpu().numpy() for o in outs]
+
+class AoANet(nn.Module, utils.Identifier):
+
+    def __init__(self, inplanes, vectorizer, refiner_stages = 6):
+        super(AoANet, self).__init__()
+        self.inplanes = inplanes
+        self.vectorizer = vectorizer
+        self.embed_layer = 300
+        self.depth = 5
+
+        self.state_layer   = nn.Linear(self.inplanes, self.inplanes)
+        self.hidden_layer  = nn.Linear(self.inplanes, self.inplanes)
+        self.enc_projector = nn.Conv2d(2048, self.inplanes, 1)
+
+        modules = list(models.resnet101(pretrained=True).children())[:-2]
+        self.backbone = nn.Sequential(*modules)
+        self.refiners = nn.Sequential(*[blocks.RefiningBlock(self.inplanes) for _ in range(refiner_stages)])
+        self.decoder = blocks.DecoderBlock(self.inplanes, len(self.vectorizer.vocab))
+
+    def grad_backbone(self, enable):
+        for param in self.backbone.parameters():
+            param.requires_grad = enable
+
+    def forward(self, images, labels):
+        #for summary
+        if labels.type()=='torch.cuda.FloatTensor':
+            labels = torch.ones((len(images), 1)).long().cuda()
+
+        outputs    = []
+
+        img_encoded = self.backbone(images)
+        img_encoded = self.enc_projector(img_encoded)
+        image_enc_mean = img_encoded.mean((2, 3))
+        state = self.hidden_layer(image_enc_mean), self.state_layer(image_enc_mean)
+        context = torch.zeros((img_encoded.shape[:2]), device='cuda')
+        img_encoded_shape = img_encoded.shape
+        for j in range(labels.shape[1]):
+            img_encoded = img_encoded.flatten(2).permute(2, 0, 1)
+            ref_enc = self.refiners(img_encoded)
+            img_encoded = img_encoded.permute(1, 2, 0).view(img_encoded_shape)
+            output, context, s, h = self.decoder(img_encoded, labels[:, j], context, state)
+            state = (s, h)
+            outputs.append(output)
+
+        return torch.stack(outputs, -1), torch.tensor([])
+
+    def forward_single_inference(self, images, beam_size):
+      
+        return None
