@@ -196,9 +196,9 @@ class AoANet(nn.Module, utils.Identifier):
         context = torch.zeros((img_encoded.shape[:2]), device='cuda')
         img_encoded_shape = img_encoded.shape
         for j in range(labels.shape[1]):
-            img_encoded = img_encoded.flatten(2).permute(2, 0, 1)
+            img_encoded = img_encoded.flatten(2).permute(0, 2, 1)
             ref_enc = self.refiners(img_encoded)
-            img_encoded = img_encoded.permute(1, 2, 0).view(img_encoded_shape)
+            img_encoded = img_encoded.permute(0, 2, 1).view(img_encoded_shape)
             output, context, s, h = self.decoder(img_encoded, labels[:, j], context, state)
             state = (s, h)
             outputs.append(output)

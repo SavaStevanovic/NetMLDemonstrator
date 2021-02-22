@@ -25,13 +25,18 @@ class AttentionBlock(nn.Module, utils.Identifier):
         return output, attention
 
 
-class QKVAttentionBlock(nn.Module, utils.Identifier):
-    def __init__(self):
-        super(QKVAttentionBlock, self).__init__()
+class ScaledDotProductAttentionBlock(nn.Module, utils.Identifier):
+    def __init__(self, heads = 8):
+        super(ScaledDotProductAttentionBlock, self).__init__()
+        self.heads = heads
 
     def forward(self, query, key, value):
-        scores = query * key.T 
-        output = scores.softmax() * value
+        qs = query.split(query.shape[-1] // self.heads, -1)
+        ks = key.split(key.shape[-1] // self.heads, -1)
+        vs = value.split(value.shape[-1] // self.heads, -1)
+        
+        scores = [(q.bmm(k.transpose(1,2)) / q.shape[-1]**0.5).softmax(-1).bmm(v) for q, k, v in zip(qs, ks, vs)]
+        output = torch.cat(scores, -1)
 
         return output
 
@@ -39,11 +44,12 @@ class AoAttentionBlock(nn.Module, utils.Identifier):
     def __init__(self, inplanes):
         super(AoAttentionBlock, self).__init__()
         self.inplanes = inplanes
-        self.input_attention = nn.MultiheadAttention(inplanes, 8)
+        self.input_attention = ScaledDotProductAttentionBlock()
         self.pixel_attention = nn.Sequential(nn.Linear(2 * self.inplanes, 2 * self.inplanes), nn.GLU())
 
     def forward(self, query, key, value):
-        v, _ = self.input_attention(query, key, value)
+
+        v = self.input_attention(query, key, value)
         x = torch.cat((v, query), -1)
         output = self.pixel_attention(x)
 
@@ -53,15 +59,16 @@ class RefiningBlock(nn.Module, utils.Identifier):
     def __init__(self, inplanes):
         super(RefiningBlock, self).__init__()
         self.inplanes = inplanes
-        self.a_layer = nn.Linear(self.inplanes, self.inplanes)
-        self.multi_head_attention = nn.MultiheadAttention(self.inplanes, 8)
+        self.q_layer = nn.Linear(self.inplanes, self.inplanes)
+        self.k_layer = nn.Linear(self.inplanes, self.inplanes)
+        self.v_layer = nn.Linear(self.inplanes, self.inplanes)
         self.aoa = AoAttentionBlock(self.inplanes)  
 
     def forward(self, a):
-        v, _ = self.multi_head_attention(a, a, a)
-        # A should be A after dense layer in head attention 
-        ab = self.a_layer(a)
-        x = self.aoa(ab, v, v)
+        query = self.q_layer(a)
+        key   = self.v_layer(a)
+        value = self.k_layer(a)
+        x = self.aoa(query, key, value)
         a = F.layer_norm(a + x, (self.inplanes, ))
 
         return a
@@ -82,8 +89,8 @@ class DecoderBlock(nn.Module, utils.Identifier):
         af = a.mean((2, 3)) + c
         e = self.word_encoder(l)
         state = self.sequence_cell(torch.cat((af, e), -1), state)
-        a = a.flatten(2).permute(2, 0, 1)
-        c = self.aoa(state[0].unsqueeze(0), a, a).squeeze(0)
+        a = a.flatten(2).permute(0, 2, 1)
+        c = self.aoa(state[0].unsqueeze(1), a, a).squeeze(1)
         out = self.out_layer(self.dropout(c))
 
         # split for summary
