@@ -1,0 +1,24 @@
+.controls {
+  background-color: #ddd;
+  height: 46px;
+  overflow: hidden;
+  padding: 0 0px 0 0px;
+}
+
+.video-control {
+  height: 38px;
+  margin: 0 4px 0 4px;
+}
+
+.mat-flat-button {
+  min-width: 24px;
+}
+
+.play-button {
+  width: 80px;
+  min-width: 80px;
+}
+
+.spacer {
+  flex: 1 1 auto;
+}

@@ -5,6 +5,7 @@ import { FrameService } from '../../services/frame/frame.service';
 import { Filter } from '../../models/filter';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { environment } from '../../../environments/environment';
+import { StateService } from '../../services/state/state.service'
 
 @Component({
   selector: 'app-display',
@@ -20,8 +21,7 @@ export class DisplayComponent implements AfterViewInit, OnInit {
   processed_context: any;
   unprocessed_context: any;
   video_native_element: any;
-  videoPlaying = false;
-  quality = 0.5;
+  quality: number;
   sock: any;
   mask: any;
   production = environment.production;
@@ -29,13 +29,17 @@ export class DisplayComponent implements AfterViewInit, OnInit {
   constructor(
     public frameService: FrameService,
     private filterService: FilterService,
-    private snackBar: MatSnackBar) {
+    private snackBar: MatSnackBar,
+    private stateService: StateService) {
+      this.stateService.videoQuality$
+        .subscribe(quality => this.quality = quality)
+
   }
 
   private capture():void {
     this.setPlaying();
-    if (!this.videoPlaying) {
-      this.pause()
+    if (!this.stateService.videoPlaying$) {
+      this.toggle_play(false)
       return;
     }
 
@@ -46,9 +50,13 @@ export class DisplayComponent implements AfterViewInit, OnInit {
     }
     else{
       this.processed_context.globalCompositeOperation = 'source-over';
-      this.processed_context.drawImage(this.video_native_element, 0, 0, this.processedCanvas.nativeElement.width, this.processedCanvas.nativeElement.height);
+      this.drawProcessedFrame();
       requestAnimationFrame(this.capture.bind(this));
     }
+  }
+
+  private drawProcessedFrame() {
+    this.processed_context.drawImage(this.video_native_element, 0, 0, this.processedCanvas.nativeElement.width, this.processedCanvas.nativeElement.height);
   }
 
   ngOnInit(): void {
@@ -56,14 +64,14 @@ export class DisplayComponent implements AfterViewInit, OnInit {
     this.mask = new Image();
     this.mask.onload = () => {
       this.processed_context.globalCompositeOperation = 'source-over';
-      this.processed_context.drawImage(this.video_native_element, 0, 0, this.processedCanvas.nativeElement.width, this.processedCanvas.nativeElement.height);
+      this.drawProcessedFrame();
       this.processed_context.globalCompositeOperation = 'multiply';
       this.processed_context.drawImage(this.mask, 0, 0, this.processedCanvas.nativeElement.width, this.processedCanvas.nativeElement.height);
       this.processResponse(this.mask.data);
     }
   }
 
-  private shouldSendReques (): boolean {
+  private shouldSendReques(): boolean {
     if (this.quality==0){
       return false;
     }
@@ -87,7 +95,7 @@ export class DisplayComponent implements AfterViewInit, OnInit {
   private processResponse(data: any): void {
     if (!data['mask']){
       this.processed_context.globalCompositeOperation = 'source-over';
-      this.processed_context.drawImage(this.video_native_element, 0, 0, this.processedCanvas.nativeElement.width, this.processedCanvas.nativeElement.height);
+      this.drawProcessedFrame();
     }
     else if (data['mask'] != 'processed') {
       let mask_src = data['mask']
@@ -96,7 +104,7 @@ export class DisplayComponent implements AfterViewInit, OnInit {
       this.mask.src = mask_src;
       return;
     }
-    
+
     if (data['bboxes']) {
       for (let box of data['bboxes']) {
         this.processed_context.beginPath();
@@ -126,11 +134,11 @@ export class DisplayComponent implements AfterViewInit, OnInit {
       for (let bpart of data['parts']) {
         this.processed_context.beginPath();
         this.processed_context.arc(
-          bpart[0] * this.processed_context.canvas.width, 
-          bpart[1] * this.processed_context.canvas.height, 
-          10, 
-          0, 
-          Math.PI * 2, 
+          bpart[0] * this.processed_context.canvas.width,
+          bpart[1] * this.processed_context.canvas.height,
+          10,
+          0,
+          Math.PI * 2,
           false);
         this.processed_context.fill()
         this.processed_context.stroke();
@@ -142,10 +150,10 @@ export class DisplayComponent implements AfterViewInit, OnInit {
       for (let joint of data['joints']) {
         this.processed_context.beginPath();
         this.processed_context.moveTo(
-          joint[0][0] * this.processed_context.canvas.width, 
+          joint[0][0] * this.processed_context.canvas.width,
           joint[0][1] * this.processed_context.canvas.height);
         this.processed_context.lineTo(
-          joint[1][0] * this.processed_context.canvas.width, 
+          joint[1][0] * this.processed_context.canvas.width,
           joint[1][1] * this.processed_context.canvas.height);
         this.processed_context.stroke();
       }
@@ -169,31 +177,34 @@ export class DisplayComponent implements AfterViewInit, OnInit {
     this.processed_context = this.processedCanvas.nativeElement.getContext("2d");
     this.unprocessed_context = this.unprocessedCanvas.getContext("2d");
     this.video_native_element = this.videoElement.nativeElement;
+    this.stateService.videoStart$.subscribe(playing => this.toggle_play(playing))
   }
 
-  pause(): void {
-    this.video_native_element.pause();
-    this.sock.close()
-    this.setPlaying();
-  }
-
-  resume(setup_camera = true): void {
-    let is_active_camera = this.video_native_element.srcObject?.active;
-    if (setup_camera = !is_active_camera){
-      navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } }).then(stream => {
-        this.video_native_element.srcObject = stream;
+  toggle_play(play: boolean): void {
+    if (play){
+      if (!this.video_native_element.srcObject?.active){
+        navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } }).then(stream => {
+          this.video_native_element.srcObject = stream;
+          this.setup_stream()
+          this.processedCanvas.nativeElement.style.visibility = "visible";
+        },
+        error => {
+          this.snackBar.open('Camera not found.', 'Confirm', {
+            duration: 2000
+          });
+        }
+      );
+      }else{
         this.setup_stream()
-        this.processedCanvas.nativeElement.style.visibility = "visible";
-      },
-      error => {
-        this.snackBar.open('Camera not found.', 'Confirm', {
-          duration: 2000
-        });
       }
-    );
-    }else{
-      this.setup_stream()
+    } else {
+      this.video_native_element.pause();
+      if (this.sock) {
+      this.sock.close()
+      }
+      this.setPlaying();
     }
+
   }
 
   private setup_stream(): void {
@@ -216,9 +227,9 @@ export class DisplayComponent implements AfterViewInit, OnInit {
   };
 
   setPlaying(): void {
-    this.videoPlaying = this.video_native_element.paused==false
+    this.stateService.setVideoPlaying(this.video_native_element.paused==false
       && this.sock.readyState == WebSocket.OPEN
-      && this.video_native_element.srcObject.active;
+      && this.video_native_element.srcObject.active)
   }
 
   updateCanvas(): void {
@@ -239,6 +250,8 @@ export class DisplayComponent implements AfterViewInit, OnInit {
       this.processedCanvas.nativeElement.width = w;
       this.processedCanvas.nativeElement.height = w / aspectRatio;
     }
+    this.drawProcessedFrame();
+
   }
 
   updateUnprocessedCanvas(): void {

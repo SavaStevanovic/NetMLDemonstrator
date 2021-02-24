@@ -1,15 +1,19 @@
 .menu {
   width: 250px;
 }
-.menu_toggle {
-  position: fixed;
-  bottom: 0.6em;
-  right: 0px;
-  z-index: 5;
+
+.main {
+  height: calc(100% - 46px);
 }
-.mat-drawer-container{
+
+.footer {
+  height: 46px;
+}
+
+.mat-drawer-container {
   height: 100%;
 }
-.mat-drawer-content{
+
+.mat-drawer-content {
   overflow: hidden;
 }

@@ -1,13 +1,13 @@
 import { TestBed } from '@angular/core/testing';
 
-import { SockjsMessageService } from './sockjs-message.service';
+import { StateService } from './state.service';
 
-describe('SockjsMessageService', () => {
-  let service: SockjsMessageService;
+describe('StateService', () => {
+  let service: StateService;
 
   beforeEach(() => {
     TestBed.configureTestingModule({});
-    service = TestBed.inject(SockjsMessageService);
+    service = TestBed.inject(StateService);
   });
 
   it('should be created', () => {

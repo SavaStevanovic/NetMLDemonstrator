@@ -1,5 +1,5 @@
 import { BrowserModule } from '@angular/platform-browser';
-import { NgModule } from '@angular/core';
+import { NgModule, Injectable } from '@angular/core';
 import { WebcamModule } from 'ngx-webcam';
 import { AppRoutingModule } from './app-routing.module';
 import { AppComponent } from './app.component';
@@ -20,6 +20,18 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatSnackBarModule } from '@angular/material/snack-bar';
 import { ToolbarComponent } from './components/toolbar/toolbar.component';
 import { MatSidenavModule } from '@angular/material/sidenav';
+import { MatCardModule } from '@angular/material/card';
+import { HammerModule, HammerGestureConfig } from '@angular/platform-browser';
+import * as Hammer from 'hammerjs';
+import { FooterComponent } from './components/footer/footer.component';
+import { StateService } from './services/state/state.service'
+
+@Injectable()
+export class MyHammerConfig extends HammerGestureConfig {
+  overrides = <any> {
+    swipe: { direction: Hammer.DIRECTION_ALL },
+  };
+}
 
 @NgModule({
   declarations: [
@@ -28,6 +40,7 @@ import { MatSidenavModule } from '@angular/material/sidenav';
     FilterComponent,
     DisplayComponent,
     ToolbarComponent,
+    FooterComponent,
   ],
   imports: [
     WebcamModule,
@@ -45,9 +58,11 @@ import { MatSidenavModule } from '@angular/material/sidenav';
     MatIconModule,
     MatButtonModule,
     MatSnackBarModule,
-    MatSidenavModule
+    MatSidenavModule,
+    HammerModule,
+    MatCardModule
   ],
-  providers: [],
+  providers: [StateService],
   bootstrap: [AppComponent]
 })
 export class AppModule { }

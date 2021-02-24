@@ -1,15 +1,13 @@
-<mat-drawer-container>
-  <mat-drawer #drawer mode="side" class="menu" opened (openedChange)="disp.resizeCanvas()">
-    <app-toolbar></app-toolbar>
-    <app-filters></app-filters>
-  </mat-drawer>
-  <mat-drawer-content>
-    <app-display #disp ></app-display>
-  </mat-drawer-content>
-</mat-drawer-container>
-<button mat-mini-fab (click)="drawer.toggle()" [color]="drawer.opened? 'warn' : 'primary'" class="menu_toggle" >
-  <mat-icon >
-    menu
-  </mat-icon>
-</button>
-<router-outlet></router-outlet>
+<div class="main">
+  <mat-drawer-container (swipeleft)="drawer.opened = false" (swiperight)="drawer.opened = true" >
+    <mat-drawer #drawer  mode="side" class="menu" opened (openedChange)="disp.resizeCanvas()">
+      <app-toolbar></app-toolbar>
+      <app-filters></app-filters>
+    </mat-drawer>
+    <mat-drawer-content>
+      <app-display #disp></app-display>
+    </mat-drawer-content>
+  </mat-drawer-container>
+  <app-footer class="footer" (menuToggled) = "drawer.opened = !drawer.opened"></app-footer>
+  <router-outlet></router-outlet>
+</div>

@@ -2,13 +2,15 @@
   height: calc(100% - 3em);
   max-width: calc(100%);
 }
+
 .inputElement {
-  visibility:hidden;
+  visibility: hidden;
   z-index: 3;
   position: fixed;
 }
+
 .outputElement {
-  visibility:hidden;
+  visibility: hidden;
   background-color: #666;
   z-index: 5;
   border: 4px #333 solid;
@@ -16,12 +18,4 @@
   margin-left: auto;
   margin-right: auto;
   display: block;
-}
-.video-control {
-  width: 6em!important;
-}
-.controls{
- height: 3em;
- white-space: nowrap;
- overflow: hidden;
 }
