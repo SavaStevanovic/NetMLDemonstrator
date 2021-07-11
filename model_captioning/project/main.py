@@ -9,7 +9,7 @@ th_count = 24
 
 dataloader = UnifiedDataloader(batch_size = 32, th_count=th_count)
 
-net = networks.AoANet(512, dataloader.vectorizer)
+net = networks.LSTM(512, dataloader.vectorizer)
 net.grad_backbone(False)
 
 fit(net, 

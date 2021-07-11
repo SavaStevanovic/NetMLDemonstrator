@@ -14,9 +14,14 @@
   min-width: 24px;
 }
 
+.mat-toolbar {
+  font-size: 16px;
+}
+
 .play-button {
-  width: 80px;
-  min-width: 80px;
+  width: 60px;
+  min-width: 60px;
+  padding: 0;
 }
 
 .spacer {

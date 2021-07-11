@@ -122,7 +122,7 @@ def fit(net, trainloader, validationloader, epochs=1000, lower_learning_period=1
         net = torch.load(checkpoint_name_path)
         train_config.load(checkpoint_conf_path)
     net.cuda()
-
+    
     writer = SummaryWriter(os.path.join('logs', model_dir_header))
 
     images, label, _ = next(iter(trainloader))

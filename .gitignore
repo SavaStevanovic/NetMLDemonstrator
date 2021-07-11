@@ -138,3 +138,10 @@ checkpoints/
 
 # data
 val2017
+
+model_captioning/project/DATA_DIR/
+
+#caches and helper files
+labels*.txt
+output.txt
+*.p

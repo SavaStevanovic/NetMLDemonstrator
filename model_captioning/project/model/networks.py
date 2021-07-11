@@ -16,13 +16,15 @@ class LSTM(nn.Module, utils.Identifier):
         self.inplanes = inplanes
         self.vectorizer = vectorizer
 
-        modules = list(models.resnet50().children())[:-1]
+        self.dropout = nn.Dropout(p=0.5)
+
+        modules = list(models.resnet101(pretrained=True).children())[:-1]
         self.backbone = nn.Sequential(*modules)
         self.depth = 5
         self.encoder_layer = nn.Linear(2048, self.inplanes)
         self.sequence_cell = nn.LSTMCell(self.inplanes, self.inplanes)
-        self.word_encoder = nn.Embedding(len(self.vectorizer.vocab), 300)
-        self.word_compresser = nn.Linear(300, self.inplanes)
+        self.word_encoder = nn.Embedding(len(self.vectorizer.vocab), self.inplanes)
+        self.word_compresser = nn.Linear(self.inplanes, self.inplanes)
 
         self.out_layer = nn.Linear(self.inplanes, len(self.vectorizer.vocab))
 
@@ -30,31 +32,22 @@ class LSTM(nn.Module, utils.Identifier):
         for param in self.backbone.parameters():
             param.requires_grad = freeze
 
-    def forward(self, encoder_input, x, state = None):
-        state = None
-        outputs = torch.zeros((labels.shape[0], len(net.vectorizer.vocab), labels.shape[1]), device = 'cuda')
-        d = image.cuda()
-        start = 0
-        init_axis = 0
-        for l in label_lens:
-            end = l[0]
-            for j in range(start, end):
-                output, state = net(d, state)
-                outputs[-len(output):, :, j] = output
-                d = labels_cuda[init_axis:, j] 
-            state = (state[0][l[1]:], state[1][l[1]:])
-            init_axis += l[1]
-            d = labels_cuda[init_axis:, j]
-            start = end
+    def forward(self, images, labels):
+        #for summary
+        if labels.type()=='torch.cuda.FloatTensor':
+            labels = torch.ones((len(images), 1)).long().cuda()
 
-        # if state:
-        #     x = self.word_encoder(x)
-        #     x = self.word_compresser(x)
-        # else:    
-        #     x = self.encoder_layer(encoder_input.flatten(1))
-        # state = self.sequence_cell(x, state)
+        img_encoded = self.backbone(images).squeeze(-1).squeeze(-1)
+        img_encoded = self.encoder_layer(img_encoded)
+        outputs    = []
+        state = self.sequence_cell(img_encoded)
+        for j in range(labels.shape[1]):
+            word_enc = self.word_encoder(labels[:, j] )
+            state = self.sequence_cell(word_enc, state)
+            output = self.out_layer(self.dropout(state[0]))
+            outputs.append(output)
 
-        # return self.out_layer(state[0]), state
+        return torch.stack(outputs, -1), torch.tensor([])
            
 
 class AttLSTM(nn.Module, utils.Identifier):
@@ -186,7 +179,7 @@ class AoANet(nn.Module, utils.Identifier):
         #for summary
         if labels.type()=='torch.cuda.FloatTensor':
             labels = torch.ones((len(images), 1)).long().cuda()
-
+        
         outputs    = []
 
         img_encoded = self.backbone(images)
@@ -206,5 +199,50 @@ class AoANet(nn.Module, utils.Identifier):
         return torch.stack(outputs, -1), torch.tensor([])
 
     def forward_single_inference(self, images, beam_size):
-      
-        return None
+        # beam_size += 2
+        outputs    = []
+        outs = [(torch.tensor([]), 0) for _ in range(len(images))]
+        cur_indexes = list(range(len(images)))
+        img_encoded = self.backbone(images)
+        outputs   = torch.zeros((len(images), beam_size, 0), dtype=torch.long, device='cuda')
+        sos_index = np.where(self.vectorizer.vocab == self.vectorizer.sos_token)[0][0]
+        eos_index = np.where(self.vectorizer.vocab == self.vectorizer.eos_token)[0][0]
+        labels = torch.tensor([[sos_index for _ in range(1)] for _ in range(len(images))], dtype=torch.long, device='cuda')
+        scores = torch.zeros_like(labels, dtype=torch.float, device='cuda')
+
+        img_encoded = self.backbone(images)
+        img_encoded = self.enc_projector(img_encoded)
+        image_enc_mean = img_encoded.mean((2, 3))
+        state = self.hidden_layer(image_enc_mean), self.state_layer(image_enc_mean)
+        state = list(zip(*[[s for s in state] for _ in range(1)]))
+        state = [torch.stack(s).permute(1,0,2) for s in state]
+        context = torch.zeros((img_encoded.shape[:2]), device='cuda').unsqueeze(1)
+        img_encoded_shape = img_encoded.shape
+        for j in range(50):
+            img_encoded = img_encoded.flatten(2).permute(0, 2, 1)
+            ref_enc = self.refiners(img_encoded)
+            img_encoded = img_encoded.permute(0, 2, 1).view(img_encoded_shape)
+            data = list(zip(*[self.decoder(img_encoded, labels[:, p], context[:, p], [s[:, p] for s in state]) for p in range(state[0].shape[1])])) 
+            output, context, s, h = (torch.stack(d).permute(1, 0, 2) for d in data)
+            state = (s, h)
+            ts, ti = (scores.unsqueeze(-1) + output.softmax(-1)).flatten(1).topk(beam_size)
+            labels =  ti.remainder(len(self.vectorizer.vocab))
+            indx = ti // (len(self.vectorizer.vocab))
+            state = [torch.stack([s[p, idx] for p, idx in enumerate(indx)]) for s in state]
+            outputs = torch.stack([outputs[p, idx] for p, idx in enumerate(indx)])
+            context = torch.stack([context[p, idx] for p, idx in enumerate(indx)])
+            scores = ts
+            outputs = torch.cat((outputs, labels.unsqueeze(-1)), -1)
+
+            finished = (labels == eos_index).nonzero(as_tuple = False)
+            for f in finished:
+                if outs[cur_indexes[f[0]]][1] != 0 and ts[f[0], f[1]]>0:
+                    oo=0
+                if outs[cur_indexes[f[0]]][1] == 0:
+                    outs[cur_indexes[f[0]]] = (outputs[f[0], f[1]], ts[f[0], f[1]].item())
+                    ts[f[0], f[1]] = -100
+
+            if sum([outs[p][1] == 0 for p in cur_indexes])==0:
+                break
+            
+        return [o[0].detach().cpu().numpy() for o in outs]
