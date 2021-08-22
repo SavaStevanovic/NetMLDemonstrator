@@ -6,3 +6,4 @@ matplotlib
 IPython
 tqdm
 pyglet
+torch-tb-profiler

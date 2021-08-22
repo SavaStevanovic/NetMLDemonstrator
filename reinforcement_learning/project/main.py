@@ -1,8 +1,8 @@
 
+from collections import deque
 import gym
 from torch.utils.data import DataLoader
 from model import networks
-from PIL import Image
 import torchvision.transforms as T
 from data_loader.augmentation import ResizeTransform
 from model import blocks
@@ -19,6 +19,9 @@ from IPython import display
 from tqdm import tqdm
 from data_loader.rldata import RLDataset, Transition, rl_collate_fn
 from torchvision.utils import save_image
+from torch.utils.tensorboard import SummaryWriter
+from statistics import mean
+import os
 matplotlib.use('TkAgg')
 
 env = gym.make('CartPole-v0')
@@ -64,11 +67,6 @@ def get_screen():
 
 
 env.reset()
-plt.figure()
-plt.imshow(get_screen().cpu().squeeze(0).permute(1, 2, 0).numpy(),
-           interpolation='none')
-plt.title('Example extracted screen')
-plt.show()
 
 BATCH_SIZE = 128
 GAMMA = 0.999
@@ -94,7 +92,6 @@ target_net.eval()
 optimizer = optim.RMSprop(policy_net.parameters())
 memory = RLDataset(10000)
 memory_dataloader = iter(DataLoader(memory, batch_size=BATCH_SIZE, shuffle=True, num_workers=1, pin_memory=False, collate_fn=rl_collate_fn))
-# memory_dataloader = RLDataLoader(dloater)
 
 steps_done = 0
 
@@ -117,26 +114,7 @@ def select_action(state):
         return torch.tensor([[random.randrange(env.action_space.n)]], dtype=torch.long).cuda()
 
 
-episode_durations = []
-
-
-def plot_durations():
-    plt.figure(2)
-    plt.clf()
-    durations_t = torch.tensor(episode_durations, dtype=torch.float)
-    plt.title('Training...')
-    plt.xlabel('Episode')
-    plt.ylabel('Duration')
-    plt.plot(durations_t.numpy())
-    # Take 100 episode averages and plot them too
-    if len(durations_t) >= 100:
-        means = durations_t.unfold(0, 100, 1).mean(1).view(-1)
-        means = torch.cat((torch.zeros(99), means))
-        plt.plot(means.numpy())
-
-    plt.pause(0.001)  # pause a bit so that plots are updated
-    display.clear_output(wait=True)
-    display.display(plt.gcf())
+episode_durations = deque([],maxlen=100)
 
 def optimize_model():
     if len(memory) < BATCH_SIZE:
@@ -177,7 +155,10 @@ def optimize_model():
         param.grad.data.clamp_(-1, 1)
     optimizer.step()
 
-num_episodes = 500
+writer = SummaryWriter(os.path.join('logs', target_net.get_identifier()))
+writer.add_image('Model view', get_screen().cpu().squeeze(0))
+
+num_episodes = 5000
 for i_episode in tqdm(range(num_episodes)):
     # Initialize the environment and state
     env.reset()
@@ -212,11 +193,11 @@ for i_episode in tqdm(range(num_episodes)):
         optimize_model()
         if done:
             episode_durations.append(t + 1)
-            plot_durations()
+            writer.add_scalars('Duration', {'current': episode_durations[-1], 'mean': mean(episode_durations)}, i_episode)
             break
     # Update the target network, copying all weights and biases in DQN
     if (i_episode + 1) % TARGET_UPDATE == 0:
-        save_image((current_screen - last_screen+1)[0]/2, 'img1.png')
+        # save_image((current_screen - last_screen+1)[0]/2, 'img1.png')
         target_net.load_state_dict(policy_net.state_dict())
 
 print('Complete')
