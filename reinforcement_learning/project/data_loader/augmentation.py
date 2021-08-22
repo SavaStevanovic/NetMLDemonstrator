@@ -4,6 +4,8 @@ import numpy as np
 from PIL import Image, ImageFilter
 import io
 from torchvision.transforms import InterpolationMode
+import torch
+import typing
 
 class PairCompose(object):
     def __init__(self, transforms):
@@ -22,31 +24,6 @@ class PairCompose(object):
         format_string += '\n)'
         return format_string
 
-class RandomCropTransform(object):
-    def __init__(self, crop_size):
-        self.crop_size = crop_size
-
-    def __call__(self, image, label):
-        padding_x = max(self.crop_size[0]-image.size[0],0)
-        padding_y = max(self.crop_size[1]-image.size[1],0)
-        image = transforms.functional.pad(image, (0, 0, padding_x, padding_y))
-        x = random.randint(self.crop_size[0]//2, image.size[0]-self.crop_size[0]//2)
-        y = random.randint(self.crop_size[1]//2, image.size[1]-self.crop_size[1]//2)
-        image = image.crop((x-self.crop_size[0]//2, y-self.crop_size[1]//2, x+self.crop_size[0]//2, y+self.crop_size[1]//2))
-        for i, l in enumerate(label):
-            bbox = l['bbox']
-            bbox_center = bbox[0]+bbox[2]/2, bbox[1]+bbox[3]/2
-            if abs(bbox_center[0]-x)<self.crop_size[0]//2 and abs(bbox_center[1]-y)<self.crop_size[1]//2:
-                bbox[0]=max(self.crop_size[0]//2 + bbox_center[0] - x - bbox[2]/2, 0)
-                bbox[1]=max(self.crop_size[1]//2 + bbox_center[1] - y - bbox[3]/2, 0)
-                bbox[2]=min(bbox[2], self.crop_size[0]-bbox[0])
-                bbox[3]=min(bbox[3], self.crop_size[1]-bbox[1])
-                label[i]['bbox'] = bbox
-            else:
-                label[i]=None
-        label = [l for l in label if l is not None]
-        return image, label
-
 class RandomHorizontalFlipTransform(object):
     def __call__(self, image, label):
         p = random.random()
@@ -61,11 +38,11 @@ class RandomHorizontalFlipTransform(object):
         return image, label
 
 class ResizeTransform(object):
-    def __init__(self, size: int):
+    def __init__(self, size: typing.Tuple[int]):
         self._size = size
 
     def __call__(self, image):
-        image = transforms.functional.resize(image, self._size, InterpolationMode.LANCZOS)
+        image = torch.nn.functional.interpolate(image.unsqueeze(0), self._size, mode = "area")
        
         return image
 

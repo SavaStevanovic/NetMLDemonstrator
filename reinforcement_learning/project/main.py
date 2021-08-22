@@ -1,7 +1,6 @@
 
 import gym
-from dataclasses import dataclass
-from collections import deque, namedtuple
+from torch.utils.data import DataLoader
 from model import networks
 from PIL import Image
 import torchvision.transforms as T
@@ -18,53 +17,19 @@ import matplotlib
 import torch.nn as nn
 from IPython import display
 from tqdm import tqdm
-import time
+from data_loader.rldata import RLDataset, Transition, rl_collate_fn
+from torchvision.utils import save_image
 matplotlib.use('TkAgg')
-
-# @dataclass
-# class Transition():
-#     state: float
-#     action: float
-#     next_state: float
-#     reward: float
-
-
-# class ReplayMemory():
-#     def __init__(self, capacity: int):
-#         self._memory = deque([], maxlen=capacity)
-    
-#     def push(self, transition: Transition):
-#         self._memory.append(transition)
-    
-#     def sample(self, batch_size: int):
-#         return random.sample(self._memory, batch_size)
-
-#     def __len__(self):
-#         return len(self._memory)
-Transition = namedtuple('Transition',
-                        ('state', 'action', 'next_state', 'reward'))
-
-
-class ReplayMemory(object):
-
-    def __init__(self, capacity):
-        self.memory = deque([],maxlen=capacity)
-
-    def push(self, *args):
-        """Save a transition"""
-        self.memory.append(Transition(*args))
-
-    def sample(self, batch_size):
-        return random.sample(self.memory, batch_size)
-
-    def __len__(self):
-        return len(self.memory)
 
 env = gym.make('CartPole-v0')
 
-resize = T.Compose([T.ToPILImage(),
-                    ResizeTransform(40),
-                    T.ToTensor()])
+resize = T.Compose(
+    [
+        T.ToPILImage(),
+        T.ToTensor(),
+        ResizeTransform((40, 30))
+    ]
+)
 
 
 def get_cart_location(screen_width):
@@ -79,7 +44,7 @@ def get_screen():
     # Cart is in the lower half, so strip off the top and bottom of the screen
     _, screen_height, screen_width = screen.shape
     screen = screen[:, int(screen_height*0.4):int(screen_height * 0.8)]
-    view_width = int(screen_width * 0.6)
+    view_width = int(screen_width * 0.2)
     cart_location = get_cart_location(screen_width)
     if cart_location < view_width // 2:
         slice_range = slice(view_width)
@@ -95,7 +60,7 @@ def get_screen():
     screen = np.ascontiguousarray(screen, dtype=np.float32) / 255
     screen = torch.from_numpy(screen)
     # Resize, and add a batch dimension (BCHW)
-    return resize(screen).unsqueeze(0)
+    return resize(screen)
 
 
 env.reset()
@@ -119,7 +84,7 @@ init_screen = get_screen()
 _, _, screen_height, screen_width = init_screen.shape
 
 # Get number of actions from gym action space
-backbone = networks.ResNetBackbone(inplanes = 16, block = blocks.BasicBlock, block_counts = [1, 1, 1])
+backbone = networks.ResNetBackbone(inplanes = 64, block = blocks.BasicBlock, block_counts = [1, 1, 1])
 net = networks.LinearNet(backbone = [backbone], output_size = env.action_space.n)
 policy_net = networks.LinearNet(backbone = [backbone], output_size = env.action_space.n).cuda()
 target_net = networks.LinearNet(backbone = [backbone], output_size = env.action_space.n).cuda()
@@ -127,8 +92,9 @@ target_net.load_state_dict(policy_net.state_dict())
 target_net.eval()
 
 optimizer = optim.RMSprop(policy_net.parameters())
-memory = ReplayMemory(10000)
-
+memory = RLDataset(10000)
+memory_dataloader = iter(DataLoader(memory, batch_size=BATCH_SIZE, shuffle=True, num_workers=1, pin_memory=False, collate_fn=rl_collate_fn))
+# memory_dataloader = RLDataLoader(dloater)
 
 steps_done = 0
 
@@ -175,11 +141,8 @@ def plot_durations():
 def optimize_model():
     if len(memory) < BATCH_SIZE:
         return
-    transitions = memory.sample(BATCH_SIZE)
-    # Transpose the batch (see https://stackoverflow.com/a/19343/3343043 for
-    # detailed explanation). This converts batch-array of Transitions
-    # to Transition of batch-arrays.
-    batch = Transition(*zip(*transitions))
+    
+    batch = memory.sample(BATCH_SIZE)
 
     # Compute a mask of non-final states and concatenate the batch elements
     # (a final state would've been the one after which simulation ended)
@@ -187,14 +150,11 @@ def optimize_model():
                                           batch.next_state)), dtype=torch.bool).cuda()
     non_final_next_states = torch.cat([s for s in batch.next_state
                                                 if s is not None])
-    state_batch = torch.cat(batch.state)
-    action_batch = torch.cat(batch.action)
-    reward_batch = torch.cat(batch.reward)
 
     # Compute Q(s_t, a) - the model computes Q(s_t), then we select the
     # columns of actions taken. These are the actions which would've been taken
     # for each batch state according to policy_net
-    state_action_values = policy_net(state_batch.cuda()).gather(1, action_batch)
+    state_action_values = policy_net(batch.state.cuda()).gather(1, batch.action.cuda())
 
     # Compute V(s_{t+1}) for all next states.
     # Expected values of actions for non_final_next_states are computed based
@@ -204,7 +164,7 @@ def optimize_model():
     next_state_values = torch.zeros(BATCH_SIZE).cuda()
     next_state_values[non_final_mask] = target_net(non_final_next_states.cuda()).max(1)[0].detach()
     # Compute the expected Q values
-    expected_state_action_values = (next_state_values * GAMMA) + reward_batch
+    expected_state_action_values = (next_state_values * GAMMA) + batch.reward.cuda()
 
     # Compute Huber loss
     criterion = nn.SmoothL1Loss()
@@ -235,11 +195,15 @@ for i_episode in tqdm(range(num_episodes)):
         current_screen = get_screen()
         if not done:
             next_state = current_screen - last_screen
+            # plt.imshow((next_state[0].permute(1, 2, 0)+1)/2)
+            # plt.pause(0.001)  # pause a bit so that plots are updated
+            # display.clear_output(wait=True)
+            # display.display(plt.gcf())
         else:
             next_state = None
 
         # Store the transition in memory
-        memory.push(state, action, next_state, reward)
+        memory.push(Transition(state, action.cpu(), next_state, reward.cpu()))
 
         # Move to the next state
         state = next_state
@@ -251,7 +215,8 @@ for i_episode in tqdm(range(num_episodes)):
             plot_durations()
             break
     # Update the target network, copying all weights and biases in DQN
-    if i_episode % TARGET_UPDATE == 0:
+    if (i_episode + 1) % TARGET_UPDATE == 0:
+        save_image((current_screen - last_screen+1)[0]/2, 'img1.png')
         target_net.load_state_dict(policy_net.state_dict())
 
 print('Complete')

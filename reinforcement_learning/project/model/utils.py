@@ -6,14 +6,6 @@ class Identifier(object):
         idt = self.__class__.__name__
         if hasattr(self, 'inplanes'): 
             idt+='/'+str(self.inplanes)
-        if hasattr(self, 'paf_stages'): 
-            idt+='/'+str(self.paf_stages)
-        if hasattr(self, 'map_stages'): 
-            idt+='/'+str(self.map_stages)
-        if hasattr(self, 'paf_planes'): 
-            idt+='/'+str(self.paf_planes)
-        if hasattr(self, 'map_planes'): 
-            idt+='/'+str(self.map_planes)
         if hasattr(self, 'block_counts'): 
             idt+='/'+'-'.join([str(x) for x in self.block_counts])
         if hasattr(self, 'ratios'): 
