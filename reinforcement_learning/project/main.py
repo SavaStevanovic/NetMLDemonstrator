@@ -3,11 +3,7 @@ from collections import deque
 import gym
 from torch.utils.data import DataLoader
 from model import networks
-import torchvision.transforms as T
-from data_loader.augmentation import ResizeTransform
 from model import blocks
-import matplotlib.pyplot as plt
-import numpy as np
 import torch
 import torch.optim as optim
 from itertools import count
@@ -15,58 +11,15 @@ import random
 import math
 import matplotlib
 import torch.nn as nn
-from IPython import display
+from environment.visual_env import VisualEnv
 from tqdm import tqdm
 from data_loader.rldata import RLDataset, Transition, rl_collate_fn
-from torchvision.utils import save_image
 from torch.utils.tensorboard import SummaryWriter
 from statistics import mean
 import os
 matplotlib.use('TkAgg')
 
-env = gym.make('CartPole-v0')
-
-resize = T.Compose(
-    [
-        T.ToPILImage(),
-        T.ToTensor(),
-        ResizeTransform((40, 30))
-    ]
-)
-
-
-def get_cart_location(screen_width):
-    world_width = env.x_threshold * 2
-    scale = screen_width / world_width
-    return int(env.state[0] * scale + screen_width / 2.0)  # MIDDLE OF CART
-
-def get_screen():
-    # Returned screen requested by gym is 400x600x3, but is sometimes larger
-    # such as 800x1200x3. Transpose it into torch order (CHW).
-    screen = env.render(mode='rgb_array').transpose((2, 0, 1))
-    # Cart is in the lower half, so strip off the top and bottom of the screen
-    _, screen_height, screen_width = screen.shape
-    screen = screen[:, int(screen_height*0.4):int(screen_height * 0.8)]
-    view_width = int(screen_width * 0.2)
-    cart_location = get_cart_location(screen_width)
-    if cart_location < view_width // 2:
-        slice_range = slice(view_width)
-    elif cart_location > (screen_width - view_width // 2):
-        slice_range = slice(-view_width, None)
-    else:
-        slice_range = slice(cart_location - view_width // 2,
-                            cart_location + view_width // 2)
-    # Strip off the edges, so that we have a square image centered on a cart
-    screen = screen[:, :, slice_range]
-    # Convert to float, rescale, convert to torch tensor
-    # (this doesn't require a copy)
-    screen = np.ascontiguousarray(screen, dtype=np.float32) / 255
-    screen = torch.from_numpy(screen)
-    # Resize, and add a batch dimension (BCHW)
-    return resize(screen)
-
-
-env.reset()
+visual_env = VisualEnv(gym.make('CartPole-v0'))
 
 BATCH_SIZE = 128
 GAMMA = 0.999
@@ -75,17 +28,18 @@ EPS_END = 0.05
 EPS_DECAY = 200
 TARGET_UPDATE = 10
 
+visual_env.env.reset()
 # Get screen size so that we can initialize layers correctly based on shape
 # returned from AI gym. Typical dimensions at this point are close to 3x40x90
 # which is the result of a clamped and down-scaled render buffer in get_screen()
-init_screen = get_screen()
+init_screen = visual_env.get_screen()
 _, _, screen_height, screen_width = init_screen.shape
 
 # Get number of actions from gym action space
 backbone = networks.ResNetBackbone(inplanes = 64, block = blocks.BasicBlock, block_counts = [1, 1, 1])
-net = networks.LinearNet(backbone = [backbone], output_size = env.action_space.n)
-policy_net = networks.LinearNet(backbone = [backbone], output_size = env.action_space.n).cuda()
-target_net = networks.LinearNet(backbone = [backbone], output_size = env.action_space.n).cuda()
+net = networks.LinearNet(backbone = [backbone], output_size = visual_env.env.action_space.n)
+policy_net = networks.LinearNet(backbone = [backbone], output_size = visual_env.env.action_space.n).cuda()
+target_net = networks.LinearNet(backbone = [backbone], output_size = visual_env.env.action_space.n).cuda()
 target_net.load_state_dict(policy_net.state_dict())
 target_net.eval()
 
@@ -111,7 +65,7 @@ def select_action(state):
             # found, so we pick action with the larger expected reward.
             return policy_net(state.cuda()).max(1)[1].view(1, 1)
     else:
-        return torch.tensor([[random.randrange(env.action_space.n)]], dtype=torch.long).cuda()
+        return torch.tensor([[random.randrange(visual_env.env.action_space.n)]], dtype=torch.long).cuda()
 
 
 episode_durations = deque([],maxlen=100)
@@ -156,30 +110,26 @@ def optimize_model():
     optimizer.step()
 
 writer = SummaryWriter(os.path.join('logs', target_net.get_identifier()))
-writer.add_image('Model view', get_screen().cpu().squeeze(0))
+writer.add_image('Model view', visual_env.get_screen().cpu().squeeze(0))
 
 num_episodes = 5000
 for i_episode in tqdm(range(num_episodes)):
     # Initialize the environment and state
-    env.reset()
-    last_screen = get_screen()
-    current_screen = get_screen()
+    visual_env.env.reset()
+    last_screen = visual_env.get_screen()
+    current_screen = visual_env.get_screen()
     state = current_screen - last_screen
     for t in count():
         # Select and perform an action
         action = select_action(state)
-        _, reward, done, _ = env.step(action.item())
+        _, reward, done, _ = visual_env.env.step(action.item())
         reward = torch.tensor([reward]).cuda()
 
         # Observe new state
         last_screen = current_screen
-        current_screen = get_screen()
+        current_screen = visual_env.get_screen()
         if not done:
             next_state = current_screen - last_screen
-            # plt.imshow((next_state[0].permute(1, 2, 0)+1)/2)
-            # plt.pause(0.001)  # pause a bit so that plots are updated
-            # display.clear_output(wait=True)
-            # display.display(plt.gcf())
         else:
             next_state = None
 
@@ -201,7 +151,5 @@ for i_episode in tqdm(range(num_episodes)):
         target_net.load_state_dict(policy_net.state_dict())
 
 print('Complete')
-env.render()
-env.close()
-plt.ioff()
-plt.show()
+visual_env.env.render()
+visual_env.env.close()
