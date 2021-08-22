@@ -3,6 +3,7 @@ from collections import deque
 import torch
 import random
 from collections.abc import Iterable
+import pickle
 
 class Transition():
     def __init__(self, state, action, next_state, reward):
@@ -33,3 +34,13 @@ class RLDataset(Dataset):
     
     def sample(self, batch_size):
         return rl_collate_fn(random.sample(self._memory, batch_size))
+
+    def save(self, path):
+        with open(path, 'wb') as f:
+            pickle.dump(self.__dict__, f)
+
+    def load(self, path):
+        with open(path, 'rb') as f:
+            data = pickle.load(f)
+        for key, value in data.items():
+            setattr(self, key, value)
