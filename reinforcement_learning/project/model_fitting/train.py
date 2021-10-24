@@ -11,6 +11,7 @@ import random
 from model_fitting.train import TrainingConfiguration
 import math
 from statistics import mean
+from torchsummary import summary
 
 def select_action(policy_net, state, size, config: TrainingConfiguration):
     sample = random.random()
@@ -24,16 +25,10 @@ def select_action(policy_net, state, size, config: TrainingConfiguration):
             # found, so we pick action with the larger expected reward.
             return policy_net(state.cuda()).max(1)[1].view(1, 1)
     else:
+        # print(sample, eps_threshold)
         return torch.tensor([[random.randrange(size)]], dtype=torch.long).cuda()
 
 def optimize_model(target_net, policy_net, criterion, batch, config: TrainingConfiguration):
-
-    # Compute a mask of non-final states and concatenate the batch elements
-    # (a final state would've been the one after which simulation ended)
-    non_final_mask = torch.tensor(tuple(map(lambda s: s is not None,
-                                          batch.next_state)), dtype=torch.bool).cuda()
-    non_final_next_states = torch.cat([s for s in batch.next_state
-                                                if s is not None])
 
     # Compute Q(s_t, a) - the model computes Q(s_t), then we select the
     # columns of actions taken. These are the actions which would've been taken
@@ -45,14 +40,13 @@ def optimize_model(target_net, policy_net, criterion, batch, config: TrainingCon
     # on the "older" target_net; selecting their best reward with max(1)[0].
     # This is merged based on the mask, such that we'll have either the expected
     # state value or 0 in case the state was final.
-    next_state_values = torch.zeros(config.BATCH_SIZE).cuda()
-    next_state_values[non_final_mask] = target_net(non_final_next_states.cuda()).max(1)[0].detach()
+    next_state_values = target_net(batch.next_state.cuda()).max(1)[0].detach()
     # Compute the expected Q values
     expected_state_action_values = (next_state_values * config.GAMMA) + batch.reward.cuda()
 
     # Compute Huber loss
     loss = criterion(state_action_values, expected_state_action_values.unsqueeze(1))
-
+    # print(loss.item())
     return loss
 
 def fit(target_net, policy_net, visual_env):
@@ -62,14 +56,14 @@ def fit(target_net, policy_net, visual_env):
     checkpoint_memo_path = os.path.join(chp_dir, 'mem_checkpoints.pth')
     checkpoint_name_path = os.path.join(chp_dir, 'checkpoints.pth')
     checkpoint_conf_path = os.path.join(chp_dir, 'configuration.json')
-    memory = RLDataset(10000)
+    memory = RLDataset(2000)
     train_config = TrainingConfiguration()
-    optimizer = torch.optim.RMSprop(policy_net.parameters(), train_config.learning_rate)
     writer = SummaryWriter(os.path.join('logs', target_net.get_identifier()))
-    screen = visual_env.get_screen().cpu()
-    target_net(screen.cuda())
-    policy_net(screen.cuda())
-    writer.add_image('Model view', screen.squeeze(0))
+    screen, state = visual_env.get_screen()
+    target_net(state.cuda())
+    policy_net(state.cuda())
+    optimizer = torch.optim.Adam(policy_net.parameters(), train_config.learning_rate)
+    writer.add_image('Model view', screen)
     if os.path.exists(chp_dir):
         checkpoint = torch.load(checkpoint_name_path)
         target_net.load_state_dict(checkpoint["model_state"])
@@ -79,35 +73,26 @@ def fit(target_net, policy_net, visual_env):
         target_net.eval()
         memory.load(checkpoint_memo_path)
         train_config.load(checkpoint_conf_path)
-
+    _, state = visual_env.get_screen()
+    target_net(state.cuda())
+    summary(target_net, tuple(state.shape[1:]))
     criterion = nn.SmoothL1Loss()
     for i_episode in tqdm(range(train_config.epoch, train_config.EPOCHS)):
         # Initialize the environment and state
         visual_env.env.reset()
-        last_screen = visual_env.get_screen()
-        current_screen = visual_env.get_screen()
-        state = current_screen - last_screen
-        for t in count():
+        for tttttt in count():
+            _, state = visual_env.get_screen()
             # Select and perform an action
             if train_config.steps_done == 0:
                 target_net(state.cuda())
             action = select_action(policy_net, state, visual_env.env.action_space.n, train_config)
-            _, reward, done, _ = visual_env.env.step(action.item())
+            new_state, reward, done, _ = visual_env.env.step(action.item())
             reward = torch.tensor([reward]).cuda()
-
-            # Observe new state
-            last_screen = current_screen
-            current_screen = visual_env.get_screen()
-            if not done:
-                next_state = current_screen - last_screen
-            else:
-                next_state = None
+            if done:
+                reward = -torch.ones_like(reward)
 
             # Store the transition in memory
-            memory.push(Transition(state, action.cpu(), next_state, reward.cpu()))
-
-            # Move to the next state
-            state = next_state
+            memory.push(Transition(state, action.cpu(), torch.Tensor(new_state).unsqueeze(0), reward.cpu()))
 
             # Perform one step of the optimization (on the policy network)
             if len(memory) >= train_config.BATCH_SIZE:
@@ -120,7 +105,7 @@ def fit(target_net, policy_net, visual_env):
                     param.grad.data.clamp_(-1, 1)
                 optimizer.step()
             if done:
-                episode_durations.append(t + 1)
+                episode_durations.append(tttttt + 1)
                 writer.add_scalars('Duration', {'current': episode_durations[-1], 'mean': mean(episode_durations)}, i_episode)
                 break
         # Update the target network, copying all weights and biases in DQN

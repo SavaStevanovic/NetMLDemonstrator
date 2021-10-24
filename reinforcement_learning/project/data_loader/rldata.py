@@ -10,6 +10,7 @@ class Transition():
         if isinstance(reward, Iterable) and not isinstance(reward, torch.Tensor):
             state = torch.cat(state)
             action = torch.cat(action)
+            next_state = torch.cat(next_state)
             reward = torch.cat(reward)
         self.state = state
         self.action = action

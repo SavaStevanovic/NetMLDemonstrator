@@ -138,3 +138,4 @@ checkpoints/
 
 # data
 val2017
+reinforcement_learning/project/tmp/*

@@ -7,3 +7,5 @@ IPython
 tqdm
 pyglet
 torch-tb-profiler
+tensorboard
+torchsummary

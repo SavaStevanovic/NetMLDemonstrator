@@ -46,8 +46,41 @@ class ResNetBackbone(nn.Module, utils.Identifier):
 
         return tuple(outputs[1:])
 
+
+class LinearResNetBackbone(nn.Module, utils.Identifier):
+
+    def __init__(self, block, block_counts, inplanes, norm_layer=nn.BatchNorm1d):
+        super(LinearResNetBackbone, self).__init__()
+
+        self.feature_count = len(block_counts)
+        self.block_counts = block_counts
+        self.feature_start_layer = 1
+        self.depth = self.feature_start_layer + self.feature_count
+        self.block = block
+        self._norm_layer = norm_layer
+        self.inplanes = inplanes
+
+        self.layers = nn.ModuleList([self._make_layer(block, int(i>0)+1, layer_count) for i, layer_count in enumerate(block_counts)])
+           
+    def _make_layer(self, block, expansion, blocks):
+        outplanes = self.inplanes*expansion
+        layers = []
+        layers.append(block(self.inplanes, outplanes))
+        self.inplanes *= expansion
+        for _ in range(1, blocks):
+            layers.append(block(outplanes, outplanes))
+
+        return nn.Sequential(*layers)
+
+    def forward(self, x):
+        outputs = [x]
+        for l in self.layers:
+            outputs.append(l(outputs[-1]))
+
+        return tuple(outputs[1:])
+
 class LinearNet(nn.Module, utils.Identifier):
-    def __init__(self, backbone: nn.Module, output_size: int):
+    def __init__(self, backbone: nn.Module, input_size: int, output_size: int):
         super(LinearNet, self).__init__()
 
         self.output_size = output_size
@@ -55,10 +88,14 @@ class LinearNet(nn.Module, utils.Identifier):
         self.inplanes = self.backbone.inplanes
         self.feature_count = self.backbone.feature_count
         self.depth = self.backbone.depth
-
-        self.head = blocks.DynamicLinearLayer(self.output_size)
+        self.first_layer = nn.Sequential(
+            nn.Linear(input_size, self.inplanes),
+            nn.ReLU(inplace=True)
+        )
+        self.head = nn.Linear(self.inplanes, self.output_size)
 
     def forward(self, x):
+        x = self.first_layer(x) 
         features = self.backbone(x)[-1]
 
         return self.head(features)

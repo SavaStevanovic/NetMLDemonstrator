@@ -2,21 +2,6 @@ import torch.nn as nn
 from model import utils
 import torch.nn.functional as F
 
-class DynamicLinearLayer(nn.Module):
-    def __init__(self, planes):
-        super(DynamicLinearLayer, self).__init__()
-        self.planes = planes
-        self._linear = None
-
-    def forward(self, x):
-        x = x.flatten(1)
-        if self._linear is None:
-            print(x.shape[-1])
-            self._linear = nn.Linear(x.shape[-1], self.planes).cuda()
-        x = self._linear(x)
-
-        return x 
-
 class Bottleneck(nn.Module):
     expansion = 4
 
@@ -42,6 +27,43 @@ class Bottleneck(nn.Module):
         out = self.bn3(self.conv3(out))
         out += self.shortcut(x)
         out = F.relu(out)
+        return out
+
+class BasicLinearLayer(nn.Sequential):
+    def __init__(self, inplanes, planes):
+        modules = [
+            nn.Linear(inplanes, planes, bias=True),
+            # nn.BatchNorm1d(planes),
+            nn.ReLU(),
+        ]
+        super(BasicLinearLayer, self).__init__(*modules)
+
+class BasicLinearBlock(nn.Module):
+
+    def __init__(self, inplanes, planes, downsample=None):
+        super(BasicLinearBlock, self).__init__()
+        self.planes = planes
+        self.inplanes = inplanes
+        self.sequential = BasicLinearLayer(inplanes, planes)
+
+        self.downsample = None
+        if inplanes != planes:
+            self.downsample = nn.Sequential(
+                nn.Linear(inplanes, planes, bias=True),
+                # nn.BatchNorm1d(planes)
+            )
+
+    def forward(self, x):
+        residual = x
+
+        out = self.sequential(x)
+
+        if self.downsample is not None:
+            residual = self.downsample(x)
+
+        out += residual
+        out = F.relu(out, True)
+
         return out
 
 class BasicBlock(nn.Module):

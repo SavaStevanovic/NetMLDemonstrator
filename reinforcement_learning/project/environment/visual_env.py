@@ -23,10 +23,10 @@ class VisualEnv():
     def get_screen(self):
         # Returned screen requested by gym is 400x600x3, but is sometimes larger
         # such as 800x1200x3. Transpose it into torch order (CHW).
-        screen = self.env.render(mode='rgb_array').transpose((2, 0, 1))
+        screen_orig = self.env.render(mode='rgb_array').transpose((2, 0, 1))
         # Cart is in the lower half, so strip off the top and bottom of the screen
-        _, screen_height, screen_width = screen.shape
-        screen = screen[:, int(screen_height*0.4):int(screen_height * 0.8)]
+        _, screen_height, screen_width = screen_orig.shape
+        screen = screen_orig[:, int(screen_orig*0.4):int(screen_orig * 0.8)]
         view_width = int(screen_width * 0.2)
         cart_location = self._get_cart_location(screen_width)
         if cart_location < view_width // 2:
@@ -43,4 +43,12 @@ class VisualEnv():
         screen = np.ascontiguousarray(screen, dtype=np.float32) / 255
         screen = torch.from_numpy(screen)
         # Resize, and add a batch dimension (BCHW)
-        return self._resize(screen)
+        return screen_orig, self._resize(screen)
+
+class ParameterEnv():
+    def __init__(self, env) -> None:
+        self.env = env
+
+    def get_screen(self):
+        screen_orig = self.env.render(mode='rgb_array').transpose((2, 0, 1))
+        return screen_orig, torch.tensor(self.env.state).float().unsqueeze(0)
