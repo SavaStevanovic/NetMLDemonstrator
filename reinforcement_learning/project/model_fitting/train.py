@@ -17,11 +17,11 @@ def fit(alg, visual_env):
 
     while alg.epoch:
         # Initialize the environment and state
-        state = visual_env.env.reset()
+        state = visual_env.reset()
         for tttttt in count():
             # Select and perform an action
             action = alg.select_action(state)
-            new_state, reward, done, _ = visual_env.env.step(action.item())
+            new_state, reward, done, _ = visual_env.step(action.item())
             if done:
                 reward = -10
 

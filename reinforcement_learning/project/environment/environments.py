@@ -16,6 +16,14 @@ class Environment(abc.ABC):
     def env(self):
         return self._env
 
+    def step(self, action):
+        if self._visual:
+            self._env.render()
+        return self._env.step(action)
+
+    def reset(self):
+        return self._env.reset()
+
     @abc.abstractmethod
     def get_screen(self) -> typing.Tuple[np.array, torch.tensor]:
         pass
@@ -73,4 +81,4 @@ class ParameterEnv(Environment):
         if self._visual:
             screen_orig = self.env.render(
                 mode='rgb_array').transpose((2, 0, 1))
-        return screen_orig, torch.tensor(self.env.state).float().unsqueeze(0).squeeze(-1)
+        return screen_orig, self.env.state
