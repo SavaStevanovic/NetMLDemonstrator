@@ -49,6 +49,14 @@ class PolicyGradient(Identifier):
         self._memory = RLDataset(400)
         summary(self._policy_net, torch.Size([self._input_size]))
 
+    @property
+    def inplanes(self):
+        return self._inplanes
+
+    @property
+    def block_counts(self):
+        return self._block_counts
+
     @cached_property
     def _criterion(self) -> SummaryWriter:
         return nn.SmoothL1Loss()
