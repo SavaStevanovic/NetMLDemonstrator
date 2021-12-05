@@ -72,7 +72,7 @@ class PolicyGradient(ReinforcmentAlgoritham):
             self._checkpoint_name_path.replace('.pth', '_final_state_dict.pth')
         )
 
-    def select_action(self, state):
+    def preform_action(self, state):
         state = torch.tensor(state).unsqueeze(0).cuda()
         assert state.shape[0] == 1, "Must run one action at the time"
         probs = self._policy_net(state).softmax(1)

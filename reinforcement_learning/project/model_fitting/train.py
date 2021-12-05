@@ -6,36 +6,35 @@ from algorithams.rl_alg import ReinforcmentAlgoritham
 from environment.environments import Environment
 
 
-def fit(alg: ReinforcmentAlgoritham, visual_env: Environment):
+def fit(algoritham: ReinforcmentAlgoritham, environment: Environment):
     episode_durations = deque([], maxlen=100)
 
-    screen, state = visual_env.get_screen()
+    screen, state = environment.get_screen()
     if screen is not None:
-        alg.writer.add_image('Model view', screen)
+        algoritham.writer.add_image('Model view', screen)
 
-    alg.load_last_state()
-    _, state = visual_env.get_screen()
+    algoritham.load_last_state()
 
-    while alg.epoch:
+    while algoritham.epoch:
         # Initialize the environment and state
-        state = visual_env.reset()
-        for tttttt in count():
+        state = environment.reset()
+        for duration in count():
             # Select and perform an action
-            action = alg.select_action(state)
-            new_state, reward, done, _ = visual_env.step(action.item())
+            action = algoritham.preform_action(state)
+            new_state, reward, done, _ = environment.step(action.item())
             if done:
                 reward = -10
 
-            alg.optimization_step(state, action, reward, new_state)
+            algoritham.optimization_step(state, action, reward, new_state)
 
             state = new_state
             if done:
-                episode_durations.append(tttttt + 1)
-                alg.writer.add_scalars('Duration', {
+                episode_durations.append(duration)
+                algoritham.writer.add_scalars('Duration', {
                     'current': episode_durations[-1],
                     'mean': mean(episode_durations)
-                }, alg.epoch)
+                }, algoritham.epoch)
                 break
-        alg.process_metric(episode_durations)
-        alg.save_model_state()
+        algoritham.process_metric(episode_durations)
+        algoritham.save_model_state()
     print('Complete')

@@ -49,14 +49,9 @@ class ReinforcmentAlgoritham(Identifier, abc.ABC):
     def save_model_state(self) -> None:
         pass
 
-    def select_action(self, state: np.ndarray):
-        state = torch.tensor(state).unsqueeze(0).cuda()
-        assert state.shape[0] == 1, "Must run one action at the time"
-        probs = self._policy_net(state).softmax(1)
-        # sample an action from that set of probs
-        action = Categorical(probs).sample()
-
-        return action
+    @abc.abstractmethod
+    def preform_action(self, state: np.ndarray):
+        pass
 
     def optimization_step(self, state: np.ndarray, action: np.ndarray, reward: np.ndarray, new_state: np.ndarray) -> None:
         self._train_config.steps_done += 1

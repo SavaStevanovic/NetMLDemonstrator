@@ -97,7 +97,7 @@ class DQN(ReinforcmentAlgoritham):
             self._checkpoint_name_path.replace('.pth', '_final_state_dict.pth')
         )
 
-    def select_action(self, state):
+    def preform_action(self, state):
         sample = random.random()
         eps_threshold = self._train_config.EPS_END + (self._train_config.EPS_START - self._train_config.EPS_END) * \
             math.exp(-1. * self._train_config.steps_done /
