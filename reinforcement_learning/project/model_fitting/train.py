@@ -1,12 +1,11 @@
 from collections import deque
 import torch
 from tqdm import tqdm
-from model.algorithams import DQN
 from itertools import count
 from statistics import mean
 
 
-def fit(alg: DQN, visual_env):
+def fit(alg, visual_env):
     episode_durations = deque([], maxlen=100)
 
     screen, state = visual_env.get_screen()
@@ -18,17 +17,17 @@ def fit(alg: DQN, visual_env):
 
     while alg.epoch:
         # Initialize the environment and state
-        visual_env.env.reset()
+        state = visual_env.env.reset()
         for tttttt in count():
-            _, state = visual_env.get_screen()
             # Select and perform an action
             action = alg.select_action(state)
             new_state, reward, done, _ = visual_env.env.step(action.item())
-            reward = torch.tensor([reward]).cuda()
             if done:
-                reward = -torch.ones_like(reward)
+                reward = -10
 
             alg.optimization_step(state, action, reward, new_state)
+
+            state = new_state
             if done:
                 episode_durations.append(tttttt + 1)
                 alg.writer.add_scalars('Duration', {

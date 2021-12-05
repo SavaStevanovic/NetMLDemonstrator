@@ -28,6 +28,12 @@ class RLDataset(Dataset):
         self._memory = deque([], maxlen=capacity)
         self._safe_loc = 0
 
+    def reverse(self):
+        self._memory.reverse()
+
+    def clear(self):
+        self._memory.clear()
+
     def push(self, instance: Transition):
         self._memory.append(instance)
 
@@ -36,6 +42,9 @@ class RLDataset(Dataset):
 
     def __len__(self):
         return len(self._memory)
+
+    def as_batch(self):
+        return rl_collate_fn(self._memory)
 
     def sample(self, batch_size):
         return rl_collate_fn(random.sample(self._memory, batch_size))

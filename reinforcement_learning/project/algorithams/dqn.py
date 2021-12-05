@@ -12,9 +12,10 @@ from model_fitting.configuration import TrainingConfiguration
 import math
 from torchsummary import summary
 from cached_property import cached_property
+from model.utils import Identifier
 
 
-class DQN():
+class DQN(Identifier):
     def __init__(self, inplanes, block_counts, input_size, output_size) -> None:
         self._inplanes = inplanes
         self._block_counts = block_counts
@@ -117,20 +118,27 @@ class DQN():
             math.exp(-1. * self._train_config.steps_done /
                      self._train_config.EPS_DECAY)
         if sample > eps_threshold:
+            state = torch.tensor(state).unsqueeze(0).cuda()
             with torch.no_grad():
                 # t.max(1) will return largest column value of each row.
                 # second column on max result is index of where max element was
                 # found, so we pick action with the larger expected reward.
-                return self._policy_net(state.cuda()).max(1)[1].view(1, 1)
+                return self._policy_net(state.cuda()).max(1)[1]
         else:
             # print(sample, eps_threshold)
-            return torch.tensor([[random.randrange(self._output_size)]], dtype=torch.long).cuda()
+            return torch.tensor(random.randrange(self._output_size))
 
     def optimization_step(self, state, action, reward, new_state):
         self._train_config.steps_done += 1
         # Store the transition in memory
-        self._memory.push(Transition(state, action.cpu(), torch.Tensor(
-            new_state).unsqueeze(0), reward.cpu()))
+        self._memory.push(
+            Transition(
+                torch.Tensor([state]),
+                torch.Tensor([action]).long(),
+                torch.Tensor([new_state]),
+                torch.tensor([reward])
+            )
+        )
 
         # Perform one step of the optimization (on the policy network)
         if len(self._memory) >= self._train_config.BATCH_SIZE:
@@ -152,7 +160,7 @@ class DQN():
         # columns of actions taken. These are the actions which would've been taken
         # for each batch state according to policy_net
         state_action_values = self._policy_net(
-            batch.state.cuda()).gather(1, batch.action.cuda())
+            batch.state.cuda()).gather(1, batch.action.cuda().unsqueeze(-1))
 
         # Compute V(s_{t+1}) for all next states.
         # Expected values of actions for non_final_next_states are computed based
