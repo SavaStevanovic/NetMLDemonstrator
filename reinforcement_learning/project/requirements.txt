@@ -9,3 +9,4 @@ pyglet
 torch-tb-profiler
 tensorboard
 torchsummary
+cached_property

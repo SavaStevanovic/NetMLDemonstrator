@@ -1,7 +1,8 @@
 import json
 
+
 class TrainingConfiguration(object):
-    def __init__(self, learning_rate = 0.001, iteration_age = 0, best_metric = 0, epoch = 0):
+    def __init__(self, learning_rate=0.001, iteration_age=0, best_metric=0, epoch=1):
         self.learning_rate = learning_rate
         self.iteration_age = iteration_age
         self.best_metric = best_metric

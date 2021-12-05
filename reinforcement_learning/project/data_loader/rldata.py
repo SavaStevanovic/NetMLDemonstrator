@@ -5,6 +5,7 @@ import random
 from collections.abc import Iterable
 import pickle
 
+
 class Transition():
     def __init__(self, state, action, next_state, reward):
         if isinstance(reward, Iterable) and not isinstance(reward, torch.Tensor):
@@ -17,12 +18,14 @@ class Transition():
         self.next_state = next_state
         self.reward = reward
 
+
 def rl_collate_fn(batch):
-        return Transition(*[x for x in zip(*[list(b.__dict__.values()) for b in batch])],)
+    return Transition(*[x for x in zip(*[list(b.__dict__.values()) for b in batch])],)
+
 
 class RLDataset(Dataset):
     def __init__(self, capacity):
-        self._memory = deque([],maxlen=capacity)
+        self._memory = deque([], maxlen=capacity)
         self._safe_loc = 0
 
     def push(self, instance: Transition):
@@ -33,7 +36,7 @@ class RLDataset(Dataset):
 
     def __len__(self):
         return len(self._memory)
-    
+
     def sample(self, batch_size):
         return rl_collate_fn(random.sample(self._memory, batch_size))
 
@@ -46,15 +49,13 @@ class RLDataset(Dataset):
     def save(self, path):
         self._safe_loc = 1 - self._safe_loc
         path = self._get_path(path, self._safe_loc)
-        with open(path, 'wb') as f:
-            pickle.dump(self.__dict__, f)
+        torch.save(self.__dict__, path)
 
     def load(self, path):
         for i in range(2):
             try:
                 file_path = self._get_path(path, i)
-                with open(file_path, 'rb') as f:
-                    data = pickle.load(f)
+                data = torch.load(file_path)
             except Exception as e:
                 print(e)
         for key, value in data.items():
