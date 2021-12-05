@@ -9,7 +9,7 @@ class TrainingConfiguration(object):
         self.epoch = epoch
         self.steps_done = 0
         self.BATCH_SIZE = 128
-        self.GAMMA = 0.95
+        self.GAMMA = 0.99
         self.EPS_START = 1.0
         self.EPS_END = 0.01
         self.EPS_DECAY = 200

@@ -1,11 +1,12 @@
 from collections import deque
-import torch
-from tqdm import tqdm
-from itertools import count
 from statistics import mean
+from itertools import count
+
+from algorithams.rl_alg import ReinforcmentAlgoritham
+from environment.environments import Environment
 
 
-def fit(alg, visual_env):
+def fit(alg: ReinforcmentAlgoritham, visual_env: Environment):
     episode_durations = deque([], maxlen=100)
 
     screen, state = visual_env.get_screen()

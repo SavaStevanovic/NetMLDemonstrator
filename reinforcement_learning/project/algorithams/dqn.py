@@ -1,24 +1,21 @@
-from collections import deque
-from statistics import mean
 from torch import nn
 from torch.utils.tensorboard.writer import SummaryWriter
-from data_loader.rldata import RLDataset, Transition
 from model import networks
 from model import blocks
 import os
 import torch
 import random
-from model_fitting.configuration import TrainingConfiguration
 import math
 from torchsummary import summary
 from cached_property import cached_property
-from model.utils import Identifier
+from algorithams.rl_alg import ReinforcmentAlgoritham
 
 
-class DQN(Identifier):
+class DQN(ReinforcmentAlgoritham):
     def __init__(self, inplanes, block_counts, input_size, output_size) -> None:
         self._inplanes = inplanes
         self._block_counts = block_counts
+        ReinforcmentAlgoritham.__init__(self, 20000)
         self._input_size = input_size
         self._output_size = output_size
         backbone = networks.LinearResNetBackbone(
@@ -39,8 +36,6 @@ class DQN(Identifier):
         self._target_net.load_state_dict(self._policy_net.state_dict())
         self._target_net.eval()
 
-        model_dir_header = self._target_net.get_identifier()
-        self._chp_dir = os.path.join('tmp/checkpoints', model_dir_header)
         self._checkpoint_memo_path = os.path.join(
             self._chp_dir, 'mem_checkpoints.pth'
         )
@@ -50,9 +45,7 @@ class DQN(Identifier):
         self._checkpoint_conf_path = os.path.join(
             self._chp_dir, 'configuration.json'
         )
-        self._train_config = TrainingConfiguration()
 
-        self._memory = RLDataset(20000)
         self._optimizer = torch.optim.RMSprop(
             self._policy_net.parameters(),
             self._train_config.learning_rate
@@ -71,22 +64,6 @@ class DQN(Identifier):
     @cached_property
     def _criterion(self) -> SummaryWriter:
         return nn.SmoothL1Loss()
-
-    @cached_property
-    def writer(self) -> SummaryWriter:
-        summary_path = os.path.join(
-            'tmp/logs',
-            self._target_net.get_identifier()
-        )
-        return SummaryWriter(
-            summary_path
-        )
-
-    @property
-    def epoch(self):
-        if self._train_config.epoch > self._train_config.EPOCHS:
-            return None
-        return self._train_config.epoch
 
     @property
     def optimizer(self) -> torch.optim.Optimizer:
@@ -137,16 +114,7 @@ class DQN(Identifier):
             return torch.tensor(random.randrange(self._output_size))
 
     def optimization_step(self, state, action, reward, new_state):
-        self._train_config.steps_done += 1
-        # Store the transition in memory
-        self._memory.push(
-            Transition(
-                torch.Tensor([state]),
-                torch.Tensor([action]).long(),
-                torch.Tensor([new_state]),
-                torch.tensor([reward])
-            )
-        )
+        super().optimization_step(state, action, reward, new_state)
 
         # Perform one step of the optimization (on the policy network)
         if len(self._memory) >= self._train_config.BATCH_SIZE:
@@ -188,27 +156,3 @@ class DQN(Identifier):
         )
         # print(loss.item())
         return loss
-
-    def process_metric(self, episode_durations: deque):
-        metric = mean(episode_durations)
-        if self._train_config.best_metric < metric and len(episode_durations) >= episode_durations.maxlen/2:
-            self._train_config.iteration_age = 0
-            self._train_config.best_metric = metric
-            print(
-                f'Epoch {self._train_config.epoch}. Saving model with metric: {metric}'
-            )
-            torch.save(self._target_net,
-                       self._checkpoint_name_path.replace('.pth', '_final.pth')
-                       )
-        else:
-            self._train_config.iteration_age += 1
-            print('Epoch {} metric: {}'.format(
-                self._train_config.epoch, metric))
-        if self._train_config.iteration_age == self._train_config.LOWER_LEARNING_PERIOD:
-            self._train_config.learning_rate *= 0.5
-            self._train_config.iteration_age = 0
-            self._optimizer = torch.optim.RMSprop(
-                self._target_net.parameters(), self._train_config.learning_rate)
-            print("Learning rate lowered to {}".format(
-                self._train_config.learning_rate))
-        self._train_config.epoch += 1
