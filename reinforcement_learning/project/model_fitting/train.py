@@ -56,14 +56,15 @@ def fit(target_net, policy_net, visual_env):
     checkpoint_memo_path = os.path.join(chp_dir, 'mem_checkpoints.pth')
     checkpoint_name_path = os.path.join(chp_dir, 'checkpoints.pth')
     checkpoint_conf_path = os.path.join(chp_dir, 'configuration.json')
-    memory = RLDataset(2000)
+    memory = RLDataset(20000)
     train_config = TrainingConfiguration()
     writer = SummaryWriter(os.path.join('logs', target_net.get_identifier()))
     screen, state = visual_env.get_screen()
     target_net(state.cuda())
     policy_net(state.cuda())
     optimizer = torch.optim.Adam(policy_net.parameters(), train_config.learning_rate)
-    writer.add_image('Model view', screen)
+    if screen is not None:
+        writer.add_image('Model view', screen)
     if os.path.exists(chp_dir):
         checkpoint = torch.load(checkpoint_name_path)
         target_net.load_state_dict(checkpoint["model_state"])

@@ -46,9 +46,12 @@ class VisualEnv():
         return screen_orig, self._resize(screen)
 
 class ParameterEnv():
-    def __init__(self, env) -> None:
+    def __init__(self, env, visual=True) -> None:
         self.env = env
+        self._visual = visual
 
     def get_screen(self):
-        screen_orig = self.env.render(mode='rgb_array').transpose((2, 0, 1))
-        return screen_orig, torch.tensor(self.env.state).float().unsqueeze(0)
+        screen_orig = None
+        if self._visual:
+            screen_orig = self.env.render(mode='rgb_array').transpose((2, 0, 1))
+        return screen_orig, torch.tensor(self.env.state).float().unsqueeze(0).squeeze(-1)
