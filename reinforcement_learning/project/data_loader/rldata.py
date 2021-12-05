@@ -23,6 +23,7 @@ def rl_collate_fn(batch):
 class RLDataset(Dataset):
     def __init__(self, capacity):
         self._memory = deque([],maxlen=capacity)
+        self._safe_loc = 0
 
     def push(self, instance: Transition):
         self._memory.append(instance)
@@ -36,12 +37,25 @@ class RLDataset(Dataset):
     def sample(self, batch_size):
         return rl_collate_fn(random.sample(self._memory, batch_size))
 
+    def _get_path(self, path: str, index: int):
+        path_parts = path.split("/")
+        path_parts[-1] = str(index) + path_parts[-1]
+        path = "/".join(path_parts)
+        return path
+
     def save(self, path):
+        self._safe_loc = 1 - self._safe_loc
+        path = self._get_path(path, self._safe_loc)
         with open(path, 'wb') as f:
             pickle.dump(self.__dict__, f)
 
     def load(self, path):
-        with open(path, 'rb') as f:
-            data = pickle.load(f)
+        for i in range(2):
+            try:
+                file_path = self._get_path(path, i)
+                with open(file_path, 'rb') as f:
+                    data = pickle.load(f)
+            except Exception as e:
+                print(e)
         for key, value in data.items():
             setattr(self, key, value)
