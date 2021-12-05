@@ -3,10 +3,27 @@ import torchvision.transforms as T
 from data_loader.augmentation import ResizeTransform
 import numpy as np
 import torch
+import abc
+import typing
 
-class VisualEnv():
-    def __init__(self, env) -> None:
-        self.env = env
+
+class Environment(abc.ABC):
+    def __init__(self, env, visual=True) -> None:
+        self._env = env
+        self._visual = visual
+
+    @property
+    def env(self):
+        return self._env
+
+    @abc.abstractmethod
+    def get_screen(self) -> typing.Tuple[np.array, torch.tensor]:
+        pass
+
+
+class VisualEnv(Environment):
+    def __init__(self, env, visual=True) -> None:
+        super().__init__(env, True)
         self._resize = T.Compose(
             [
                 T.ToPILImage(),
@@ -18,14 +35,15 @@ class VisualEnv():
     def _get_cart_location(self, screen_width):
         world_width = self.env.x_threshold * 2
         scale = screen_width / world_width
-        return int(self.env.state[0] * scale + screen_width / 2.0)  # MIDDLE OF CART
+        # MIDDLE OF CART
+        return int(self.env.state[0] * scale + screen_width / 2.0)
 
-    def get_screen(self):
+    def get_screen(self) -> typing.Tuple[np.array, torch.tensor]:
         # Returned screen requested by gym is 400x600x3, but is sometimes larger
         # such as 800x1200x3. Transpose it into torch order (CHW).
         screen_orig = self.env.render(mode='rgb_array').transpose((2, 0, 1))
         # Cart is in the lower half, so strip off the top and bottom of the screen
-        _, screen_height, screen_width = screen_orig.shape
+        _, _, screen_width = screen_orig.shape
         screen = screen_orig[:, int(screen_orig*0.4):int(screen_orig * 0.8)]
         view_width = int(screen_width * 0.2)
         cart_location = self._get_cart_location(screen_width)
@@ -45,13 +63,14 @@ class VisualEnv():
         # Resize, and add a batch dimension (BCHW)
         return screen_orig, self._resize(screen)
 
-class ParameterEnv():
-    def __init__(self, env, visual=True) -> None:
-        self.env = env
-        self._visual = visual
 
-    def get_screen(self):
+class ParameterEnv(Environment):
+    def __init__(self, env, visual=True) -> None:
+        super().__init__(env, visual)
+
+    def get_screen(self) -> typing.Tuple[np.array, torch.tensor]:
         screen_orig = None
         if self._visual:
-            screen_orig = self.env.render(mode='rgb_array').transpose((2, 0, 1))
+            screen_orig = self.env.render(
+                mode='rgb_array').transpose((2, 0, 1))
         return screen_orig, torch.tensor(self.env.state).float().unsqueeze(0).squeeze(-1)
