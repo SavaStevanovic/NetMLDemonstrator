@@ -85,7 +85,7 @@ class PolicyGradient(ReinforcmentAlgoritham):
         cum_reward = 0
         for i in range(1, len(batch.reward.flip(0)) + 1):
             cum_reward *= self._train_config.GAMMA
-            reward = max(batch.reward[-i], 0)
+            reward = batch.reward[-i]
             cum_reward += reward
             batch.reward[-i] = cum_reward
 
