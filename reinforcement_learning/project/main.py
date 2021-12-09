@@ -13,7 +13,7 @@ if os.path.exists(dirpath) and os.path.isdir(dirpath):
 gym_env = envs.ParameterEnv(gym.make('CartPole-v1'), False)
 gym_env.env.reset()
 
-alg = algorithams.dqn.DQN(
+alg = algorithams.actor_critic.A2C(
     inplanes=256,
     block_counts=[1],
     input_size=gym_env.env.observation_space.shape[0],
