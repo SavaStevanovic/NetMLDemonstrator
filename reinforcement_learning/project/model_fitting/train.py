@@ -1,13 +1,12 @@
 from collections import deque
 from statistics import mean
-from itertools import count
 
 from algorithams.rl_alg import ReinforcmentAlgoritham
-from environment.environments import Environment
+from environment.playgrounds import Playground
 
 
-def fit(algoritham: ReinforcmentAlgoritham, environment: Environment):
-    episode_durations = deque([], maxlen=100)
+def fit(algoritham: ReinforcmentAlgoritham, environment: Playground):
+    episode_metric = deque([], maxlen=100)
 
     screen, state = environment.get_screen()
     if screen is not None:
@@ -18,7 +17,8 @@ def fit(algoritham: ReinforcmentAlgoritham, environment: Environment):
     while algoritham.epoch:
         # Initialize the environment and state
         state = environment.reset()
-        for duration in count():
+        done = False
+        while not done:
             # Select and perform an action
             action = algoritham.preform_action(state)
             new_state, reward, done, _ = environment.step(action.item())
@@ -26,12 +26,11 @@ def fit(algoritham: ReinforcmentAlgoritham, environment: Environment):
 
             state = new_state
             if done:
-                episode_durations.append(duration)
+                episode_metric.append(environment.metric)
                 algoritham.writer.add_scalars('Duration', {
-                    'current': episode_durations[-1],
-                    'mean': mean(episode_durations)
+                    'current': episode_metric[-1],
+                    'mean': mean(episode_metric)
                 }, algoritham.epoch)
-                break
-        algoritham.process_metric(episode_durations)
+        algoritham.process_metric(episode_metric)
         algoritham.save_model_state()
     print('Complete')
