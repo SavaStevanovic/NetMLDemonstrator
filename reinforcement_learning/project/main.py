@@ -1,16 +1,16 @@
 from model_fitting.train import fit
-import gym
 import matplotlib
 import algorithams
 import os
-import environment.environments as envs
 import shutil
+import environment.playgrounds as plg
+
 matplotlib.use('TkAgg')
 dirpath = "tmp"
 if os.path.exists(dirpath) and os.path.isdir(dirpath):
     shutil.rmtree(dirpath)
 
-gym_env = envs.ParameterEnv(gym.make('CartPole-v1'), False)
+gym_env = plg.CartPoleV0(False)
 gym_env.env.reset()
 
 alg = algorithams.actor_critic.A2C(
