@@ -12,16 +12,14 @@ class PolicyGradient(ReinforcmentAlgoritham):
     def __init__(self, inplanes, block_counts, input_size, output_size) -> None:
         self._inplanes = inplanes
         self._block_counts = block_counts
-        ReinforcmentAlgoritham.__init__(self, 1000)
-        self._input_size = input_size
-        self._output_size = output_size
+        ReinforcmentAlgoritham.__init__(self, 1000, input_size, output_size)
         self._backbone = networks.LinearResNetBackbone(
             inplanes=inplanes, block=blocks.BasicLinearBlock, block_counts=block_counts)
 
         self._policy_net = networks.LinearNet(
             backbone=[self._backbone],
-            input_size=input_size,
-            output_size=output_size
+            input_size=self._input_size,
+            output_size=self._output_size
         ).cuda()
 
         self._checkpoint_name_path = os.path.join(
@@ -75,16 +73,15 @@ class PolicyGradient(ReinforcmentAlgoritham):
     def preform_action(self, state):
         state = torch.tensor(state).unsqueeze(0).cuda()
         assert state.shape[0] == 1, "Must run one action at the time"
-        probs = self._policy_net(state).softmax(1)
-        # sample an action from that set of probs
-        action = Categorical(probs).sample()
+        output = self._output_transformation(self._policy_net(state))
 
-        return action
+        return self._action_transformation(output)
 
     def _optimize_model(self, batch):
         self.acumulate_reward(batch)
 
-        probs = self._policy_net(batch.state.cuda()).softmax(1)
+        probs = self._output_transformation(
+            self._policy_net(batch.state.cuda()))
         state_action_values = probs.gather(
             1, batch.action.cuda().unsqueeze(-1)).squeeze(1)
         log_action_values = state_action_values.log()

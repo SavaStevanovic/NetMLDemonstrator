@@ -14,7 +14,7 @@ class A2C(PolicyGradient):
 
         self._value_net = networks.LinearNet(
             backbone=[self._backbone],
-            input_size=input_size,
+            input_size=self._input_size,
             output_size=1
         ).cuda()
 
@@ -41,19 +41,11 @@ class A2C(PolicyGradient):
         }
         torch.save(checkpoint, self._checkpoint_name_path)
 
-    def preform_action(self, state):
-        state = torch.tensor(state).unsqueeze(0).cuda()
-        assert state.shape[0] == 1, "Must run one action at the time"
-        probs = self._policy_net(state).softmax(1)
-        # sample an action from that set of probss
-        action = Categorical(probs).sample()
-
-        return action
-
     def _optimize_model(self, batch):
         self.acumulate_reward(batch)
 
-        probs = self._policy_net(batch.state.cuda()).softmax(1)
+        probs = self._output_transformation(
+            self._policy_net(batch.state.cuda()))
         value = self._value_net(batch.state.cuda()).squeeze(-1)
         state_action_values = probs.gather(
             1, batch.action.cuda().unsqueeze(-1)).squeeze(1)

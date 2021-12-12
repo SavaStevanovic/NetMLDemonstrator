@@ -1,5 +1,6 @@
 from collections import deque
 from statistics import mean
+import typing
 from torch.utils.tensorboard.writer import SummaryWriter
 from data_loader.rldata import RLDataset, Transition
 import os
@@ -11,14 +12,31 @@ import numpy as np
 from model.utils import Identifier
 from torch.distributions import Categorical
 import abc
+from gym.spaces import Box, Discrete, Space
 
 
 class ReinforcmentAlgoritham(Identifier, abc.ABC):
-    def __init__(self, capacity: int) -> None:
+    def __init__(self, capacity: int, input_space: typing.Union[Box, Discrete], output_shape: typing.Union[Box, Discrete]) -> None:
         super(ReinforcmentAlgoritham, self).__init__()
         self._memory = RLDataset(capacity)
         self._train_config = TrainingConfiguration()
         self._chp_dir = os.path.join('tmp/checkpoints', self.get_identifier())
+        if isinstance(input_space, Box):
+            self._input_size = input_space.shape[0]
+        elif isinstance(input_space, Discrete):
+            self._input_size = input_space.n
+
+        # if isinstance(output_shape, Box):
+        #     self._output_size = len(output_shape.shape)
+        #     self._output_transformation = lambda x: x.sigmoid(1)
+        #     self._output_transformation = lambda x: torch.Tensor(output_shape.low).cuda() + \
+        #         x.sigmoid(1) * \
+        #         (torch.Tensor(output_shape.high).cuda() -
+        #          torch.Tensor(output_shape.low).cuda())
+        if isinstance(output_shape, Discrete):
+            self._output_size = output_shape.n
+            self._output_transformation = lambda x: x.softmax(1)
+            self._action_transformation = lambda x: Categorical(x).sample()
 
     @cached_property
     def writer(self) -> SummaryWriter:

@@ -87,3 +87,26 @@ class AcrobotV1(Acrobot):
     @property
     def max_duration(self):
         return 500
+
+
+class Pendulum(Playground):
+    def __init__(self, name, visual):
+        env = gym.make(name)
+        super().__init__(env, visual)
+
+    def step(self, action):
+        new_state, reward, done, d = super().step([action])
+        return new_state, float(reward), done, d
+
+    @property
+    def metric(self):
+        return self.max_duration - self.duration
+
+
+class PendulumV1(Pendulum):
+    def __init__(self, visual):
+        super().__init__("Pendulum-v1", visual=visual)
+
+    @property
+    def max_duration(self):
+        return 500
