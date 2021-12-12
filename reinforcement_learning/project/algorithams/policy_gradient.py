@@ -31,7 +31,7 @@ class PolicyGradient(ReinforcmentAlgoritham):
             self._chp_dir, 'configuration.json'
         )
 
-        self._optimizer = torch.optim.RMSprop(
+        self._optimizer = torch.optim.Adam(
             self._policy_net.parameters(),
             self._train_config.learning_rate
         )
@@ -82,25 +82,22 @@ class PolicyGradient(ReinforcmentAlgoritham):
         return action
 
     def _optimize_model(self, batch):
-        cum_reward = 0
-        for i in range(1, len(batch.reward.flip(0)) + 1):
-            cum_reward *= self._train_config.GAMMA
-            reward = batch.reward[-i]
-            cum_reward += reward
-            batch.reward[-i] = cum_reward
-
-        reward_mean = batch.reward.mean()
-        reward_std = batch.reward.std()
-        for i in range(len(batch.reward)):
-            batch.reward[i] = (batch.reward[i] - reward_mean) / reward_std
+        self.acumulate_reward(batch)
 
         probs = self._policy_net(batch.state.cuda()).softmax(1)
         state_action_values = probs.gather(
             1, batch.action.cuda().unsqueeze(-1)).squeeze(1)
         log_action_values = state_action_values.log()
         losses = batch.reward.cuda() * log_action_values
+        return -losses.sum()
 
-        return -losses.mean()
+    def acumulate_reward(self, batch):
+        cum_reward = 0
+        for i in range(1, len(batch.reward) + 1):
+            cum_reward *= self._train_config.GAMMA
+            reward = batch.reward[-i]
+            cum_reward += reward
+            batch.reward[-i] = cum_reward
 
     def process_metric(self, episode_durations: deque):
         # Perform one step of the optimization (on the policy network)

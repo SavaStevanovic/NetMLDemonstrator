@@ -51,17 +51,7 @@ class A2C(PolicyGradient):
         return action
 
     def _optimize_model(self, batch):
-        cum_reward = 0
-        for i in range(1, len(batch.reward.flip(0)) + 1):
-            cum_reward *= self._train_config.GAMMA
-            reward = batch.reward[-i]
-            cum_reward += reward
-            batch.reward[-i] = cum_reward
-
-        reward_mean = batch.reward.mean()
-        reward_std = batch.reward.std()
-        for i in range(len(batch.reward)):
-            batch.reward[i] = (batch.reward[i] - reward_mean) / reward_std
+        self.acumulate_reward(batch)
 
         probs = self._policy_net(batch.state.cuda()).softmax(1)
         value = self._value_net(batch.state.cuda()).squeeze(-1)
@@ -72,4 +62,4 @@ class A2C(PolicyGradient):
         losses = (cuda_reward - value) * log_action_values
         value_loss = F.smooth_l1_loss(value, cuda_reward)
 
-        return -losses.mean() + value_loss.mean()
+        return -losses.sum() + value_loss.sum()

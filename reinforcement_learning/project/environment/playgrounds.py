@@ -72,11 +72,7 @@ class Acrobot(Playground):
         super().__init__(env, visual)
 
     def step(self, action):
-        new_state, reward, done, d = super().step(action)
-        if done:
-            s = self.env.state
-            print(-cos(s[0]) - cos(s[1] + s[0]))
-            reward = float(-cos(s[0]) - cos(s[1] + s[0]))
+        new_state, reward, done, d = super().step(action-1)
         return new_state, reward, done, d
 
     @property
@@ -85,8 +81,8 @@ class Acrobot(Playground):
 
 
 class AcrobotV1(Acrobot):
-    def __init__(self, visual) -> None:
-        super().__init__('Acrobot-v1', visual=visual)
+    def __init__(self, visual):
+        super().__init__("Acrobot-v1", visual=visual)
 
     @property
     def max_duration(self):

@@ -114,7 +114,9 @@ class LinearNet(nn.Module, utils.Identifier):
         return [1]
 
     def forward(self, x):
-        x = self._first_layer(x)
-        features = self._backbone(x)[-1]
+        features = self._first_layer(x)
+        b_features = self._backbone(features)
+        if b_features:
+            features = b_features[-1]
 
         return self._head(features)
