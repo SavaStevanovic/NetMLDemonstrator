@@ -47,9 +47,8 @@ class A2C(PolicyGradient):
         probs = self._output_transformation(
             self._policy_net(batch.state.cuda()))
         value = self._value_net(batch.state.cuda()).squeeze(-1)
-        state_action_values = probs.gather(
-            1, batch.action.cuda().unsqueeze(-1)).squeeze(1)
-        log_action_values = state_action_values.log()
+        log_action_values = self._action_transformation(
+            probs).log_prob(batch.action.cuda())
         cuda_reward = batch.reward.cuda()
         losses = (cuda_reward - value) * log_action_values
         value_loss = F.smooth_l1_loss(value, cuda_reward)

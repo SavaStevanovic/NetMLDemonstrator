@@ -10,7 +10,7 @@ from torchsummary import summary
 from cached_property import cached_property
 import numpy as np
 from model.utils import Identifier
-from torch.distributions import Categorical
+from torch.distributions import Categorical, Normal
 import abc
 from gym.spaces import Box, Discrete, Space
 
@@ -26,17 +26,15 @@ class ReinforcmentAlgoritham(Identifier, abc.ABC):
         elif isinstance(input_space, Discrete):
             self._input_size = input_space.n
 
-        # if isinstance(output_shape, Box):
-        #     self._output_size = len(output_shape.shape)
-        #     self._output_transformation = lambda x: x.sigmoid(1)
-        #     self._output_transformation = lambda x: torch.Tensor(output_shape.low).cuda() + \
-        #         x.sigmoid(1) * \
-        #         (torch.Tensor(output_shape.high).cuda() -
-        #          torch.Tensor(output_shape.low).cuda())
+        if isinstance(output_shape, Box):
+            self._output_size = len(output_shape.shape) * 2
+            self._output_transformation = lambda x: x
+            self._action_transformation = lambda x: Normal(
+                x[..., 0].tanh(), x[..., 1].tanh().exp())
         if isinstance(output_shape, Discrete):
             self._output_size = output_shape.n
             self._output_transformation = lambda x: x.softmax(1)
-            self._action_transformation = lambda x: Categorical(x).sample()
+            self._action_transformation = lambda x: Categorical(x)
 
     @cached_property
     def writer(self) -> SummaryWriter:

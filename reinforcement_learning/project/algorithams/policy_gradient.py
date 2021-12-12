@@ -75,16 +75,15 @@ class PolicyGradient(ReinforcmentAlgoritham):
         assert state.shape[0] == 1, "Must run one action at the time"
         output = self._output_transformation(self._policy_net(state))
 
-        return self._action_transformation(output)
+        return self._action_transformation(output).sample()
 
     def _optimize_model(self, batch):
         self.acumulate_reward(batch)
 
         probs = self._output_transformation(
             self._policy_net(batch.state.cuda()))
-        state_action_values = probs.gather(
-            1, batch.action.cuda().unsqueeze(-1)).squeeze(1)
-        log_action_values = state_action_values.log()
+        log_action_values = self._action_transformation(
+            probs).log_prob(batch.action.cuda())
         losses = batch.reward.cuda() * log_action_values
         return -losses.sum()
 
