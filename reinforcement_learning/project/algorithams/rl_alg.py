@@ -33,8 +33,7 @@ class ReinforcmentAlgoritham(Identifier, abc.ABC):
 
             def multi_norm(x):
                 m, s = x.split(1, dim=-1)
-                return MultivariateNormal(
-                    m, (0.1+F.softplus(s)).diag_embed())
+                return Normal(m.squeeze(-1), (0.1+F.softplus(s.squeeze(-1))))
             self._action_transformation = multi_norm
         if isinstance(output_shape, Discrete):
             self._output_size = output_shape.n

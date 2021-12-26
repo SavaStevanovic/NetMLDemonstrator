@@ -17,13 +17,12 @@ class PPO(A2C):
         probs = self._output_transformation(
             self._policy_net(batch.state.cuda()))
         log_action_values = self._action_transformation(
-            probs).log_prob(batch.action.cuda().unsqueeze(-1))
-
-        ratios = (log_action_values - batch.action_log_prob.cuda()).exp()
+            probs).log_prob(batch.action.cuda())
         cuda_reward = rewards.cuda()
         value = self._value_net(batch.state.cuda()).squeeze(-1)
         adv = (cuda_reward - value.detach())
 
+        ratios = (log_action_values - batch.action_log_prob.cuda()).exp()
         losses1 = adv * ratios
         losses2 = adv * torch.clamp(
             ratios, 1 - 0.2, 1 + 0.2)
