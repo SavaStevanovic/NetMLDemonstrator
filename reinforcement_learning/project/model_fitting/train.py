@@ -18,11 +18,13 @@ def fit(algoritham: ReinforcmentAlgoritham, environment: Playground):
         # Initialize the environment and state
         state = environment.reset()
         done = False
+
         while not done:
             # Select and perform an action
-            action = algoritham.preform_action(state)
+            action, log_prob = algoritham.preform_action(state)
             new_state, reward, done, _ = environment.step(action.item())
-            algoritham.optimization_step(state, action, reward, new_state)
+            algoritham.optimization_step(
+                state, action, log_prob, reward, new_state)
 
             state = new_state
             if done:

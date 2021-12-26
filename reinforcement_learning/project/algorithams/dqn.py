@@ -25,6 +25,8 @@ class DQN(ReinforcmentAlgoritham):
             output_size=self._output_size
         ).cuda()
 
+        backbone = networks.LinearResNetBackbone(
+            inplanes=inplanes, block=blocks.BasicLinearBlock, block_counts=block_counts)
         self._target_net = networks.LinearNet(
             backbone=[backbone],
             input_size=self._input_size,
@@ -106,13 +108,13 @@ class DQN(ReinforcmentAlgoritham):
                 # t.max(1) will return largest column value of each row.
                 # second column on max result is index of where max element was
                 # found, so we pick action with the larger expected reward.
-                return self._policy_net(state.cuda()).max(1)[1]
+                return self._policy_net(state.cuda()).max(1)[1], 1
         else:
             # print(sample, eps_threshold)
-            return torch.tensor(random.randrange(self._output_size))
+            return torch.tensor(random.randrange(self._output_size)), 1
 
-    def optimization_step(self, state, action, reward, new_state):
-        super().optimization_step(state, action, reward, new_state)
+    def optimization_step(self, state, action, action_log_prob, reward, new_state):
+        super().optimization_step(state, action, action_log_prob, reward, new_state)
 
         # Perform one step of the optimization (on the policy network)
         if len(self._memory) >= self._train_config.BATCH_SIZE:
@@ -134,7 +136,7 @@ class DQN(ReinforcmentAlgoritham):
         # columns of actions taken. These are the actions which would've been taken
         # for each batch state according to policy_net
         state_action_values = self._policy_net(
-            batch.state.cuda()).gather(1, batch.action.cuda().unsqueeze(-1))
+            batch.state.cuda()).gather(1, batch.action.long().cuda().unsqueeze(-1))
 
         # Compute V(s_{t+1}) for all next states.
         # Expected values of actions for non_final_next_states are computed based
@@ -142,7 +144,7 @@ class DQN(ReinforcmentAlgoritham):
         # This is merged based on the mask, such that we'll have either the expected
         # state value or 0 in case the state was final.
         next_state_values = self._target_net(
-            batch.next_state.cuda()).max(1)[0].detach()
+            batch.next_state.cuda()).max(1)[0].detach() * batch.reward.cuda()
         # Compute the expected Q values
         expected_state_action_values = (
             next_state_values * self._train_config.GAMMA) + batch.reward.cuda()

@@ -2,6 +2,7 @@ from environment.environments import ParameterEnv
 import gym
 from numpy import sin, cos
 import abc
+import numpy as np
 
 
 class Playground(ParameterEnv):
@@ -40,7 +41,7 @@ class CartPole(Playground):
     def step(self, action):
         new_state, reward, done, d = super().step(action)
         if done:
-            reward = -10
+            reward = 0
         return new_state, reward, done, d
 
     @property
@@ -93,14 +94,20 @@ class Pendulum(Playground):
     def __init__(self, name, visual):
         env = gym.make(name)
         super().__init__(env, visual)
+        self._value = 0
 
     def step(self, action):
-        new_state, reward, done, d = super().step([action])
+
+        action = np.array([action])
+        if self._duration == 0:
+            self._value = 0
+        new_state, reward, done, d = super().step(action)
+        self._value += reward
         return new_state, float(reward), done, d
 
     @property
     def metric(self):
-        return self.max_duration - self.duration
+        return self._value
 
 
 class PendulumV1(Pendulum):
@@ -109,4 +116,34 @@ class PendulumV1(Pendulum):
 
     @property
     def max_duration(self):
-        return 500
+        return 200
+
+
+class MountainCar(Playground):
+    def __init__(self, name, visual):
+        env = gym.make(name)
+        super().__init__(env, visual)
+        self._value = 0
+
+    def step(self, action):
+        if self._duration == 0:
+            self._value = 0
+        new_state, reward, done, d = super().step(action)
+        if done:
+            print(self._value)
+        reward += float(abs(new_state[1])*13)
+        self._value += reward
+        return new_state, reward, done, d
+
+    @property
+    def metric(self):
+        return self.max_duration - self.duration
+
+
+class MountainCarV0(MountainCar):
+    def __init__(self, visual):
+        super().__init__("MountainCar-v0", visual=visual)
+
+    @property
+    def max_duration(self):
+        return 200

@@ -10,9 +10,10 @@ from torchsummary import summary
 from cached_property import cached_property
 import numpy as np
 from model.utils import Identifier
-from torch.distributions import Categorical, Normal
+from torch.distributions import Categorical, Normal, MultivariateNormal
 import abc
 from gym.spaces import Box, Discrete, Space
+import torch.nn.functional as F
 
 
 class ReinforcmentAlgoritham(Identifier, abc.ABC):
@@ -29,8 +30,12 @@ class ReinforcmentAlgoritham(Identifier, abc.ABC):
         if isinstance(output_shape, Box):
             self._output_size = len(output_shape.shape) * 2
             self._output_transformation = lambda x: x
-            self._action_transformation = lambda x: Normal(
-                x[..., 0].tanh(), x[..., 1].tanh().exp())
+
+            def multi_norm(x):
+                m, s = x.split(1, dim=-1)
+                return MultivariateNormal(
+                    m, (0.1+F.softplus(s)).diag_embed())
+            self._action_transformation = multi_norm
         if isinstance(output_shape, Discrete):
             self._output_size = output_shape.n
             self._output_transformation = lambda x: x.softmax(1)
@@ -69,15 +74,16 @@ class ReinforcmentAlgoritham(Identifier, abc.ABC):
     def preform_action(self, state: np.ndarray):
         pass
 
-    def optimization_step(self, state: np.ndarray, action: np.ndarray, reward: np.ndarray, new_state: np.ndarray) -> None:
+    def optimization_step(self, state: np.ndarray, action: np.ndarray, action_log_prob: np.ndarray, reward: np.ndarray, new_state: np.ndarray) -> None:
         self._train_config.steps_done += 1
         # Store the transition in memory
         self._memory.push(
             Transition(
                 torch.Tensor([state]),
-                torch.Tensor([action]).long(),
+                torch.Tensor([action]),
+                torch.Tensor([action_log_prob]),
                 torch.Tensor([new_state]),
-                torch.tensor([reward])
+                torch.Tensor([reward])
             )
         )
 

@@ -13,11 +13,11 @@ class PolicyGradient(ReinforcmentAlgoritham):
         self._inplanes = inplanes
         self._block_counts = block_counts
         ReinforcmentAlgoritham.__init__(self, 1000, input_size, output_size)
-        self._backbone = networks.LinearResNetBackbone(
+        backbone = networks.LinearResNetBackbone(
             inplanes=inplanes, block=blocks.BasicLinearBlock, block_counts=block_counts)
 
         self._policy_net = networks.LinearNet(
-            backbone=[self._backbone],
+            backbone=[backbone],
             input_size=self._input_size,
             output_size=self._output_size
         ).cuda()
@@ -74,34 +74,37 @@ class PolicyGradient(ReinforcmentAlgoritham):
         state = torch.tensor(state).unsqueeze(0).cuda()
         assert state.shape[0] == 1, "Must run one action at the time"
         output = self._output_transformation(self._policy_net(state))
-
-        return self._action_transformation(output).sample()
+        dist = self._action_transformation(output)
+        action = dist.sample()
+        return action, dist.log_prob(action)
 
     def _optimize_model(self, batch):
-        self.acumulate_reward(batch)
+        rewards = self.acumulate_reward(batch)
 
         probs = self._output_transformation(
             self._policy_net(batch.state.cuda()))
         log_action_values = self._action_transformation(
             probs).log_prob(batch.action.cuda())
-        losses = batch.reward.cuda() * log_action_values
+        losses = rewards.cuda() * log_action_values
         return -losses.sum()
 
     def acumulate_reward(self, batch):
         cum_reward = 0
+        rewards = torch.zeros_like(batch.reward)
         for i in range(1, len(batch.reward) + 1):
             cum_reward *= self._train_config.GAMMA
             reward = batch.reward[-i]
             cum_reward += reward
-            batch.reward[-i] = cum_reward
+            rewards[-i] = cum_reward
+        return rewards
 
     def process_metric(self, episode_durations: deque):
         # Perform one step of the optimization (on the policy network)
+
         loss = self._optimize_model(self._memory.as_batch())
-        self._memory.clear()
         # Optimize the model
         self._optimizer.zero_grad()
         loss.backward()
         self._optimizer.step()
-
+        self._memory.clear()
         super().process_metric(episode_durations)
