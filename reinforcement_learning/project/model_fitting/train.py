@@ -8,7 +8,7 @@ from environment.playgrounds import Playground
 def fit(algoritham: ReinforcmentAlgoritham, environment: Playground):
     episode_metric = deque([], maxlen=100)
 
-    screen, state = environment.get_screen()
+    screen, _ = environment.get_screen()
     if screen is not None:
         algoritham.writer.add_image('Model view', screen)
 

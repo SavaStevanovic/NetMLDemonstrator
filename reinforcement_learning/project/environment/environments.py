@@ -81,4 +81,4 @@ class ParameterEnv(Environment):
         if self._visual:
             screen_orig = self.env.render(
                 mode='rgb_array').transpose((2, 0, 1))
-        return screen_orig, self.env.state
+        return screen_orig, None

@@ -10,3 +10,4 @@ torch-tb-profiler
 tensorboard
 torchsummary
 cached_property
+Box2D
