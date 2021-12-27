@@ -84,7 +84,7 @@ class PolicyGradient(ReinforcmentAlgoritham):
         probs = self._output_transformation(
             self._policy_net(batch.state.cuda()))
         log_action_values = self._action_transformation(
-            probs).log_prob(batch.action.cuda().squeeze(-1))
+            probs).log_prob(batch.action.cuda().squeeze(1))
         if len(log_action_values.shape) == 2:
             log_action_values = log_action_values.sum(-1)
         losses = rewards.cuda() * log_action_values
