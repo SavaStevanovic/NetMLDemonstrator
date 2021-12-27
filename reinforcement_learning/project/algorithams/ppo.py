@@ -17,7 +17,9 @@ class PPO(A2C):
         probs = self._output_transformation(
             self._policy_net(batch.state.cuda()))
         log_action_values = self._action_transformation(
-            probs).log_prob(batch.action.cuda())
+            probs).log_prob(batch.action.cuda().squeeze(-1))
+        if len(log_action_values.shape) == 2:
+            log_action_values = log_action_values.sum(-1)
         cuda_reward = rewards.cuda()
         value = self._value_net(batch.state.cuda()).squeeze(-1)
         adv = (cuda_reward - value.detach())

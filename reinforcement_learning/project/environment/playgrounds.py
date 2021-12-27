@@ -39,7 +39,7 @@ class CartPole(Playground):
         super().__init__(env, visual)
 
     def step(self, action):
-        new_state, reward, done, d = super().step(action)
+        new_state, reward, done, d = super().step(action.item())
         if done:
             reward = 0
         return new_state, reward, done, d
@@ -73,7 +73,7 @@ class Acrobot(Playground):
         super().__init__(env, visual)
 
     def step(self, action):
-        new_state, reward, done, d = super().step(action-1)
+        new_state, reward, done, d = super().step(action.item()-1)
         return new_state, reward, done, d
 
     @property
@@ -101,7 +101,8 @@ class Pendulum(Playground):
         action = np.array([action])
         if self._duration == 0:
             self._value = 0
-        new_state, reward, done, d = super().step(action)
+        new_state, reward, done, d = super().step(action.item() * (self._env.action_space.high -
+                                                                   self._env.action_space.low) + self._env.action_space.low)
         self._value += reward
         return new_state, float(reward), done, d
 
@@ -128,7 +129,7 @@ class MountainCar(Playground):
     def step(self, action):
         if self._duration == 0:
             self._value = 0
-        new_state, reward, done, d = super().step(action)
+        new_state, reward, done, d = super().step(action.item())
         if done:
             print(self._value)
         reward += float(abs(new_state[1])*13)
@@ -158,7 +159,7 @@ class LunarLander(Playground):
     def step(self, action):
         if self._duration == 0:
             self._value = 0
-        new_state, reward, done, d = super().step(action)
+        new_state, reward, done, d = super().step(action.item())
         self._value += reward
         return new_state, reward, done, d
 
@@ -176,3 +177,29 @@ class LunarLanderV2(LunarLander):
         return 200
 
 
+class LunarLanderContinuous(Playground):
+    def __init__(self, name, visual):
+        env = gym.make(name)
+        super().__init__(env, visual)
+        self._value = 0
+
+    def step(self, action):
+        if self._duration == 0:
+            self._value = 0
+        new_state, reward, done, d = super().step(action * (self._env.action_space.high -
+                                                            self._env.action_space.low) + self._env.action_space.low)
+        self._value += reward
+        return new_state, reward, done, d
+
+    @property
+    def metric(self):
+        return self._value
+
+
+class LunarLanderContinuousV2(LunarLanderContinuous):
+    def __init__(self, visual):
+        super().__init__("LunarLanderContinuous-v2", visual=visual)
+
+    @property
+    def max_duration(self):
+        return 200

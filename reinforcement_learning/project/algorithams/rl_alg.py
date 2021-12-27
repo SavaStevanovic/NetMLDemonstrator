@@ -10,7 +10,8 @@ from torchsummary import summary
 from cached_property import cached_property
 import numpy as np
 from model.utils import Identifier
-from torch.distributions import Categorical, Normal, MultivariateNormal
+from torch.distributions import Categorical, Normal, MultivariateNormal, distribution
+from torch.distributions.beta import Beta
 import abc
 from gym.spaces import Box, Discrete, Space
 import torch.nn.functional as F
@@ -28,12 +29,17 @@ class ReinforcmentAlgoritham(Identifier, abc.ABC):
             self._input_size = input_space.n
 
         if isinstance(output_shape, Box):
-            self._output_size = len(output_shape.shape) * 2
+            self._output_size = output_shape.shape[0] * 2
             self._output_transformation = lambda x: x
+            if output_shape.bounded_above.any() or output_shape.bounded_below.any():
+                def multi_norm(x):
+                    m, s = x.split(output_shape.shape[0], dim=-1)
+                    return Beta(F.softplus(m.squeeze(-1))+1, F.softplus(s.squeeze(-1))+1)
+            else:
+                def multi_norm(x):
+                    m, s = x.split(output_shape.shape[0], dim=-1)
+                    return Normal(m.squeeze(-1), (0.1+F.softplus(s.squeeze(-1))))
 
-            def multi_norm(x):
-                m, s = x.split(1, dim=-1)
-                return Normal(m.squeeze(-1), (0.1+F.softplus(s.squeeze(-1))))
             self._action_transformation = multi_norm
         if isinstance(output_shape, Discrete):
             self._output_size = output_shape.n

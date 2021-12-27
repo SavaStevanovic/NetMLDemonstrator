@@ -22,7 +22,7 @@ def fit(algoritham: ReinforcmentAlgoritham, environment: Playground):
         while not done:
             # Select and perform an action
             action, log_prob = algoritham.preform_action(state)
-            new_state, reward, done, _ = environment.step(action.item())
+            new_state, reward, done, _ = environment.step(action)
             algoritham.optimization_step(
                 state, action, log_prob, reward, new_state)
 

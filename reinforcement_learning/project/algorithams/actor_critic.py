@@ -56,7 +56,9 @@ class A2C(PolicyGradient):
         probs = self._output_transformation(
             self._policy_net(batch.state.cuda()))
         log_action_values = self._action_transformation(
-            probs).log_prob(batch.action.cuda())
+            probs).log_prob(batch.action.cuda().squeeze(-1))
+        if len(log_action_values.shape) == 2:
+            log_action_values = log_action_values.sum(-1)
         cuda_reward = rewards.cuda()
         value = self._value_net(batch.state.cuda()).squeeze(-1)
         losses = (cuda_reward - value) * log_action_values
@@ -72,9 +74,9 @@ class A2C(PolicyGradient):
             for _ in range(self._train_config.BATCH_SIZE):
                 losses = 0
                 value_losses = 0
-                for i in range(self._train_config.BATCH_SIZE):
+                for batche in self._batches:
                     # Optimize the model
-                    loss, value_loss = self._optimize_model(self._batches[i])
+                    loss, value_loss = self._optimize_model(batche)
                     losses += loss
                     value_losses += value_loss
                 self._optimizer.zero_grad()

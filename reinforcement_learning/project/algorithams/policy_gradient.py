@@ -76,7 +76,7 @@ class PolicyGradient(ReinforcmentAlgoritham):
         output = self._output_transformation(self._policy_net(state))
         dist = self._action_transformation(output)
         action = dist.sample()
-        return action, dist.log_prob(action)
+        return action.cpu().detach().numpy(), dist.log_prob(action).cpu().detach().sum().item()
 
     def _optimize_model(self, batch):
         rewards = self.acumulate_reward(batch)
@@ -84,7 +84,9 @@ class PolicyGradient(ReinforcmentAlgoritham):
         probs = self._output_transformation(
             self._policy_net(batch.state.cuda()))
         log_action_values = self._action_transformation(
-            probs).log_prob(batch.action.cuda())
+            probs).log_prob(batch.action.cuda().squeeze(-1))
+        if len(log_action_values.shape) == 2:
+            log_action_values = log_action_values.sum(-1)
         losses = rewards.cuda() * log_action_values
         return -losses.sum()
 
