@@ -19,10 +19,11 @@ class Environment(abc.ABC):
     def step(self, action):
         if self._visual:
             self._env.render()
-        return self._env.step(action)
+        new_state, reward, done, d = self._env.step(action)
+        return new_state.astype(np.float32), reward, done, d
 
     def reset(self):
-        return self._env.reset()
+        return self._env.reset().astype(np.float32)
 
     @abc.abstractmethod
     def get_screen(self) -> typing.Tuple[np.array, torch.tensor]:

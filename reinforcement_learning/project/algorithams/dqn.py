@@ -13,25 +13,10 @@ from algorithams.rl_alg import ReinforcmentAlgoritham
 
 class DQN(ReinforcmentAlgoritham):
     def __init__(self, inplanes, block_counts, input_size, output_size) -> None:
-        self._inplanes = inplanes
-        self._block_counts = block_counts
-        ReinforcmentAlgoritham.__init__(self, 20000, input_size, output_size)
-        backbone = networks.LinearResNetBackbone(
-            inplanes=inplanes, block=blocks.BasicLinearBlock, block_counts=block_counts)
-
-        self._policy_net = networks.LinearNet(
-            backbone=[backbone],
-            input_size=self._input_size,
-            output_size=self._output_size
-        ).cuda()
-
-        backbone = networks.LinearResNetBackbone(
-            inplanes=inplanes, block=blocks.BasicLinearBlock, block_counts=block_counts)
-        self._target_net = networks.LinearNet(
-            backbone=[backbone],
-            input_size=self._input_size,
-            output_size=self._output_size
-        ).cuda()
+        ReinforcmentAlgoritham.__init__(
+            self, inplanes, block_counts, 20000, input_size, output_size)
+        self._policy_net = self.generate_network()
+        self._target_net = self.generate_network()
 
         self._target_net.load_state_dict(self._policy_net.state_dict())
         self._target_net.eval()
@@ -46,7 +31,7 @@ class DQN(ReinforcmentAlgoritham):
             self._chp_dir, 'configuration.json'
         )
 
-        summary(self._target_net, torch.Size([self._input_size]))
+        # summary(self._target_net, torch.Size([self._input_size]))
 
     @property
     def _network_params(self):

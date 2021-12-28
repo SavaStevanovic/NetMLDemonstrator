@@ -10,18 +10,9 @@ from algorithams.rl_alg import ReinforcmentAlgoritham
 
 class PolicyGradient(ReinforcmentAlgoritham):
     def __init__(self, inplanes, block_counts, input_size, output_size) -> None:
-        self._inplanes = inplanes
-        self._block_counts = block_counts
-        ReinforcmentAlgoritham.__init__(self, 1000, input_size, output_size)
-        backbone = networks.LinearResNetBackbone(
-            inplanes=inplanes, block=blocks.BasicLinearBlock, block_counts=block_counts)
-
-        self._policy_net = networks.LinearNet(
-            backbone=[backbone],
-            input_size=self._input_size,
-            output_size=self._output_size
-        ).cuda()
-
+        ReinforcmentAlgoritham.__init__(
+            self, inplanes, block_counts, 1000, input_size, output_size)
+        self._policy_net = self.generate_network()
         self._checkpoint_name_path = os.path.join(
             self._chp_dir, 'checkpoints.pth'
         )
@@ -29,7 +20,7 @@ class PolicyGradient(ReinforcmentAlgoritham):
             self._chp_dir, 'configuration.json'
         )
 
-        summary(self._policy_net, torch.Size([self._input_size]))
+        # summary(self._policy_net, torch.Size([self._input_size]))
 
     @property
     def _network_params(self):

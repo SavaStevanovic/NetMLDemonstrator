@@ -27,8 +27,16 @@ class ResNetBackbone(nn.Module, utils.Identifier):
             nn.MaxPool2d(kernel_size=2, stride=2)
         )
 
-        self._layers = nn.ModuleList([self.__make_layer(block, int(
+        self._layers = nn.ModuleList([self._make_layer(block, int(
             i > 0)+1, layer_count, int(i > 0)+1) for i, layer_count in enumerate(block_counts)])
+
+    @property
+    def inplanes(self):
+        return self._inplanes
+
+    @property
+    def block_counts(self):
+        return self._block_counts
 
     def _make_layer(self, block, expansion, blocks, stride=1):
         outplanes = self._inplanes*expansion
@@ -41,13 +49,12 @@ class ResNetBackbone(nn.Module, utils.Identifier):
         return nn.Sequential(*layers)
 
     def forward(self, x):
-        x = self._first_layer(x)
+        x = self._first_layer(x.transpose(3, 1))
 
-        outputs = [x]
         for l in self._layers:
-            outputs.append(l(outputs[-1]))
+            x = l(x)
 
-        return tuple(outputs[1:])
+        return x
 
 
 class LinearResNetBackbone(nn.Module, utils.Identifier):
@@ -89,20 +96,19 @@ class LinearResNetBackbone(nn.Module, utils.Identifier):
         for l in self._layers:
             outputs.append(l(outputs[-1]))
 
-        return tuple(outputs[1:])
+        return outputs[-1]
 
 
 class LinearNet(nn.Module, utils.Identifier):
-    def __init__(self, backbone: utils.Identifier, input_size: int, output_size: int):
+    def __init__(self, adapter_network, backbone: utils.Identifier, output_size: int, input_size: list):
         super(LinearNet, self).__init__()
-
         self._output_size = output_size
-        self._backbone = functools.reduce(lambda b, m: m(b), backbone[::-1])
+        self._backbone = backbone
+        self._first_layer = adapter_network
+        input = torch.zeros(input_size).unsqueeze(0)
+        in_size = self._first_layer(input).flatten().shape[0]
         self._inplanes = self._backbone.inplanes
-        self._first_layer = nn.Sequential(
-            nn.Linear(input_size, self._inplanes),
-            nn.ReLU(inplace=True)
-        )
+        self._adapter = nn.Linear(in_size, self._inplanes)
         self._head = nn.Linear(self._inplanes, self._output_size)
 
     @property
@@ -114,9 +120,8 @@ class LinearNet(nn.Module, utils.Identifier):
         return [1]
 
     def forward(self, x):
-        features = self._first_layer(x)
-        b_features = self._backbone(features)
-        if b_features:
-            features = b_features[-1]
+        features = self._first_layer(x).flatten(1)
+        features = self._adapter(features)
+        features = self._backbone(features)
 
         return self._head(features)

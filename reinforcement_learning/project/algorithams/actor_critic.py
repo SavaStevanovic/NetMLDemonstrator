@@ -13,16 +13,10 @@ import torch.nn.functional as F
 class A2C(PolicyGradient):
     def __init__(self, inplanes, block_counts, input_size, output_size) -> None:
         super().__init__(inplanes, block_counts, input_size, output_size)
-        backbone = networks.LinearResNetBackbone(
-            inplanes=inplanes, block=blocks.BasicLinearBlock, block_counts=block_counts)
-        self._value_net = networks.LinearNet(
-            backbone=[backbone],
-            input_size=self._input_size,
-            output_size=1
-        ).cuda()
+        self._value_net = self.generate_network(1)
 
         self._batches = []
-        summary(self._value_net, torch.Size([self._input_size]))
+        # summary(self._value_net, torch.Size([self._input_size]))
 
     @property
     def _network_params(self):

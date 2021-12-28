@@ -228,3 +228,30 @@ class BipedalWalkerV3(BipedalWalker):
     @property
     def max_duration(self):
         return 200
+
+
+class Breakout(Playground):
+    def __init__(self, name, visual):
+        env = gym.make(name)
+        super().__init__(env, visual)
+        self._value = 0
+
+    def step(self, action):
+        if self._duration == 0:
+            self._value = 0
+        new_state, reward, done, d = super().step(action)
+        self._value += reward
+        return new_state, reward, done, d
+
+    @property
+    def metric(self):
+        return self._value
+
+
+class BreakoutV0(Breakout):
+    def __init__(self, visual):
+        super().__init__("Breakout-v0", visual=visual)
+
+    @property
+    def max_duration(self):
+        return 200

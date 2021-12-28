@@ -1,6 +1,7 @@
 from collections import deque
 from statistics import mean
 import typing
+from torch import nn
 from torch.utils.tensorboard.writer import SummaryWriter
 from data_loader.rldata import RLDataset, Transition
 import os
@@ -15,16 +16,20 @@ from torch.distributions.beta import Beta
 import abc
 from gym.spaces import Box, Discrete, Space
 import torch.nn.functional as F
+from model import networks
+from model import blocks
 
 
 class ReinforcmentAlgoritham(Identifier, abc.ABC):
-    def __init__(self, capacity: int, input_space: typing.Union[Box, Discrete], output_shape: typing.Union[Box, Discrete]) -> None:
+    def __init__(self, inplanes, block_counts, capacity: int, input_space: typing.Union[Box, Discrete], output_shape: typing.Union[Box, Discrete]) -> None:
+        self._inplanes = inplanes
+        self._block_counts = block_counts
         super(ReinforcmentAlgoritham, self).__init__()
         self._memory = RLDataset(capacity)
         self._train_config = TrainingConfiguration()
         self._chp_dir = os.path.join('tmp/checkpoints', self.get_identifier())
         if isinstance(input_space, Box):
-            self._input_size = input_space.shape[0]
+            self._input_size = list(input_space.shape)
         elif isinstance(input_space, Discrete):
             self._input_size = input_space.n
 
@@ -45,6 +50,26 @@ class ReinforcmentAlgoritham(Identifier, abc.ABC):
             self._action_transformation = lambda x: Categorical(x.softmax(1))
 
         self._cur_learning_rate = -1
+
+    def generate_network(self, output_size=None):
+        if output_size is None:
+            output_size = self._output_size
+        backbone = networks.LinearResNetBackbone(
+            inplanes=self._inplanes, block=blocks.BasicLinearBlock, block_counts=self._block_counts)
+        if len(self._input_size) > 1:
+            adapter_network = networks.ResNetBackbone(
+                inplanes=self._inplanes // 4, block=blocks.BasicBlock, block_counts=self._block_counts)
+        else:
+            adapter_network = nn.Sequential(
+                nn.Linear(self._input_size[0], self._inplanes),
+                nn.ReLU(inplace=True)
+            )
+        return networks.LinearNet(
+            adapter_network=adapter_network,
+            backbone=backbone,
+            output_size=output_size,
+            input_size=self._input_size
+        ).cuda()
 
     @property
     def _optimizer(self):
