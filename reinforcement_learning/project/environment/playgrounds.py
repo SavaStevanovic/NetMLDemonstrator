@@ -130,9 +130,6 @@ class MountainCar(Playground):
         if self._duration == 0:
             self._value = 0
         new_state, reward, done, d = super().step(action.item())
-        if done:
-            print(self._value)
-        reward += float(abs(new_state[1])*13)
         self._value += reward
         return new_state, reward, done, d
 
@@ -199,6 +196,34 @@ class LunarLanderContinuous(Playground):
 class LunarLanderContinuousV2(LunarLanderContinuous):
     def __init__(self, visual):
         super().__init__("LunarLanderContinuous-v2", visual=visual)
+
+    @property
+    def max_duration(self):
+        return 200
+
+
+class BipedalWalker(Playground):
+    def __init__(self, name, visual):
+        env = gym.make(name)
+        super().__init__(env, visual)
+        self._value = 0
+
+    def step(self, action):
+        if self._duration == 0:
+            self._value = 0
+        new_state, reward, done, d = super().step(action * (self._env.action_space.high -
+                                                            self._env.action_space.low) + self._env.action_space.low)
+        self._value += reward
+        return new_state, reward, done, d
+
+    @property
+    def metric(self):
+        return self._value
+
+
+class BipedalWalkerV3(BipedalWalker):
+    def __init__(self, visual):
+        super().__init__("BipedalWalker-v3", visual=visual)
 
     @property
     def max_duration(self):
