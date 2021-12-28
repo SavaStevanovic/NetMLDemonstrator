@@ -11,26 +11,11 @@ from copy import deepcopy
 
 
 class PPO(A2C):
-    def _optimize_model(self, batch):
-        rewards = self.acumulate_reward(batch)
-
-        probs = self._output_transformation(
-            self._policy_net(batch.state.cuda()))
-        log_action_values = self._action_transformation(
-            probs).log_prob(batch.action.cuda().squeeze(1))
-        if len(log_action_values.shape) == 2:
-            log_action_values = log_action_values.sum(-1)
-        cuda_reward = rewards.cuda()
-        value = self._value_net(batch.state.cuda()).squeeze(-1)
-        adv = (cuda_reward - value.detach())
-
+    def _compute_policy_loss(self, log_action_values, advantage, batch):
         ratios = (log_action_values - batch.action_log_prob.cuda()).exp()
-        losses1 = adv * ratios
-        losses2 = adv * torch.clamp(
+        losses1 = advantage * ratios
+        losses2 = advantage * torch.clamp(
             ratios, 1 - 0.2, 1 + 0.2)
-        losses = torch.min(losses1, losses2)
-        value_loss = F.mse_loss(value, cuda_reward)
-        return -losses.sum(), value_loss
 
-    def process_metric(self, episode_durations: deque):
-        super().process_metric(episode_durations)
+        losses = torch.min(losses1, losses2)
+        return losses

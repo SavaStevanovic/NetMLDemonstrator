@@ -30,21 +30,19 @@ class ReinforcmentAlgoritham(Identifier, abc.ABC):
 
         if isinstance(output_shape, Box):
             self._output_size = output_shape.shape[0] * 2
-            self._output_transformation = lambda x: x
             if output_shape.bounded_above.any() or output_shape.bounded_below.any():
                 def multi_norm(x):
                     m, s = x.split(output_shape.shape[0], dim=-1)
-                    return Beta(F.softplus(m.squeeze(-1))+1, F.softplus(s.squeeze(-1))+1)
+                    return Beta(F.softplus(m)+1, F.softplus(s)+1)
             else:
                 def multi_norm(x):
                     m, s = x.split(output_shape.shape[0], dim=-1)
-                    return Normal(m.squeeze(-1), (0.1+F.softplus(s.squeeze(-1))))
+                    return Normal(m, (0.1+F.softplus(s)))
 
             self._action_transformation = multi_norm
         if isinstance(output_shape, Discrete):
             self._output_size = output_shape.n
-            self._output_transformation = lambda x: x.softmax(1)
-            self._action_transformation = lambda x: Categorical(x)
+            self._action_transformation = lambda x: Categorical(x.softmax(1))
 
     @cached_property
     def writer(self) -> SummaryWriter:

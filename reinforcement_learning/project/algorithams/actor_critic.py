@@ -53,18 +53,17 @@ class A2C(PolicyGradient):
     def _optimize_model(self, batch):
         rewards = self.acumulate_reward(batch)
 
-        probs = self._output_transformation(
-            self._policy_net(batch.state.cuda()))
-        log_action_values = self._action_transformation(
-            probs).log_prob(batch.action.cuda().squeeze(-1))
-        if len(log_action_values.shape) == 2:
-            log_action_values = log_action_values.sum(-1)
+        log_action_values = self._compute_log_probs(batch)
         cuda_reward = rewards.cuda()
         value = self._value_net(batch.state.cuda()).squeeze(-1)
-        losses = (cuda_reward - value) * log_action_values
         value_loss = F.smooth_l1_loss(value, cuda_reward)
+        losses = self._compute_policy_loss(
+            log_action_values, (cuda_reward - value), batch)
 
         return -losses.sum(), value_loss.sum()
+
+    def _compute_policy_loss(self, log_action_values, advantage, batch):
+        return advantage * log_action_values
 
     def process_metric(self, episode_durations: deque):
         self._batches.append(self._memory.as_batch())

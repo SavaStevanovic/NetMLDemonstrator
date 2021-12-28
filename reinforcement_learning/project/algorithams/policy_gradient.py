@@ -73,22 +73,24 @@ class PolicyGradient(ReinforcmentAlgoritham):
     def preform_action(self, state):
         state = torch.tensor(state).unsqueeze(0).cuda()
         assert state.shape[0] == 1, "Must run one action at the time"
-        output = self._output_transformation(self._policy_net(state))
-        dist = self._action_transformation(output)
+        dist = self._action_transformation(self._policy_net(state))
         action = dist.sample()
-        return action.cpu().detach().numpy(), dist.log_prob(action).cpu().detach().sum().item()
+        return action.cpu().detach().numpy()[0], dist.log_prob(action).cpu().detach().sum().item()
 
     def _optimize_model(self, batch):
         rewards = self.acumulate_reward(batch)
-
-        probs = self._output_transformation(
-            self._policy_net(batch.state.cuda()))
-        log_action_values = self._action_transformation(
-            probs).log_prob(batch.action.cuda().squeeze(1))
-        if len(log_action_values.shape) == 2:
-            log_action_values = log_action_values.sum(-1)
+        log_action_values = self._compute_log_probs(batch)
         losses = rewards.cuda() * log_action_values
         return -losses.sum()
+
+    def _compute_log_probs(self, batch):
+        dist = self._action_transformation(
+            self._policy_net(batch.state.cuda()))
+        log_action_values = dist.log_prob(batch.action.cuda())
+        if len(log_action_values.shape) == 2:
+            log_action_values = log_action_values.sum(-1)
+
+        return log_action_values
 
     def acumulate_reward(self, batch):
         cum_reward = 0
