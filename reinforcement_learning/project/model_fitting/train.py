@@ -29,10 +29,6 @@ def fit(algoritham: ReinforcmentAlgoritham, environment: Playground):
             state = new_state
             if done:
                 episode_metric.append(environment.metric)
-                algoritham.writer.add_scalars('Duration', {
-                    'current': episode_metric[-1],
-                    'mean': mean(episode_metric)
-                }, algoritham.epoch)
         algoritham.process_metric(episode_metric)
         algoritham.save_model_state()
     print('Complete')

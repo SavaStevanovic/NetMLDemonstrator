@@ -46,7 +46,9 @@ class RLDataset(Dataset):
         return len(self._memory)
 
     def as_batch(self):
-        return rl_collate_fn(self._memory)
+        memory = rl_collate_fn(self._memory)
+        self.clear()
+        return memory
 
     def sample(self, batch_size):
         return rl_collate_fn(random.sample(self._memory, batch_size))

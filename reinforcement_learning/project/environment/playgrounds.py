@@ -186,8 +186,8 @@ class LunarLanderContinuous(Playground):
     def step(self, action):
         if self._duration == 0:
             self._value = 0
-        new_state, reward, done, d = super().step(action[0] * (self._env.action_space.high -
-                                                               self._env.action_space.low) + self._env.action_space.low)
+        new_state, reward, done, d = super().step(action * (self._env.action_space.high -
+                                                            self._env.action_space.low) + self._env.action_space.low)
         self._value += reward
         return new_state, reward, done, d
 

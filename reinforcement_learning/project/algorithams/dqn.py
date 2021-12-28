@@ -46,12 +46,11 @@ class DQN(ReinforcmentAlgoritham):
             self._chp_dir, 'configuration.json'
         )
 
-        self._optimizer = torch.optim.RMSprop(
-            self._policy_net.parameters(),
-            self._train_config.learning_rate
-        )
-
         summary(self._target_net, torch.Size([self._input_size]))
+
+    @property
+    def _network_params(self):
+        return list(self._policy_net.parameters())
 
     @property
     def inplanes(self):
@@ -65,17 +64,12 @@ class DQN(ReinforcmentAlgoritham):
     def _criterion(self) -> SummaryWriter:
         return nn.SmoothL1Loss()
 
-    @property
-    def optimizer(self) -> torch.optim.Optimizer:
-        return self._optimizer
-
     def load_last_state(self) -> None:
         if not os.path.exists(self._checkpoint_conf_path):
             return
         checkpoint = torch.load(self._checkpoint_name_path)
         self._target_net.load_state_dict(checkpoint["model_state"])
         self._policy_net.load_state_dict(checkpoint["model_state"])
-        # optimizer.load_state_dict(checkpoint["optimizer"])
         self._policy_net.train()
         self._target_net.eval()
         self._memory.load(self._checkpoint_memo_path)

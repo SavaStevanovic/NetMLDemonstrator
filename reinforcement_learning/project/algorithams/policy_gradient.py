@@ -29,11 +29,11 @@ class PolicyGradient(ReinforcmentAlgoritham):
             self._chp_dir, 'configuration.json'
         )
 
-        self._optimizer = torch.optim.Adam(
-            self._policy_net.parameters(),
-            self._train_config.learning_rate
-        )
         summary(self._policy_net, torch.Size([self._input_size]))
+
+    @property
+    def _network_params(self):
+        return list(self._policy_net.parameters())
 
     @property
     def inplanes(self):
@@ -42,10 +42,6 @@ class PolicyGradient(ReinforcmentAlgoritham):
     @property
     def block_counts(self):
         return self._block_counts
-
-    @property
-    def optimizer(self) -> torch.optim.Optimizer:
-        return self._optimizer
 
     def load_last_state(self) -> None:
         if not os.path.exists(self._checkpoint_conf_path):
@@ -110,5 +106,4 @@ class PolicyGradient(ReinforcmentAlgoritham):
         self._optimizer.zero_grad()
         loss.backward()
         self._optimizer.step()
-        self._memory.clear()
         super().process_metric(episode_durations)

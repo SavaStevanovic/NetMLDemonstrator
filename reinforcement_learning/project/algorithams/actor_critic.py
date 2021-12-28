@@ -21,13 +21,12 @@ class A2C(PolicyGradient):
             output_size=1
         ).cuda()
 
-        self._value_optimizer = torch.optim.Adam(
-            self._value_net.parameters(),
-            self._train_config.learning_rate
-        )
-
         self._batches = []
         summary(self._value_net, torch.Size([self._input_size]))
+
+    @property
+    def _network_params(self):
+        return list(self._value_net.parameters()) + super()._network_params
 
     def load_last_state(self) -> None:
         if not os.path.exists(self._checkpoint_conf_path):
@@ -58,33 +57,31 @@ class A2C(PolicyGradient):
         value = self._value_net(batch.state.cuda()).squeeze(-1)
         value_loss = F.smooth_l1_loss(value, cuda_reward)
         losses = self._compute_policy_loss(
-            log_action_values, (cuda_reward - value), batch)
+            log_action_values, (cuda_reward - value.detach()), batch)
 
-        return -losses.sum(), value_loss.sum()
+        policy_loss = -losses.sum()
+        loss = policy_loss + value_loss
+        self.writer.add_scalars('Losess', {
+            'policy_loss': policy_loss,
+            'value_loss': value_loss,
+            'loss': loss
+        }, self.epoch)
+        return loss
 
     def _compute_policy_loss(self, log_action_values, advantage, batch):
         return advantage * log_action_values
 
     def process_metric(self, episode_durations: deque):
         self._batches.append(self._memory.as_batch())
-        self._memory.clear()
         # Perform one step of the optimization (on the policy network)
-        if (self._train_config.epoch % (self._train_config.BATCH_SIZE)) == 0:
+        if (self._train_config.epoch % (self._train_config.TARGET_UPDATE)) == 0:
             for _ in range(self._train_config.BATCH_SIZE):
                 losses = 0
-                value_losses = 0
                 for batche in self._batches:
                     # Optimize the model
-                    loss, value_loss = self._optimize_model(batche)
-                    losses += loss
-                    value_losses += value_loss
+                    losses += self._optimize_model(batche)
                 self._optimizer.zero_grad()
-                losses.backward(retain_graph=True)
+                losses.backward()
                 self._optimizer.step()
-
-                self._value_optimizer.zero_grad()
-                value_losses.backward()
-                self._value_optimizer.step()
-            print(losses.item(), value_losses.item())
             self._batches = []
         ReinforcmentAlgoritham.process_metric(self, episode_durations)

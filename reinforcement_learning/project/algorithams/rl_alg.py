@@ -44,6 +44,22 @@ class ReinforcmentAlgoritham(Identifier, abc.ABC):
             self._output_size = output_shape.n
             self._action_transformation = lambda x: Categorical(x.softmax(1))
 
+        self._cur_learning_rate = -1
+
+    @property
+    def _optimizer(self):
+        if self._cur_learning_rate != self._train_config.learning_rate:
+            self._optim = torch.optim.Adam(
+                self._network_params,
+                self._train_config.learning_rate
+            )
+        return self._optim
+
+    @property
+    @abc.abstractmethod
+    def _network_params(self):
+        pass
+
     @cached_property
     def writer(self) -> SummaryWriter:
         summary_path = os.path.join(
@@ -59,11 +75,6 @@ class ReinforcmentAlgoritham(Identifier, abc.ABC):
         if self._train_config.epoch > self._train_config.EPOCHS:
             return None
         return self._train_config.epoch
-
-    @property
-    @abc.abstractmethod
-    def optimizer(self) -> torch.optim.Optimizer:
-        pass
 
     @abc.abstractmethod
     def load_last_state(self) -> None:
@@ -96,7 +107,12 @@ class ReinforcmentAlgoritham(Identifier, abc.ABC):
 
     def process_metric(self, episode_durations: deque) -> None:
         # Perform one step of the optimization (on the policy network)
+
         metric = mean(episode_durations)
+        self.writer.add_scalars('Metric', {
+            'current': episode_durations[-1],
+            'mean': metric
+        }, self.epoch)
         if self._train_config.best_metric < metric and len(episode_durations) >= episode_durations.maxlen/2:
             self._train_config.iteration_age = 0
             self._train_config.best_metric = metric
@@ -113,8 +129,6 @@ class ReinforcmentAlgoritham(Identifier, abc.ABC):
         if self._train_config.iteration_age == self._train_config.LOWER_LEARNING_PERIOD:
             self._train_config.learning_rate *= 0.5
             self._train_config.iteration_age = 0
-            self._optimizer = torch.optim.RMSprop(
-                self._policy_net.parameters(), self._train_config.learning_rate)
             print("Learning rate lowered to {}".format(
                 self._train_config.learning_rate))
         self._train_config.epoch += 1
