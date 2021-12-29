@@ -62,7 +62,7 @@ class ReinforcmentAlgoritham(Identifier, abc.ABC):
         else:
             adapter_network = nn.Sequential(
                 nn.Linear(self._input_size[0], self._inplanes),
-                nn.ReLU(inplace=True)
+                nn.ReLU()
             )
         return networks.LinearNet(
             adapter_network=adapter_network,

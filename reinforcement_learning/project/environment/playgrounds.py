@@ -3,6 +3,7 @@ import gym
 from numpy import sin, cos
 import abc
 import numpy as np
+from matplotlib import pyplot as plt
 
 
 class Playground(ParameterEnv):
@@ -236,12 +237,24 @@ class Breakout(Playground):
         super().__init__(env, visual)
         self._value = 0
 
+    def _state_preprocess(self, state):
+        state = state[20:]
+        state = cv2.resize(state, (84, 84), cv2.INTER_NEAREST)
+        s = state - self._last_state
+        self._last_state = state
+        return (s - s.min()) / (s.max() - s.min() + 10**(-10))
+
     def step(self, action):
         if self._duration == 0:
             self._value = 0
         new_state, reward, done, d = super().step(action)
+        # new_state = self._state_preprocess(new_state)
         self._value += reward
         return new_state, reward, done, d
+
+    # def reset(self):
+    #     self._last_state = np.zeros([84, 84, 3], np.float32)
+    #     return self._state_preprocess(super().reset())
 
     @property
     def metric(self):

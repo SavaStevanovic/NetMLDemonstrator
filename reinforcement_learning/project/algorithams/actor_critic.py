@@ -68,8 +68,8 @@ class A2C(PolicyGradient):
     def process_metric(self, episode_durations: deque):
         self._batches.append(self._memory.as_batch())
         # Perform one step of the optimization (on the policy network)
-        if (self._train_config.epoch % (self._train_config.TARGET_UPDATE)) == 0:
-            for _ in range(self._train_config.BATCH_SIZE):
+        if (self._train_config.epoch % (self._train_config.BATCH_SIZE)) == 0:
+            for _ in range(self._train_config.TARGET_UPDATE):
                 losses = 0
                 for batche in self._batches:
                     # Optimize the model

@@ -105,6 +105,9 @@ class DQN(ReinforcmentAlgoritham):
             for param in self._policy_net.parameters():
                 param.grad.data.clamp_(-1, 1)
             self._optimizer.step()
+            self.writer.add_scalars('Losess', {
+                'loss': loss
+            }, self.epoch)
 
         if self._train_config.steps_done % self._train_config.TARGET_UPDATE == 0:
             # save_image((current_screen - last_screen+1)[0]/2, 'img1.png')

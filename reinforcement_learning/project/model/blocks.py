@@ -2,6 +2,7 @@ import torch.nn as nn
 from model import utils
 import torch.nn.functional as F
 
+
 class Bottleneck(nn.Module):
     expansion = 4
 
@@ -9,15 +10,18 @@ class Bottleneck(nn.Module):
         super(Bottleneck, self).__init__()
         self.conv1 = nn.Conv2d(in_planes, planes, kernel_size=1, bias=False)
         self.bn1 = nn.BatchNorm2d(planes)
-        self.conv2 = nn.Conv2d(planes, planes, kernel_size=3, stride=stride, padding=1, bias=False)
+        self.conv2 = nn.Conv2d(planes, planes, kernel_size=3,
+                               stride=stride, padding=1, bias=False)
         self.bn2 = nn.BatchNorm2d(planes)
-        self.conv3 = nn.Conv2d(planes, self.expansion*planes, kernel_size=1, bias=False)
+        self.conv3 = nn.Conv2d(planes, self.expansion *
+                               planes, kernel_size=1, bias=False)
         self.bn3 = nn.BatchNorm2d(self.expansion*planes)
 
         self.shortcut = nn.Sequential()
         if stride != 1 or in_planes != self.expansion*planes:
             self.shortcut = nn.Sequential(
-                nn.Conv2d(in_planes, self.expansion*planes, kernel_size=1, stride=stride, bias=False),
+                nn.Conv2d(in_planes, self.expansion*planes,
+                          kernel_size=1, stride=stride, bias=False),
                 nn.BatchNorm2d(self.expansion*planes)
             )
 
@@ -29,6 +33,7 @@ class Bottleneck(nn.Module):
         out = F.relu(out)
         return out
 
+
 class BasicLinearLayer(nn.Sequential):
     def __init__(self, inplanes, planes):
         modules = [
@@ -37,6 +42,7 @@ class BasicLinearLayer(nn.Sequential):
             nn.ReLU(),
         ]
         super(BasicLinearLayer, self).__init__(*modules)
+
 
 class BasicLinearBlock(nn.Module):
 
@@ -61,10 +67,11 @@ class BasicLinearBlock(nn.Module):
         if self.downsample is not None:
             residual = self.downsample(x)
 
-        out += residual
+        out = out + residual
         out = F.relu(out, True)
 
         return out
+
 
 class BasicBlock(nn.Module):
 
@@ -78,7 +85,8 @@ class BasicBlock(nn.Module):
         self.downsample = None
         if stride != 1 or inplanes != planes:
             self.downsample = nn.Sequential(
-                nn.Conv2d(inplanes, planes, kernel_size=1, stride=stride, bias=False),
+                nn.Conv2d(inplanes, planes, kernel_size=1,
+                          stride=stride, bias=False),
                 nn.InstanceNorm2d(planes)
             )
 
@@ -95,6 +103,7 @@ class BasicBlock(nn.Module):
 
         return out
 
+
 class PreActivationBlock(nn.Module, utils.Identifier):
 
     def __init__(self, inplanes, planes, stride=1):
@@ -108,7 +117,8 @@ class PreActivationBlock(nn.Module, utils.Identifier):
         self.downsample = None
         if stride != 1 or inplanes != planes:
             self.downsample = nn.Sequential(
-                nn.Conv2d(inplanes, planes, kernel_size=1, stride=stride, bias=False)
+                nn.Conv2d(inplanes, planes, kernel_size=1,
+                          stride=stride, bias=False)
             )
 
     def forward(self, x):
@@ -138,7 +148,8 @@ class InvertedBlock(nn.Module, utils.Identifier):
             nn.InstanceNorm2d(self.expanded_dim),
             nn.ReLU6(inplace=True),
 
-            nn.Conv2d(self.expanded_dim, self.expanded_dim, kernel_size=3, stride=stride, padding=1, bias=False, groups=self.expanded_dim),
+            nn.Conv2d(self.expanded_dim, self.expanded_dim, kernel_size=3,
+                      stride=stride, padding=1, bias=False, groups=self.expanded_dim),
             nn.InstanceNorm2d(self.expanded_dim),
             nn.ReLU6(inplace=True),
 
@@ -155,7 +166,8 @@ class InvertedBlock(nn.Module, utils.Identifier):
 class BasicLayer(nn.Sequential):
     def __init__(self, inplanes, planes, stride):
         modules = [
-            nn.Conv2d(inplanes, planes, kernel_size=3, stride=stride, padding=1, bias=False),
+            nn.Conv2d(inplanes, planes, kernel_size=3,
+                      stride=stride, padding=1, bias=False),
             nn.InstanceNorm2d(planes),
             nn.ReLU(inplace=True),
             nn.Conv2d(planes, planes, kernel_size=3, padding=1, bias=False),
@@ -169,7 +181,8 @@ class PreActivationLayer(nn.Sequential):
         modules = [
             nn.InstanceNorm2d(inplanes),
             nn.ReLU(inplace=True),
-            nn.Conv2d(inplanes, planes, kernel_size=3, stride=stride, padding=1, bias=False),
+            nn.Conv2d(inplanes, planes, kernel_size=3,
+                      stride=stride, padding=1, bias=False),
             nn.InstanceNorm2d(planes),
             nn.ReLU(inplace=True),
             nn.Conv2d(inplanes, planes, kernel_size=3, padding=1, bias=False)
@@ -198,22 +211,23 @@ class SqueezeExcitationBlock(nn.Module, utils.Identifier):
 
     def __init__(self, inplanes, planes, stride=1, norm_layer=nn.InstanceNorm2d, reduction=16):
         super(SqueezeExcitationBlock, self).__init__()
-        
+
         self.sequential = BasicLayer(inplanes, planes, stride)
-        
+
         self.se_layer = SqueezeExcitationLayer(planes, reduction)
 
         self.downsample = None
         if stride != 1 or inplanes != planes:
             self.downsample = nn.Sequential(
-                nn.Conv2d(inplanes, planes, kernel_size=1, stride=stride, bias=False),
+                nn.Conv2d(inplanes, planes, kernel_size=1,
+                          stride=stride, bias=False),
                 nn.InstanceNorm2d(planes),
             )
 
     def forward(self, x):
         residual = x
         res_out = self.sequential(x)
-        out  = self.se_layer(res_out)
+        out = self.se_layer(res_out)
 
         if self.downsample is not None:
             residual = self.downsample(x)
@@ -233,27 +247,29 @@ class EfficientNetBlock(nn.Module, utils.Identifier):
             nn.InstanceNorm2d(self.expanded_dim),
             nn.ReLU6(inplace=True),
 
-            nn.Conv2d(self.expanded_dim, self.expanded_dim, kernel_size=3, stride=stride, padding=1, bias=False, groups=self.expanded_dim),
+            nn.Conv2d(self.expanded_dim, self.expanded_dim, kernel_size=3,
+                      stride=stride, padding=1, bias=False, groups=self.expanded_dim),
             nn.InstanceNorm2d(self.expanded_dim),
             nn.ReLU6(inplace=True),
 
             nn.Conv2d(self.expanded_dim, planes, kernel_size=1, bias=False),
             nn.InstanceNorm2d(planes)
         )
-        
+
         self.se_layer = SqueezeExcitationLayer(planes, reduction)
 
         self.downsample = None
         if stride != 1 or inplanes != planes:
             self.downsample = nn.Sequential(
-                nn.Conv2d(inplanes, planes, kernel_size=1, stride=stride, bias=False),
+                nn.Conv2d(inplanes, planes, kernel_size=1,
+                          stride=stride, bias=False),
                 nn.InstanceNorm2d(planes),
             )
 
     def forward(self, x):
         residual = x
         res_out = self.sequential(x)
-        out  = self.se_layer(res_out)
+        out = self.se_layer(res_out)
 
         if self.downsample is not None:
             residual = self.downsample(x)
@@ -261,4 +277,3 @@ class EfficientNetBlock(nn.Module, utils.Identifier):
         out += residual
 
         return out
-
