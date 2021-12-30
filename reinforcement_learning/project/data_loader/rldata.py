@@ -7,18 +7,20 @@ import pickle
 
 
 class Transition():
-    def __init__(self, state, action, action_log_prob, next_state, reward):
+    def __init__(self, state, action, action_log_prob, next_state, reward, done):
         if isinstance(reward, Iterable) and not isinstance(reward, torch.Tensor):
             state = torch.cat(state)
             action = torch.cat(action)
             next_state = torch.cat(next_state)
             reward = torch.cat(reward)
             action_log_prob = torch.cat(action_log_prob)
+            done = torch.cat(done)
         self.state = state
         self.action = action
         self.action_log_prob = action_log_prob
         self.next_state = next_state
         self.reward = reward
+        self.done = done
 
 
 def rl_collate_fn(batch):

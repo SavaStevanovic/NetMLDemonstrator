@@ -24,7 +24,7 @@ def fit(algoritham: ReinforcmentAlgoritham, environment: Playground):
             action, log_prob = algoritham.preform_action(state)
             new_state, reward, done, _ = environment.step(action)
             algoritham.optimization_step(
-                state, action, log_prob, reward, new_state)
+                state, action, log_prob, reward, new_state, done)
 
             state = new_state
             if done:

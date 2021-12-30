@@ -92,8 +92,8 @@ class DQN(ReinforcmentAlgoritham):
             # print(sample, eps_threshold)
             return torch.tensor(random.randrange(self._output_size)), 1
 
-    def optimization_step(self, state, action, action_log_prob, reward, new_state):
-        super().optimization_step(state, action, action_log_prob, reward, new_state)
+    def optimization_step(self, state, action, action_log_prob, reward, new_state, done):
+        super().optimization_step(state, action, action_log_prob, reward, new_state, done)
 
         # Perform one step of the optimization (on the policy network)
         if len(self._memory) >= self._train_config.BATCH_SIZE:
@@ -126,7 +126,7 @@ class DQN(ReinforcmentAlgoritham):
         # This is merged based on the mask, such that we'll have either the expected
         # state value or 0 in case the state was final.
         next_state_values = self._target_net(
-            batch.next_state.cuda()).max(1)[0].detach() * batch.reward.cuda()
+            batch.next_state.cuda()).max(1)[0].detach() * (1 - batch.done.cuda())
         # Compute the expected Q values
         expected_state_action_values = (
             next_state_values * self._train_config.GAMMA) + batch.reward.cuda()

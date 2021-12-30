@@ -113,7 +113,7 @@ class ReinforcmentAlgoritham(Identifier, abc.ABC):
     def preform_action(self, state: np.ndarray):
         pass
 
-    def optimization_step(self, state: np.ndarray, action: np.ndarray, action_log_prob: np.ndarray, reward: np.ndarray, new_state: np.ndarray) -> None:
+    def optimization_step(self, state: np.ndarray, action: np.ndarray, action_log_prob: np.ndarray, reward: np.ndarray, new_state: np.ndarray, done: np.array) -> None:
         self._train_config.steps_done += 1
         # Store the transition in memory
         self._memory.push(
@@ -122,7 +122,8 @@ class ReinforcmentAlgoritham(Identifier, abc.ABC):
                 torch.Tensor([action]),
                 torch.Tensor([action_log_prob]),
                 torch.Tensor([new_state]),
-                torch.Tensor([reward])
+                torch.Tensor([reward]),
+                torch.Tensor([done])
             )
         )
 
