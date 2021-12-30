@@ -11,7 +11,5 @@ tensorboard
 torchsummary
 cached_property
 Box2D
-gym[atari]
-gym[accept-rom-license]
 scipy
 opencv-python

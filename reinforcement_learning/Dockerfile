@@ -16,4 +16,6 @@ ENV NVIDIA_VISIBLE_DEVICES all
 ENV NVIDIA_DRIVER_CAPABILITIES graphics,utility,compute
 COPY ./project/requirements.txt /app/requirements.txt
 RUN pip3 install -r /app/requirements.txt
+RUN pip3 install gym[atari] 
+RUN pip3 install gym[accept-rom-license]
 CMD bash
