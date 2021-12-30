@@ -109,7 +109,10 @@ class LinearNet(nn.Module, utils.Identifier):
         input = torch.zeros(input_size).unsqueeze(0)
         in_size = self._first_layer(input).flatten().shape[0]
         self._inplanes = self._backbone.inplanes
-        self._adapter = nn.Linear(in_size, self._inplanes)
+        self._adapter = nn.Sequential(
+            nn.Linear(in_size, self._inplanes),
+            nn.ReLU()
+        )
         self._head = nn.Linear(self._inplanes, self._output_size)
 
         summary(self.cuda(), torch.Size(input_size))
