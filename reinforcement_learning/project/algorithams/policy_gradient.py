@@ -19,6 +19,7 @@ class PolicyGradient(ReinforcmentAlgoritham):
         self._checkpoint_conf_path = os.path.join(
             self._chp_dir, 'configuration.json'
         )
+        self._batches = []
 
         # summary(self._policy_net, torch.Size([self._input_size]))
 
@@ -91,10 +92,20 @@ class PolicyGradient(ReinforcmentAlgoritham):
 
     def process_metric(self, episode_durations: deque):
         # Perform one step of the optimization (on the policy network)
-
-        loss = self._optimize_model(self._memory.as_batch())
-        # Optimize the model
-        self._optimizer.zero_grad()
-        loss.backward()
-        self._optimizer.step()
+        self._batches.append(self._memory.as_batch())
+        # Perform one step of the optimization (on the policy network)
+        if (self._train_config.epoch % (self._train_config.BATCH_SIZE)) == 0:
+            for _ in range(self._train_config.TARGET_UPDATE):
+                losses = 0
+                for batche in self._batches:
+                    # Optimize the model
+                    loss = self._optimize_model(batche)
+                    self.writer.add_scalars('Losess', {
+                        'loss': loss
+                    }, self.epoch)
+                    losses += loss
+                self._optimizer.zero_grad()
+                losses.backward()
+                self._optimizer.step()
+            self._batches = []
         super().process_metric(episode_durations)

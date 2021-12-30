@@ -14,8 +14,6 @@ class A2C(PolicyGradient):
     def __init__(self, inplanes, block_counts, input_size, output_size) -> None:
         super().__init__(inplanes, block_counts, input_size, output_size)
         self._value_net = self.generate_network(1)
-
-        self._batches = []
         # summary(self._value_net, torch.Size([self._input_size]))
 
     @property
@@ -57,25 +55,9 @@ class A2C(PolicyGradient):
         loss = policy_loss + value_loss
         self.writer.add_scalars('Losess', {
             'policy_loss': policy_loss,
-            'value_loss': value_loss,
-            'loss': loss
+            'value_loss': value_loss
         }, self.epoch)
         return loss
 
     def _compute_policy_loss(self, log_action_values, advantage, batch):
         return advantage * log_action_values
-
-    def process_metric(self, episode_durations: deque):
-        self._batches.append(self._memory.as_batch())
-        # Perform one step of the optimization (on the policy network)
-        if (self._train_config.epoch % (self._train_config.BATCH_SIZE)) == 0:
-            for _ in range(self._train_config.TARGET_UPDATE):
-                losses = 0
-                for batche in self._batches:
-                    # Optimize the model
-                    losses += self._optimize_model(batche)
-                self._optimizer.zero_grad()
-                losses.backward()
-                self._optimizer.step()
-            self._batches = []
-        ReinforcmentAlgoritham.process_metric(self, episode_durations)

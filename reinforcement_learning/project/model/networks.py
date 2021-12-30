@@ -5,6 +5,7 @@ import functools
 import torch
 import numpy as np
 import typing
+from torchsummary import summary
 
 
 class ResNetBackbone(nn.Module, utils.Identifier):
@@ -110,6 +111,8 @@ class LinearNet(nn.Module, utils.Identifier):
         self._inplanes = self._backbone.inplanes
         self._adapter = nn.Linear(in_size, self._inplanes)
         self._head = nn.Linear(self._inplanes, self._output_size)
+
+        summary(self.cuda(), torch.Size(input_size))
 
     @property
     def inplanes(self):
