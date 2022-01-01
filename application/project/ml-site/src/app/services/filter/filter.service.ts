@@ -5,24 +5,23 @@ import { HttpClient, HttpHeaders } from '@angular/common/http';
 import { BehaviorSubject } from 'rxjs';
 import { environment } from '../../../environments/environment';
 
+
 @Injectable({
   providedIn: 'root'
 })
 export class FilterService {
-
-  private filtersUrls = [environment.filtersUrl, environment.playgroundUrl];
   private filtersSubject = new BehaviorSubject<Filter[]>([]);
 
-  constructor(private http: HttpClient) {
-    for (var filtersUrl of this.filtersUrls) {
-      this.http.get<Filter[]>(filtersUrl).subscribe(
-        (filters)=>{
-          let curFilters = this.filtersSubject.getValue().concat(filters)
-          this.filtersSubject.next(curFilters);
-        }
-      );
-    }
+  constructor(private http: HttpClient) {}
+
+  fetchFilters(url) {
+    this.http.get<Filter[]>(url).subscribe(
+      (filters)=>{
+        this.filtersSubject.next(filters);
+      }
+    )
   }
+
 
   getFilters(): Observable<Filter[]> {
     return this.filtersSubject.asObservable();
