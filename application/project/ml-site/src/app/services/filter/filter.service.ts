@@ -2,7 +2,7 @@ import { Injectable } from '@angular/core';
 import { Filter } from '../../models/filter';
 import { Observable, of } from 'rxjs';
 import { HttpClient, HttpHeaders } from '@angular/common/http';
-import { Subject } from 'rxjs';
+import { BehaviorSubject } from 'rxjs';
 import { environment } from '../../../environments/environment';
 
 @Injectable({
@@ -10,15 +10,18 @@ import { environment } from '../../../environments/environment';
 })
 export class FilterService {
 
-  private filtersUrl = environment.filtersUrl;
-  private filtersSubject = new Subject<Filter[]>();
+  private filtersUrls = [environment.filtersUrl, environment.playgroundUrl];
+  private filtersSubject = new BehaviorSubject<Filter[]>([]);
 
   constructor(private http: HttpClient) {
-    this.http.get<Filter[]>(this.filtersUrl).subscribe(
-      (filters)=>{
-        this.filtersSubject.next(filters);
-      }
-    );
+    for (var filtersUrl of this.filtersUrls) {
+      this.http.get<Filter[]>(filtersUrl).subscribe(
+        (filters)=>{
+          let curFilters = this.filtersSubject.getValue().concat(filters)
+          this.filtersSubject.next(curFilters);
+        }
+      );
+    }
   }
 
   getFilters(): Observable<Filter[]> {

@@ -11,6 +11,9 @@ cd ..
 cd model_segmentation
 ./docker.sh
 cd ..
+cd reinforcement_learning
+./docker.sh
+cd ..
 cd prometheus
 ./docker.sh
 cd ..

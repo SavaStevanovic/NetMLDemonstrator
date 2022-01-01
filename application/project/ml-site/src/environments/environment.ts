@@ -4,8 +4,9 @@
 
 export const environment = {
   production: false,
-  frame_upload_stream: 'http://127.0.0.1:4321/menager/frame_upload_stream',
-  filtersUrl: 'http://127.0.0.1:4321/menager/get_filters'
+  frame_upload_stream: 'http://0.0.0.0:4321/menager/frame_upload_stream',
+  filtersUrl: 'http://0.0.0.0:4321/menager/get_filters',
+  playgroundUrl: 'http://0.0.0.0:4322/player/get_filters'
 };
 
 /*

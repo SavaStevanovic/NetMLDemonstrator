@@ -158,3 +158,7 @@ class ReinforcmentAlgoritham(Identifier, abc.ABC):
             print("Learning rate lowered to {}".format(
                 self._train_config.learning_rate))
         self._train_config.epoch += 1
+
+    def load_best_state(self):
+        self._policy_net = torch.load(
+            self._checkpoint_name_path.replace('.pth', '_final.pth')).eval().cuda()
