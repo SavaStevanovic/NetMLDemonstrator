@@ -4,6 +4,7 @@ import { FrameService } from '../../services/frame/frame.service';
 import { Filter } from '../../models/filter';
 import { environment } from 'src/environments/environment';
 import { FilterService } from 'src/app/services/filter/filter.service';
+import { SockJS } from 'sockjs-client';
 
 @Component({
   selector: 'app-playground',
@@ -11,12 +12,13 @@ import { FilterService } from 'src/app/services/filter/filter.service';
   styleUrls: ['./playground.component.css']
 })
 export class PlaygroundComponent implements AfterViewInit, OnInit {
-  @ViewChild('processedCanvas') processedCanvas: ElementRef;
+  @ViewChild('processedCanvas1') processedCanvas: ElementRef;
 
   filters: Filter[];
   quality: number;
   processed_context: any;
-  sock: any;
+  sock: SockJS;
+  mask: any;
 
   constructor(
     public frameService: FrameService,
@@ -28,6 +30,12 @@ export class PlaygroundComponent implements AfterViewInit, OnInit {
 
   ngOnInit(): void {
     this.getFilters();
+    this.mask = new Image();
+    this.mask.onload =  this.drawScreen.bind(this);
+  }
+
+  private drawScreen() {
+    this.processed_context.drawImage(this.mask, 0, 0, this.processedCanvas.nativeElement.width, this.processedCanvas.nativeElement.height);
   }
 
   getFilters(): void {
@@ -38,6 +46,7 @@ export class PlaygroundComponent implements AfterViewInit, OnInit {
   toggle_play(play: boolean): void {
     if (play){
         this.setup_stream()
+        this.processedCanvas.nativeElement.style.visibility = "visible";
     } else {
       if (this.sock) {
         this.sock.close()
@@ -89,9 +98,7 @@ export class PlaygroundComponent implements AfterViewInit, OnInit {
   }
 
   private processResponse(data: any): void {
-    if (data){
-      this.processed_context.drawImage(data, 0, 0, this.processedCanvas.nativeElement.width, this.processedCanvas.nativeElement.height);
-    }
+    this.mask.src = data
   }
 
   private setupConnection(): void {
@@ -99,8 +106,10 @@ export class PlaygroundComponent implements AfterViewInit, OnInit {
     this.sock.onmessage = (v) => {
       let data = JSON.parse(v['data'])
       this.processResponse(data);
-      requestAnimationFrame(this.capture.bind(this));
     };
+    this.sock.onclose = () => {
+      this.setPlaying()
+    }
   }
 
   setPlaying(): void {

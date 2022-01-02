@@ -21,7 +21,8 @@ from model import blocks
 
 
 class ReinforcmentAlgoritham(Identifier, abc.ABC):
-    def __init__(self, inplanes, block_counts, capacity: int, input_space: typing.Union[Box, Discrete], output_shape: typing.Union[Box, Discrete]) -> None:
+    def __init__(self, env, inplanes, block_counts, capacity: int, input_space: typing.Union[Box, Discrete], output_shape: typing.Union[Box, Discrete]) -> None:
+        self._env_name = env.__class__.__name__
         self._inplanes = inplanes
         self._block_counts = block_counts
         super(ReinforcmentAlgoritham, self).__init__()

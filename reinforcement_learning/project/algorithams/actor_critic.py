@@ -11,8 +11,8 @@ import torch.nn.functional as F
 
 
 class A2C(PolicyGradient):
-    def __init__(self, inplanes, block_counts, input_size, output_size) -> None:
-        super().__init__(inplanes, block_counts, input_size, output_size)
+    def __init__(self, env, inplanes, block_counts, input_size, output_size) -> None:
+        super().__init__(env, inplanes, block_counts, input_size, output_size)
         self._value_net = self.generate_network(1)
         # summary(self._value_net, torch.Size([self._input_size]))
 

@@ -13,3 +13,4 @@ cached_property
 Box2D
 scipy
 opencv-python
+pybase64

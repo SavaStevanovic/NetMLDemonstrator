@@ -12,9 +12,9 @@ from algorithams.rl_alg import ReinforcmentAlgoritham
 
 
 class DQN(ReinforcmentAlgoritham):
-    def __init__(self, inplanes, block_counts, input_size, output_size) -> None:
+    def __init__(self, env, inplanes, block_counts, input_size, output_size) -> None:
         ReinforcmentAlgoritham.__init__(
-            self, inplanes, block_counts, 20000, input_size, output_size)
+            self, env, inplanes, block_counts, 20000, input_size, output_size)
         self._policy_net = self.generate_network()
         self._target_net = self.generate_network()
 

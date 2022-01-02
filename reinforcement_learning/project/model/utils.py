@@ -3,7 +3,8 @@ import abc
 
 class Identifier(abc.ABC):
     def get_identifier(self):
-        idt = self.__class__.__name__
+        idt = self._env_name
+        idt += '/'+self.__class__.__name__
         idt += '/'+str(self.inplanes)
         idt += '/'+'-'.join([str(x) for x in self.block_counts])
         if hasattr(self, '_block'):
