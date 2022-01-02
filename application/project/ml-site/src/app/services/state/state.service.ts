@@ -10,6 +10,7 @@ export class StateService {
   private videoStartSource = new BehaviorSubject<boolean>(false);
   private videoPlayingSource = new BehaviorSubject<boolean>(false);
   private videoQualitySource = new BehaviorSubject<number>(0.5);
+  private menuOpenedSource = new BehaviorSubject<boolean>(true);
 
   constructor () {
     this.videoQualitySource.next(0.5)
@@ -20,6 +21,7 @@ export class StateService {
   videoPlaying$ = this.videoPlayingSource.asObservable();
   videoStart$ = this.videoStartSource.asObservable();
   videoQuality$ = this.videoQualitySource.asObservable();
+  menuOpened$ = this.menuOpenedSource.asObservable();
 
   // // Service message commands
   setModelTypes(modelTypes: string[]) {
@@ -36,5 +38,9 @@ export class StateService {
 
   setVideoQuality(videoQuality: number) {
     this.videoQualitySource.next(videoQuality);
+  }
+
+  setMenuOpened(opened: boolean) {
+    this.menuOpenedSource.next(opened);
   }
 }

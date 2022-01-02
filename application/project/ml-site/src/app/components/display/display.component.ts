@@ -178,6 +178,7 @@ export class DisplayComponent implements AfterViewInit, OnInit {
     this.unprocessed_context = this.unprocessedCanvas.getContext("2d");
     this.video_native_element = this.videoElement.nativeElement;
     this.stateService.videoStart$.subscribe(playing => this.toggle_play(playing))
+    this.stateService.menuOpened$.subscribe(opened => this.resizeCanvas())
   }
 
   toggle_play(play: boolean): void {

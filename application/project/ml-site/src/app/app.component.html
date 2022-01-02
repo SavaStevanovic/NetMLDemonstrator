@@ -1,12 +1,12 @@
 <div class="main">
   <mat-drawer-container (swipeleft)="drawer.opened = false" (swiperight)="drawer.opened = true" >
-    <mat-drawer #drawer  mode="side" class="menu" opened (openedChange)="disp.resizeCanvas()">
+    <mat-drawer #drawer  mode="side" class="menu" opened (openedChange)="contentResize($event)">
       <app-toolbar></app-toolbar>
       <app-filters #filters></app-filters>
     </mat-drawer>
     <mat-drawer-content>
-      <!-- <app-display #disp></app-display> -->
-      <app-playground #disp></app-playground>
+      <app-display #vision *ngIf="filters.selectedDomain == 'vision'"></app-display>
+      <app-playground #reinforcement *ngIf="filters.selectedDomain == 'reinforcement'"></app-playground>
     </mat-drawer-content>
   </mat-drawer-container>
   <app-footer class="footer" (menuToggled) = "drawer.opened = !drawer.opened"></app-footer>

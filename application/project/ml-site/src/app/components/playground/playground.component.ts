@@ -12,7 +12,7 @@ import { SockJS } from 'sockjs-client';
   styleUrls: ['./playground.component.css']
 })
 export class PlaygroundComponent implements AfterViewInit, OnInit {
-  @ViewChild('processedCanvas1') processedCanvas: ElementRef;
+  @ViewChild('processedCanvas') processedCanvas: ElementRef;
 
   filters: Filter[];
   quality: number;
@@ -119,12 +119,15 @@ export class PlaygroundComponent implements AfterViewInit, OnInit {
   ngAfterViewInit(): void {
     this.processed_context = this.processedCanvas.nativeElement.getContext("2d");
     this.stateService.videoStart$.subscribe(playing => this.toggle_play(playing))
+    this.stateService.menuOpened$.subscribe(opened => this.resizeCanvas())
   }
 
   resizeCanvas(): void {
     var w = this.processedCanvas.nativeElement.parentElement.clientWidth-20;
     var h = this.processedCanvas.nativeElement.parentElement.clientHeight-20;
-    var aspectRatio = 1//this.video_native_element.videoWidth/this.video_native_element.videoHeight
+    var aspectRatio = 1
+    if (this.mask.src)
+      aspectRatio = this.mask.width / this.mask.height
     if (w/h > aspectRatio){
       this.processedCanvas.nativeElement.width = h * aspectRatio;
       this.processedCanvas.nativeElement.height = h;
