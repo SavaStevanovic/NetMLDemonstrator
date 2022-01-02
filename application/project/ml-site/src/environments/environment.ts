@@ -4,14 +4,14 @@
 
 export const environment = {
   production: false,
-  frame_upload_stream: 'http://0.0.0.0:4321/menager/frame_upload_stream',
   domains: {
     vision: {
       get_filters: 'http://0.0.0.0:4321/menager/get_filters',
       frame_upload_stream: 'http://0.0.0.0:4321/menager/frame_upload_stream'
     },
     reinforcement: {
-      get_filters: 'http://0.0.0.0:4322/player/get_filters'
+      get_filters: 'http://0.0.0.0:4322/player/get_filters',
+      frame_upload_stream: 'http://0.0.0.0:4322/player/frame_upload_stream'
     }
   }
 };

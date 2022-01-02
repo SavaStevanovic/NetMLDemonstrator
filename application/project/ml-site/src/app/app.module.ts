@@ -24,7 +24,7 @@ import { MatCardModule } from '@angular/material/card';
 import { HammerModule, HammerGestureConfig } from '@angular/platform-browser';
 import * as Hammer from 'hammerjs';
 import { FooterComponent } from './components/footer/footer.component';
-import { StateService } from './services/state/state.service'
+import { PlaygroundComponent } from './components/playground/playground.component';
 
 @Injectable()
 export class MyHammerConfig extends HammerGestureConfig {
@@ -41,6 +41,7 @@ export class MyHammerConfig extends HammerGestureConfig {
     DisplayComponent,
     ToolbarComponent,
     FooterComponent,
+    PlaygroundComponent,
   ],
   imports: [
     WebcamModule,

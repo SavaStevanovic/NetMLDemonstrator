@@ -2,10 +2,11 @@
   <mat-drawer-container (swipeleft)="drawer.opened = false" (swiperight)="drawer.opened = true" >
     <mat-drawer #drawer  mode="side" class="menu" opened (openedChange)="disp.resizeCanvas()">
       <app-toolbar></app-toolbar>
-      <app-filters></app-filters>
+      <app-filters #filters></app-filters>
     </mat-drawer>
     <mat-drawer-content>
-      <app-display #disp></app-display>
+      <!-- <app-display #disp></app-display> -->
+      <app-playground #disp></app-playground>
     </mat-drawer-content>
   </mat-drawer-container>
   <app-footer class="footer" (menuToggled) = "drawer.opened = !drawer.opened"></app-footer>

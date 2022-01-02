@@ -12,13 +12,11 @@ import { HttpClient, HttpHeaders } from '@angular/common/http';
 
 export class FiltersComponent implements OnInit {
 
+  domains: string[] = Object.keys(environment.domains);
   filters: Filter[];
-  selectedDomain: string;
+  selectedDomain: string = this.domains[0];
 
-  constructor(private filterService:FilterService) {
-    this.domains = Object.keys(environment.domains)
-    this.selectedDomain = this.domains[0]
-  }
+  constructor(private filterService:FilterService) {}
 
   ngOnInit(): void {
     this.changeDomain()

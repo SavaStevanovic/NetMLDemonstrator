@@ -7,22 +7,20 @@ import { environment } from '../../../environments/environment';
   providedIn: 'root'
 })
 export class FrameService {
-
-  private frameSocketUrl = environment.frame_upload_stream;
   socket: SockJS;
 
-  constructor(private httpClient: HttpClient) { }
+  constructor() { }
 
   private isConnectionOpen(): boolean {
     return this.socket?.readyState == SockJS.OPEN;
   }
 
-  public openImageConnection(): SockJS {
+  public openImageConnection(frameSocketUrl): SockJS {
     if (this.isConnectionOpen())
       this.socket.close();
 
     if (!this.isConnectionOpen()){
-      this.socket = new SockJS(this.frameSocketUrl);
+      this.socket = new SockJS(frameSocketUrl);
     }
     return this.socket;
   }

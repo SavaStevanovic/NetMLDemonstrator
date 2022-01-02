@@ -84,7 +84,7 @@ export class DisplayComponent implements AfterViewInit, OnInit {
   }
 
   private setupConnection(): void {
-    this.sock = this.frameService.openImageConnection();
+    this.sock = this.frameService.openImageConnection(environment.domains.vision.frame_upload_stream);
     this.sock.onmessage = (v) => {
       let data = JSON.parse(v['data'])
       this.processResponse(data);
