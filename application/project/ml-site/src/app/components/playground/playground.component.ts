@@ -3,6 +3,7 @@ import { StateService } from '../../services/state/state.service';
 import { FrameService } from '../../services/frame/frame.service';
 import { Filter } from '../../models/filter';
 import { environment } from 'src/environments/environment';
+import { MatSnackBar } from '@angular/material/snack-bar';
 import { FilterService } from 'src/app/services/filter/filter.service';
 import { SockJS } from 'sockjs-client';
 
@@ -18,9 +19,10 @@ export class PlaygroundComponent implements AfterViewInit, OnInit {
   quality: number;
   processed_context: any;
   sock: SockJS;
-  mask: any;
+  mask = new Image();
 
   constructor(
+    private snackBar: MatSnackBar,
     public frameService: FrameService,
     private filterService: FilterService,
     private stateService: StateService) {
@@ -30,11 +32,11 @@ export class PlaygroundComponent implements AfterViewInit, OnInit {
 
   ngOnInit(): void {
     this.getFilters();
-    this.mask = new Image();
-    this.mask.onload =  this.drawScreen.bind(this);
+    this.mask.onload = this.drawScreen.bind(this);
   }
 
   private drawScreen() {
+    this.resizeCanvas()
     this.processed_context.drawImage(this.mask, 0, 0, this.processedCanvas.nativeElement.width, this.processedCanvas.nativeElement.height);
   }
 
@@ -45,36 +47,27 @@ export class PlaygroundComponent implements AfterViewInit, OnInit {
 
   toggle_play(play: boolean): void {
     if (play){
+      if (this.shouldSendReques()){
         this.setup_stream()
         this.processedCanvas.nativeElement.style.visibility = "visible";
-    } else {
-      if (this.sock) {
-        this.sock.close()
       }
-      this.setPlaying();
     }
   }
 
   private shouldSendReques(): boolean {
-    if (this.quality==0){
-      return false;
-    }
     for (let i = 0; i < this.filters.length; i++) {
       if (this.filters[i].selectedModel) {
         return true;
       }
     }
+    this.snackBar.open('Please select playground environment.', 'Confirm', {
+      duration: 2000
+    });
     return false;
   }
 
   private capture():void {
-    this.setPlaying();
-    if (!this.stateService.videoPlaying$) {
-      this.toggle_play(false)
-      return;
-    }
-
-    if (this.shouldSendReques()){
+    if (this.sock?.readyState == WebSocket.OPEN){
       let post_data = {'config': this.filters}
       this.sock.send(JSON.stringify(post_data))
     }
@@ -98,6 +91,7 @@ export class PlaygroundComponent implements AfterViewInit, OnInit {
   }
 
   private processResponse(data: any): void {
+    this.stateService.setVideoPlaying(true)
     this.mask.src = data
   }
 
@@ -106,19 +100,13 @@ export class PlaygroundComponent implements AfterViewInit, OnInit {
     this.sock.onmessage = (v) => {
       let data = JSON.parse(v['data'])
       this.processResponse(data);
+      requestAnimationFrame(this.capture.bind(this));
     };
-    this.sock.onclose = () => {
-      this.setPlaying()
-    }
-  }
-
-  setPlaying(): void {
-    this.stateService.setVideoPlaying(this.sock?.readyState == WebSocket.OPEN)
   }
 
   ngAfterViewInit(): void {
     this.processed_context = this.processedCanvas.nativeElement.getContext("2d");
-    this.stateService.videoStart$.subscribe(playing => this.toggle_play(playing))
+    this.stateService.videoStart$.subscribe(playing => {if (this.filterService.domainSubject.value=="reinforcement") this.toggle_play(playing)})
     this.stateService.menuOpened$.subscribe(opened => this.resizeCanvas())
   }
 

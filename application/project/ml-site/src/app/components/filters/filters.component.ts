@@ -3,6 +3,7 @@ import { Filter } from '../../models/filter';
 import { FilterService } from '../../services/filter/filter.service';
 import { environment } from '../../../environments/environment';
 import { HttpClient, HttpHeaders } from '@angular/common/http';
+import { StateService } from 'src/app/services/state/state.service';
 
 @Component({
   selector: 'app-filters',
@@ -16,14 +17,18 @@ export class FiltersComponent implements OnInit {
   filters: Filter[];
   selectedDomain: string = this.domains[0];
 
-  constructor(private filterService:FilterService) {}
+  constructor(
+    private filterService:FilterService,
+    private stateService: StateService) {}
 
   ngOnInit(): void {
     this.changeDomain()
   }
 
   changeDomain(): void {
+    this.stateService.setVideoStart(false)
     this.filterService.fetchFilters(environment.domains[this.selectedDomain].get_filters)
+    this.filterService.setDomain(this.selectedDomain)
     this.getFilters();
   }
 

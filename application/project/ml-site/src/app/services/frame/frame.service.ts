@@ -1,27 +1,37 @@
-import { Injectable } from '@angular/core';
-import { HttpClient } from '@angular/common/http';
+import { Injectable, OnInit } from '@angular/core';
 import SockJS from 'sockjs-client';
-import { environment } from '../../../environments/environment';
+import { StateService } from '../state/state.service';
 
 @Injectable({
   providedIn: 'root'
 })
-export class FrameService {
+export class FrameService{
   socket: SockJS;
 
-  constructor() { }
+  constructor(
+    private stateService: StateService) {
+    }
 
   private isConnectionOpen(): boolean {
     return this.socket?.readyState == SockJS.OPEN;
   }
 
   public openImageConnection(frameSocketUrl): SockJS {
-    if (this.isConnectionOpen())
+    if (this.socket)
       this.socket.close();
 
     if (!this.isConnectionOpen()){
       this.socket = new SockJS(frameSocketUrl);
+      this.stateService.videoStart$.subscribe(play => this.closeConnection(play))
+      this.socket.onclose = () => this.stateService.setVideoPlaying(false)
+      this.socket.onerror = () => this.stateService.setVideoPlaying(false)
     }
     return this.socket;
+  }
+
+  private closeConnection(play): void {
+    if (!play) {
+      this.socket.close()
+    }
   }
 }

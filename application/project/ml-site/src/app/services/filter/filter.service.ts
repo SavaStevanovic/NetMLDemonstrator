@@ -1,9 +1,8 @@
 import { Injectable } from '@angular/core';
 import { Filter } from '../../models/filter';
-import { Observable, of } from 'rxjs';
-import { HttpClient, HttpHeaders } from '@angular/common/http';
+import { Observable, Subject } from 'rxjs';
+import { HttpClient } from '@angular/common/http';
 import { BehaviorSubject } from 'rxjs';
-import { environment } from '../../../environments/environment';
 
 
 @Injectable({
@@ -11,6 +10,7 @@ import { environment } from '../../../environments/environment';
 })
 export class FilterService {
   private filtersSubject = new BehaviorSubject<Filter[]>([]);
+  domainSubject = new BehaviorSubject<string>("");
 
   constructor(private http: HttpClient) {}
 
@@ -22,6 +22,13 @@ export class FilterService {
     )
   }
 
+  setDomain(value: string): void {
+    this.domainSubject.next(value)
+  }
+
+  getDomain(): Observable<string> {
+    return this.domainSubject.asObservable();
+  }
 
   getFilters(): Observable<Filter[]> {
     return this.filtersSubject.asObservable();
