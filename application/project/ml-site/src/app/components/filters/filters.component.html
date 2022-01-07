@@ -7,5 +7,5 @@
   </mat-select>
 </mat-form-field>
 <mat-accordion>
-  <app-filter *ngFor="let filter of filters" [filter]="filter"></app-filter>
+  <app-filter *ngFor="let filter of filters" [filter]="filter" (modelSelected)=updateFilters($event)></app-filter>
 </mat-accordion>

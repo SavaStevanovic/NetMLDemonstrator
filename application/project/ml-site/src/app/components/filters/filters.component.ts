@@ -2,7 +2,6 @@ import { Component, OnInit } from '@angular/core';
 import { Filter } from '../../models/filter';
 import { FilterService } from '../../services/filter/filter.service';
 import { environment } from '../../../environments/environment';
-import { HttpClient, HttpHeaders } from '@angular/common/http';
 import { StateService } from 'src/app/services/state/state.service';
 
 @Component({
@@ -11,7 +10,7 @@ import { StateService } from 'src/app/services/state/state.service';
   styleUrls: ['./filters.component.css']
 })
 
-export class FiltersComponent implements OnInit {
+export class FiltersComponent implements OnInit{
 
   domains: string[] = Object.keys(environment.domains);
   filters: Filter[];
@@ -23,6 +22,16 @@ export class FiltersComponent implements OnInit {
 
   ngOnInit(): void {
     this.changeDomain()
+  }
+
+  updateFilters(name): void {
+    if (this.selectedDomain == "reinforcement"){
+      for (let filter of this.filters){
+        if (filter.name!=name){
+          filter.selectedModel=null
+        }
+      }
+    }
   }
 
   changeDomain(): void {
