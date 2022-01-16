@@ -143,6 +143,13 @@ class MountainCarV0(MountainCar):
     def __init__(self, visual):
         super().__init__("MountainCar-v0", visual=visual)
 
+    def step(self, action):
+        new_state, reward, done, d = super().step(action)
+        reward += float(max(0, new_state[1]*10)**2)
+        if done:
+            print(reward)
+        return new_state, reward, done, d
+
     @property
     def max_duration(self):
         return 200
@@ -263,7 +270,7 @@ class Breakout(Playground):
 
 class BreakoutV0(Breakout):
     def __init__(self, visual):
-        super().__init__("Breakout-v0", visual=visual)
+        super().__init__("Breakout-ram-v0", visual=visual)
 
     @property
     def max_duration(self):

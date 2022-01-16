@@ -22,7 +22,16 @@ torch.set_grad_enabled(False)
 chackpoint_dir = "/app/tmp/checkpoints"
 
 env_map = {x.__name__: x for x in
-           [play.CartPoleV1, play.CartPoleV0]
+           [
+               play.AcrobotV1,
+               play.BreakoutV0,
+               play.CartPoleV0,
+               play.CartPoleV1,
+               play.LunarLanderContinuousV2,
+               play.LunarLanderV2,
+               play.MountainCarV0,
+               play.PendulumV1,
+           ]
            }
 
 alg_map = {x.__name__: x for x in
@@ -38,7 +47,7 @@ model_paths = [
     {
         "name": env,
         "models": os.listdir(os.path.join(chackpoint_dir, env))
-    } for env in os.listdir(chackpoint_dir)
+    } for env in os.listdir(chackpoint_dir) if env in env_map
 ]
 
 

@@ -14,7 +14,7 @@ from algorithams.rl_alg import ReinforcmentAlgoritham
 class DQN(ReinforcmentAlgoritham):
     def __init__(self, env, inplanes, block_counts, input_size, output_size) -> None:
         ReinforcmentAlgoritham.__init__(
-            self, env, inplanes, block_counts, 20000, input_size, output_size)
+            self, env, inplanes, block_counts, 200000, input_size, output_size)
         self._policy_net = self.generate_network()
         self._target_net = self.generate_network()
 
@@ -47,7 +47,7 @@ class DQN(ReinforcmentAlgoritham):
 
     @cached_property
     def _criterion(self) -> SummaryWriter:
-        return nn.SmoothL1Loss()
+        return nn.MSELoss()
 
     def load_last_state(self) -> None:
         if not os.path.exists(self._checkpoint_conf_path):
@@ -57,14 +57,14 @@ class DQN(ReinforcmentAlgoritham):
         self._policy_net.load_state_dict(checkpoint["model_state"])
         self._policy_net.train()
         self._target_net.eval()
-        self._memory.load(self._checkpoint_memo_path)
+        # self._memory.load(self._checkpoint_memo_path)
         self._train_config.load(self._checkpoint_conf_path)
 
     def save_model_state(self) -> None:
         os.makedirs((self._chp_dir), exist_ok=True)
         self._train_config.save(self._checkpoint_conf_path)
-        if self._train_config.epoch % 10 == 0:
-            self._memory.save(self._checkpoint_memo_path)
+        # if self._train_config.epoch % 10 == 0:
+        #     self._memory.save(self._checkpoint_memo_path)
         checkpoint = {
             'model_state': self._target_net.state_dict(),
             'optimizer': self._optimizer.state_dict(),
@@ -126,10 +126,10 @@ class DQN(ReinforcmentAlgoritham):
         # This is merged based on the mask, such that we'll have either the expected
         # state value or 0 in case the state was final.
         next_state_values = self._target_net(
-            batch.next_state.cuda()).max(1)[0].detach() * (1 - batch.done.cuda())
+            batch.next_state.cuda()).max(1)[0].detach() + batch.reward.cuda()
         # Compute the expected Q values
         expected_state_action_values = (
-            next_state_values * self._train_config.GAMMA) + batch.reward.cuda()
+            next_state_values * self._train_config.GAMMA) * (1 - batch.done.cuda())
 
         # Compute Huber loss
         loss = self._criterion(
