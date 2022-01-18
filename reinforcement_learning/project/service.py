@@ -24,7 +24,6 @@ chackpoint_dir = "/app/tmp/checkpoints"
 env_map = {x.__name__: x for x in
            [
                play.AcrobotV1,
-               play.BreakoutV0,
                play.CartPoleV0,
                play.CartPoleV1,
                play.LunarLanderContinuousV2,
@@ -46,8 +45,8 @@ alg_map = {x.__name__: x for x in
 model_paths = [
     {
         "name": env,
-        "models": os.listdir(os.path.join(chackpoint_dir, env))
-    } for env in os.listdir(chackpoint_dir) if env in env_map
+        "models": sorted(os.listdir(os.path.join(chackpoint_dir, env)))
+    } for env in sorted(os.listdir(chackpoint_dir)) if env in env_map
 ]
 
 
@@ -81,6 +80,7 @@ class FrameUploadConnection(sockjs.tornado.SockJSConnection):
         self.model_paths = model_paths
         self.environment = None
         self.alg = None
+        self.state = None
 
     @tornado.gen.coroutine
     @MESSAGE_TIME.time()
@@ -91,27 +91,36 @@ class FrameUploadConnection(sockjs.tornado.SockJSConnection):
                                                         and x['selectedModel']
                                                         and x['name'] in [x["name"] for x in self.model_paths]]
             if not used_models:
-                return
+                self.close()
             used_model = used_models[0]
             environment = env_map[used_model["name"]](False)
             algoritham_class = alg_map[used_model["selectedModel"]]
+            chp_path = os.path.join(
+                "tmp", "checkpoints", used_model["name"], used_model["selectedModel"])
+            inplanes = os.listdir(chp_path)[0]
+            chp_path += "/" + inplanes
+            block_counts = []
+            d = os.listdir(chp_path)
+            while "checkpoints_final.pth" not in d:
+                block_counts.append(int(d[0]))
+                chp_path += "/" + d[0]
+                d = os.listdir(chp_path)
+
             alg = algoritham_class(
                 env=environment,
-                inplanes=64,
-                block_counts=[],
+                inplanes=int(inplanes),
+                block_counts=block_counts,
                 input_size=environment.env.observation_space,
                 output_size=environment.env.action_space
             )
             alg.load_best_state()
-            state = environment.reset()
+            self.state = environment.reset()
             self.environment = environment
             self.alg = alg
             # Select and perform an action
-        action, _ = self.alg.preform_action(
-            np.float32(self.environment.env.state))
-        state, _, done, _ = self.environment.step(action)
-        frame = self.environment.env.render(
-            mode='rgb_array')
+        action, _ = self.alg.preform_action(np.float32(self.state))
+        self.state, _, done, _ = self.environment.step(action)
+        frame = self.environment.env.render(mode='rgb_array')
         mask_byte_arr = io.BytesIO()
         Image.fromarray(frame).save(
             mask_byte_arr, format='jpeg')

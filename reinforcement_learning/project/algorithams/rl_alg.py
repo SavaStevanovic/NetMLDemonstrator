@@ -163,3 +163,5 @@ class ReinforcmentAlgoritham(Identifier, abc.ABC):
     def load_best_state(self):
         self._policy_net = torch.load(
             self._checkpoint_name_path.replace('.pth', '_final.pth')).eval().cuda()
+        self._train_config.EPS_END = 0
+        self._train_config.EPS_START = 0
