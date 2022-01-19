@@ -21,7 +21,8 @@ from model import blocks
 
 
 class ReinforcmentAlgoritham(Identifier, abc.ABC):
-    def __init__(self, inplanes, block_counts, capacity: int, input_space: typing.Union[Box, Discrete], output_shape: typing.Union[Box, Discrete]) -> None:
+    def __init__(self, env, inplanes, block_counts, capacity: int, input_space: typing.Union[Box, Discrete], output_shape: typing.Union[Box, Discrete]) -> None:
+        self._env_name = env.__class__.__name__
         self._inplanes = inplanes
         self._block_counts = block_counts
         super(ReinforcmentAlgoritham, self).__init__()
@@ -158,3 +159,9 @@ class ReinforcmentAlgoritham(Identifier, abc.ABC):
             print("Learning rate lowered to {}".format(
                 self._train_config.learning_rate))
         self._train_config.epoch += 1
+
+    def load_best_state(self):
+        self._policy_net = torch.load(
+            self._checkpoint_name_path.replace('.pth', '_final.pth')).eval().cuda()
+        self._train_config.EPS_END = 0
+        self._train_config.EPS_START = 0

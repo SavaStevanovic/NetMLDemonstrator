@@ -11,8 +11,9 @@ MESSAGE_TIME = Summary('on_message', 'Time spent processing messages')
 filter_data = {
     "detection": {'path': 'http://detection:5001/get_models'},
     "keypoint": {'path': 'http://keypoint:5004/get_models'},
-    "segmentation": {'path': 'http://segmentation:5005/get_models'},
+    "segmentation": {'path': 'http://segmentation:5005/get_models'}
 }
+
 
 class BaseHandler(tornado.web.RequestHandler):
     def set_default_headers(self):
@@ -20,12 +21,14 @@ class BaseHandler(tornado.web.RequestHandler):
         self.set_header("Access-Control-Allow-Origin", "*")
         self.set_header("Access-Control-Allow-Headers", "x-requested-with")
         self.set_header('Access-Control-Allow-Methods', 'GET, OPTIONS, POST')
-        self.set_header("Access-Control-Allow-Headers", "access-control-allow-origin,authorization,content-type") 
+        self.set_header("Access-Control-Allow-Headers",
+                        "access-control-allow-origin,authorization,content-type")
 
     def options(self):
         # no body
         self.set_status(204)
         self.finish()
+
 
 class GetFilterHandler(BaseHandler):
     def initialize(self, filter_data):
@@ -35,28 +38,29 @@ class GetFilterHandler(BaseHandler):
     @FILTERS_TIME.time()
     def get(self):
         filters = [{
-            'name': "Test", 
-            'models': ['Test_good', 'Test_bad'], 
+            'name': "Test",
+            'models': ['Test_good', 'Test_bad'],
             'progress_bars':[
-                {'name':'bar_0.7', 'value':0.7}, 
-                {'name':'bar_0.2', 'value':0.2}, 
-                {'name':'bar_0.3', 'value':0.3}], 
+                {'name': 'bar_0.7', 'value': 0.7},
+                {'name': 'bar_0.2', 'value': 0.2},
+                {'name': 'bar_0.3', 'value': 0.3}],
             'check_boxes': [
-                {'name':'true_check', 'checked':True}, 
-                {'name':'false_check', 'checked':False}],
-            }]
+                {'name': 'true_check', 'checked': True},
+                {'name': 'false_check', 'checked': False}],
+        }]
 
         for k, d in self.filter_data.items():
             http_client = tornado.httpclient.AsyncHTTPClient()
             try:
                 response = yield http_client.fetch(d['path'])
                 if response.code == 200:
-                    models = tornado.escape.json_decode(response.body) 
+                    models = tornado.escape.json_decode(response.body)
                     models['name'] = k
                     filters.append(models)
             except Exception as e:
                 pass
         self.write(tornado.escape.json_encode(filters))
+
 
 class FrameUploadConnection(sockjs.tornado.SockJSConnection):
     def __init__(self, session):
@@ -71,33 +75,33 @@ class FrameUploadConnection(sockjs.tornado.SockJSConnection):
     def on_message(self, message):
         start_time = time.time()
         data = tornado.escape.json_decode(message)
-        used_models = [x for x in data['config'] if 'selectedModel' in x 
-                                                    and x['selectedModel'] 
+        used_models = [x for x in data['config'] if 'selectedModel' in x
+                                                    and x['selectedModel']
                                                     and x['name'] in filter_data.keys()]
-        return_data = {}                       
-        config_parameters = ['progress_bars', 'check_boxes']      
+        return_data = {}
+        config_parameters = ['progress_bars', 'check_boxes']
         model_outputs = []
         http_client = tornado.httpclient.AsyncHTTPClient()
         for model_config in used_models:
             model_service = self.filter_data[model_config['name']]
             msg = {
-                'frame': data['frame'], 
+                'frame': data['frame'],
                 'model_name': model_config['selectedModel'],
             }
             for x in config_parameters:
                 if x not in model_config:
-                    msg[x]=[]
+                    msg[x] = []
                 else:
-                    msg[x]=model_config[x]
+                    msg[x] = model_config[x]
             r = tornado.httpclient.HTTPRequest(
-                                    model_service['path'].replace('get_models', 'frame_upload'),
-                                    body=json.dumps(msg),
-                                    method="POST",
-                                    headers={'model_name':model_config['name']})
+                model_service['path'].replace('get_models', 'frame_upload'),
+                body=json.dumps(msg),
+                method="POST",
+                headers={'model_name': model_config['name']})
             r = http_client.fetch(r)
             r.model_name = model_config['name']
             model_outputs.append(r)
-        
+
         for future in asyncio.as_completed(model_outputs):
             result = yield future
             content = tornado.escape.json_decode(result.body)
@@ -108,7 +112,6 @@ class FrameUploadConnection(sockjs.tornado.SockJSConnection):
                 return_data['joints'] = content['joints']
             if 'segmentation' in result.effective_url:
                 return_data['mask'] = content
-
 
         self.send(tornado.escape.json_encode(return_data))
         print("--- {} ms ---".format((time.time() - start_time)*1000))
@@ -121,13 +124,14 @@ if __name__ == "__main__":
     import logging
     logging.getLogger().setLevel(logging.INFO)
 
-    FrameRouter = sockjs.tornado.SockJSRouter(FrameUploadConnection, r'/menager/frame_upload_stream')
+    FrameRouter = sockjs.tornado.SockJSRouter(
+        FrameUploadConnection, r'/menager/frame_upload_stream')
     app = tornado.web.Application([
         (r'/menager/get_filters', GetFilterHandler, dict(filter_data=filter_data)),
-        ] + FrameRouter.urls
+    ] + FrameRouter.urls
     )
     start_http_server(8000)
     server = tornado.httpserver.HTTPServer(app)
     server.listen(4321)
-   
+
     tornado.ioloop.IOLoop.current().start()

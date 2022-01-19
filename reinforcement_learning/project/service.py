@@ -1,95 +1,154 @@
-import pybase64
+from os import listdir
+import time
 import torch
-from visualization import output_transform
-from visualization import apply_output
 from PIL import Image
 from data_loader import augmentation
 import tornado.web
 import io
 import torch.nn.functional as F
 from prometheus_client import start_http_server, Summary
-
+import os
+import sockjs.tornado
+import environment.playgrounds as play
+import algorithams
+import pybase64
+import numpy as np
 FILTERS_TIME = Summary('get_filters', 'Time spent processing filters')
 MESSAGE_TIME = Summary('on_message', 'Time spent processing messages')
 
-camera_models = {}
+models = {}
 torch.set_grad_enabled(False)
 
-model_paths = {
-        "OpenPoseV2" : {'path': 'checkpoints/OpenPoseNet/4/1/38/18/PoseCNNStage/VGGNetBackbone/64/2-2-4-2/checkpoints_final.pth'},
-    }
+chackpoint_dir = "/app/tmp/checkpoints"
+
+env_map = {x.__name__: x for x in
+           [
+               play.AcrobotV1,
+               play.CartPoleV0,
+               play.CartPoleV1,
+               play.LunarLanderContinuousV2,
+               play.LunarLanderV2,
+               play.MountainCarV0,
+               play.PendulumV1,
+           ]
+           }
+
+alg_map = {x.__name__: x for x in
+           [
+               algorithams.ppo.PPO,
+               algorithams.actor_critic.A2C,
+               algorithams.policy_gradient.PolicyGradient,
+               algorithams.dqn.DQN,
+           ]
+           }
+
+model_paths = [
+    {
+        "name": env,
+        "models": sorted(os.listdir(os.path.join(chackpoint_dir, env)))
+    } for env in sorted(os.listdir(chackpoint_dir)) if env in env_map
+]
+
 
 class BaseHandler(tornado.web.RequestHandler):
     def set_default_headers(self):
         self.set_header("Access-Control-Allow-Origin", "*")
         self.set_header("Access-Control-Allow-Headers", "x-requested-with")
         self.set_header('Access-Control-Allow-Methods', 'GET, OPTIONS, POST')
-        self.set_header("Access-Control-Allow-Headers", "access-control-allow-origin,authorization,content-type") 
+        self.set_header("Access-Control-Allow-Headers",
+                        "access-control-allow-origin,authorization,content-type")
 
     def options(self):
         # no body
         self.set_status(204)
         self.finish()
 
+
 class GetModelsHandler(BaseHandler):
     def initialize(self, model_paths):
         self.model_paths = model_paths
-    
+
+    @tornado.gen.coroutine
     @FILTERS_TIME.time()
     def get(self):
-        data = {
-            'models': list(self.model_paths.keys()),
-            'progress_bars':[{'name':'bodypart', 'value':0.5}, {'name':'joint', 'value':0.75}], 
-        } 
-      
-        self.write(data)
+        self.write(tornado.escape.json_encode(self.model_paths))
 
-class FrameUploadHandler(BaseHandler):
+
+class FrameUploadConnection(sockjs.tornado.SockJSConnection):
+    def __init__(self, session):
+        self.session = session
+        self.model_paths = model_paths
+        self.environment = None
+        self.alg = None
+        self.state = None
+
+    @tornado.gen.coroutine
     @MESSAGE_TIME.time()
-    def post(self):
-        data = tornado.escape.json_decode(self.request.body)
-        for d in data['progress_bars']:
-            data[d['name']] = d['value']
-        for d in data['check_boxes']:
-            data[d['name']] = d['checked']
-        image_data = data['frame'].replace('data:image/jpeg;base64,', "")
-        byte_image = io.BytesIO(pybase64._pybase64.b64decode(image_data))
-        img_input = Image.open(byte_image)
-        model_key = data['model_name']
-        if model_key not in camera_models:
-            if model_key not in model_paths:
-                raise Exception("Model {} not found.".format(model_key))
-            model_path = model_paths[model_key]['path']
-            model = torch.load(model_path).eval().cuda()
-            model.target_output_transform = output_transform.PartAffinityFieldTransform(skeleton = model.skeleton, parts = model.parts, heatmap_distance = 2)
-            model.preprocessing = augmentation.PairCompose([
-                augmentation.PaddTransform(pad_size=2**model.depth),
-                augmentation.OutputTransform()
-            ])
-            camera_models[model_key] = model.cuda()
-        model = camera_models[model_key]
-        img_tensor, _, _, _  = model.preprocessing(img_input, None, None)
-        img_tensor = img_tensor.unsqueeze(0).float().cuda()
-        pafs_output, maps_output = model(img_tensor)
-        pafs_output = F.interpolate(pafs_output[-1], img_input.size, mode='bicubic', align_corners=True)[0].detach().cpu().numpy()
-        maps_output = F.interpolate(maps_output[-1], img_input.size, mode='bicubic', align_corners=True)[0].detach().cpu().numpy()
-        outputs = model.target_output_transform(pafs_output, maps_output, data['bodypart'], data['joint']*2-1)
-        return_msg = {}
-        return_msg['parts']  = [(x[1][1]/img_input.size[1], x[1][0]/img_input.size[0]) for x in outputs[0]]
-        return_msg['joints'] = [((x[0][1][1]/img_input.size[1],x[0][1][0]/img_input.size[0]), (x[1][1][1]/img_input.size[1],x[1][1][0]/img_input.size[0])) for x in outputs[1]]
-        self.write(tornado.escape.json_encode(return_msg))
+    def on_message(self, message):
+        if self.environment is None:
+            data = tornado.escape.json_decode(message)
+            used_models = [x for x in data['config'] if 'selectedModel' in x
+                                                        and x['selectedModel']
+                                                        and x['name'] in [x["name"] for x in self.model_paths]]
+            if not used_models:
+                self.close()
+            used_model = used_models[0]
+            environment = env_map[used_model["name"]](False)
+            algoritham_class = alg_map[used_model["selectedModel"]]
+            chp_path = os.path.join(
+                "tmp", "checkpoints", used_model["name"], used_model["selectedModel"])
+            inplanes = os.listdir(chp_path)[0]
+            chp_path += "/" + inplanes
+            block_counts = []
+            d = os.listdir(chp_path)
+            while "checkpoints_final.pth" not in d:
+                block_counts.append(int(d[0]))
+                chp_path += "/" + d[0]
+                d = os.listdir(chp_path)
+
+            alg = algoritham_class(
+                env=environment,
+                inplanes=int(inplanes),
+                block_counts=block_counts,
+                input_size=environment.env.observation_space,
+                output_size=environment.env.action_space
+            )
+            alg.load_best_state()
+            self.state = environment.reset()
+            self.environment = environment
+            self.alg = alg
+            # Select and perform an action
+        action, _ = self.alg.preform_action(np.float32(self.state))
+        self.state, _, done, _ = self.environment.step(action)
+        frame = self.environment.env.render(mode='rgb_array')
+        mask_byte_arr = io.BytesIO()
+        Image.fromarray(frame).save(
+            mask_byte_arr, format='jpeg')
+        encoded_mask = 'data:image/jpeg;base64,' + \
+            pybase64.b64encode(
+                mask_byte_arr.getvalue()).decode('utf-8')
+        self.send(tornado.escape.json_encode(encoded_mask))
+        if done:
+            self.close()
+
+    def on_close(self):
+        if self.environment:
+            self.environment.env.close()
+        print("close")
+
 
 if __name__ == "__main__":
     import logging
     logging.getLogger().setLevel(logging.INFO)
 
-    # 2. Create Tornado application
+    FrameRouter = sockjs.tornado.SockJSRouter(
+        FrameUploadConnection, r'/player/frame_upload_stream')
     app = tornado.web.Application([
-        (r'/get_models', GetModelsHandler, dict(model_paths=model_paths)),
-        (r'/frame_upload', FrameUploadHandler),] 
+        (r'/player/get_filters', GetModelsHandler, dict(model_paths=model_paths)),
+    ] + FrameRouter.urls
     )
     start_http_server(8000)
     server = tornado.httpserver.HTTPServer(app)
-    server.listen(5004)
-   
+    server.listen(4322)
+    server.start(2)
     tornado.ioloop.IOLoop.current().start()

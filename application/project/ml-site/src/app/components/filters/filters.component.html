@@ -1,4 +1,11 @@
-
+<mat-form-field appearance="fill">
+  <mat-label>Domain</mat-label>
+  <mat-select [(value)]="selectedDomain" (selectionChange)="changeDomain()">
+    <mat-option *ngFor="let domain of domains" [value]="domain">
+      {{domain}}
+    </mat-option>
+  </mat-select>
+</mat-form-field>
 <mat-accordion>
-  <app-filter *ngFor="let filter of filters" [filter]="filter"></app-filter>
+  <app-filter *ngFor="let filter of filters" [filter]="filter" (modelSelected)=updateFilters($event)></app-filter>
 </mat-accordion>

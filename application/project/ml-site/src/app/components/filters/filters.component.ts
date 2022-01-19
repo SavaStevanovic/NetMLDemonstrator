@@ -2,6 +2,7 @@ import { Component, OnInit } from '@angular/core';
 import { Filter } from '../../models/filter';
 import { FilterService } from '../../services/filter/filter.service';
 import { environment } from '../../../environments/environment';
+import { StateService } from 'src/app/services/state/state.service';
 
 @Component({
   selector: 'app-filters',
@@ -9,13 +10,34 @@ import { environment } from '../../../environments/environment';
   styleUrls: ['./filters.component.css']
 })
 
-export class FiltersComponent implements OnInit {
+export class FiltersComponent implements OnInit{
 
+  domains: string[] = Object.keys(environment.domains);
   filters: Filter[];
+  selectedDomain: string = this.domains[0];
 
-  constructor(private filterService:FilterService) { }
+  constructor(
+    private filterService:FilterService,
+    private stateService: StateService) {}
 
   ngOnInit(): void {
+    this.changeDomain()
+  }
+
+  updateFilters(name): void {
+    if (this.selectedDomain == "reinforcement"){
+      for (let filter of this.filters){
+        if (filter.name!=name){
+          filter.selectedModel=null
+        }
+      }
+    }
+  }
+
+  changeDomain(): void {
+    this.stateService.setVideoStart(false)
+    this.filterService.fetchFilters(environment.domains[this.selectedDomain].get_filters)
+    this.filterService.setDomain(this.selectedDomain)
     this.getFilters();
   }
 

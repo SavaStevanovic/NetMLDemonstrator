@@ -84,7 +84,7 @@ export class DisplayComponent implements AfterViewInit, OnInit {
   }
 
   private setupConnection(): void {
-    this.sock = this.frameService.openImageConnection();
+    this.sock = this.frameService.openImageConnection(environment.domains.vision.frame_upload_stream);
     this.sock.onmessage = (v) => {
       let data = JSON.parse(v['data'])
       this.processResponse(data);
@@ -177,7 +177,10 @@ export class DisplayComponent implements AfterViewInit, OnInit {
     this.processed_context = this.processedCanvas.nativeElement.getContext("2d");
     this.unprocessed_context = this.unprocessedCanvas.getContext("2d");
     this.video_native_element = this.videoElement.nativeElement;
-    this.stateService.videoStart$.subscribe(playing => this.toggle_play(playing))
+    this.videoElement.nativeElement.onplay = () => this.setPlaying()
+    this.videoElement.nativeElement.onstop = () => this.setPlaying()
+    this.stateService.videoStart$.subscribe(playing => {if (this.filterService.domainSubject.value=="vision") this.toggle_play(playing)})
+    this.stateService.menuOpened$.subscribe(opened => this.resizeCanvas())
   }
 
   toggle_play(play: boolean): void {
@@ -199,10 +202,6 @@ export class DisplayComponent implements AfterViewInit, OnInit {
       }
     } else {
       this.video_native_element.pause();
-      if (this.sock) {
-      this.sock.close()
-      }
-      this.setPlaying();
     }
 
   }

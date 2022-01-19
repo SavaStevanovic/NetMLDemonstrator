@@ -23,7 +23,7 @@
   </ul>
   <mat-form-field appearance="fill">
     <mat-label>Model name</mat-label>
-    <mat-select [(value)]="filter.selectedModel">
+    <mat-select [(value)]="filter.selectedModel" (selectionChange)="selectionChanged()">
       <mat-option [value]=""></mat-option>
       <mat-option *ngFor="let model of filter.models" [value]="model">
         {{model}}

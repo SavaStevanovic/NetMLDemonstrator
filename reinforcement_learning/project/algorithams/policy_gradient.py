@@ -9,9 +9,9 @@ from algorithams.rl_alg import ReinforcmentAlgoritham
 
 
 class PolicyGradient(ReinforcmentAlgoritham):
-    def __init__(self, inplanes, block_counts, input_size, output_size) -> None:
+    def __init__(self, env, inplanes, block_counts, input_size, output_size) -> None:
         ReinforcmentAlgoritham.__init__(
-            self, inplanes, block_counts, 1000, input_size, output_size)
+            self, env, inplanes, block_counts, 1000, input_size, output_size)
         self._policy_net = self.generate_network()
         self._checkpoint_name_path = os.path.join(
             self._chp_dir, 'checkpoints.pth'
