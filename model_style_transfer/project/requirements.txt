@@ -1,0 +1,9 @@
+torchsummary
+imutils
+autopep8
+sockjs-tornado
+pybase64
+pycocotools
+seaborn
+ujson
+scikit-image==0.17.2
