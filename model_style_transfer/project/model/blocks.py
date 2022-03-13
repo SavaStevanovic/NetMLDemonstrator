@@ -11,14 +11,12 @@ class BasicBlock(nn.Module):
         self.sequential = nn.Sequential(
             nn.Conv2d(inplanes, planes, kernel_size=3,
                       stride=stride, padding=1, bias=False),
-            norm_layer(planes),
+            nn.InstanceNorm2d(planes, affine=True),
             nn.ReLU(inplace=True),
             nn.Conv2d(planes, planes, kernel_size=3,
                       stride=1, padding=1, bias=False),
-            norm_layer(planes),
+            nn.InstanceNorm2d(planes, affine=True),
         )
-
-        self.relu = nn.ReLU(inplace=True)
         self.downsample = None
         if inplanes != planes:
             self.downsample = nn.Conv2d(
@@ -34,7 +32,6 @@ class BasicBlock(nn.Module):
             identity = self.downsample(x)
 
         out += identity
-        out = self.relu(out)
 
         return out
 

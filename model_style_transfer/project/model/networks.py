@@ -6,7 +6,7 @@ import torch.nn.functional as F
 
 class Unet(nn.Module, utils.Identifier):
 
-    def __init__(self, block, inplanes, in_dim, out_dim, depth=4):
+    def __init__(self, block, inplanes, in_dim, out_dim, depth=2):
         super(Unet, self).__init__()
         self.depth = depth
         self.block = block
@@ -19,7 +19,8 @@ class Unet(nn.Module, utils.Identifier):
             [self._make_down_layer(block, inplanes*2**i) for i in range(depth)])
         self.downsample = nn.AvgPool2d(2, 2)
         mid_planes = inplanes*2**depth
-        self.mid_layer = self._make_mid_layer(block, mid_planes)
+        self.mid_layer = nn.ModuleList([self._make_mid_layer(
+            block, mid_planes) for i in range(depth*2)])
         self.up_layers = nn.ModuleList(
             [self._make_up_layer(inplanes*2**i) for i in range(depth)])
         self.lateral_layers = nn.ModuleList(
@@ -36,7 +37,7 @@ class Unet(nn.Module, utils.Identifier):
         return nn.ConvTranspose2d(planes*2, planes, 2, 2)
 
     def _make_lateral_layer(self, block, planes):
-        return block(planes*2, planes)
+        return block(planes, planes)
 
     def forward(self, x):
         x = self.first_layer(x)
@@ -47,15 +48,16 @@ class Unet(nn.Module, utils.Identifier):
             x = l(x)
             outputs.append(x)
 
-        x = self.mid_layer(x)
+        for l in self.mid_layer:
+            x = l(x)
 
         for i in range(self.depth-1, -1, -1):
             x = self.up_layers[i](x)
-            x = torch.cat((x, outputs[i]), 1)
+            # x = torch.cat((x, outputs[i]), 1)
             x = self.lateral_layers[i](x)
 
         x = self.out_layer(x)
-        return x
+        return x.sigmoid()
 
 
 class ResNetBackbone(nn.Module, utils.Identifier):
@@ -156,3 +158,47 @@ class DeepLabHead(nn.Sequential):
             nn.ReLU(),
             nn.Conv2d(256, out_channels, 1)
         )
+
+
+class FCN(nn.Module, utils.Identifier):
+    def __init__(self, in_dim, out_dim):
+        super().__init__()
+        self.depth = 2
+        self.down_layers = nn.Sequential(
+            nn.Conv2d(in_dim, 32, 9, 1, 4, bias=False),
+            nn.InstanceNorm2d(32, affine=True),
+            nn.ReLU(),
+
+            nn.Conv2d(32, 64, 3, 2, 1, bias=False),
+            nn.InstanceNorm2d(64, affine=True),
+            nn.ReLU(),
+
+            nn.Conv2d(64, 128, 3, 2, 1, bias=False),
+            nn.InstanceNorm2d(128, affine=True),
+            nn.ReLU()
+        )
+        self.mid_layers = nn.Sequential(
+            blocks.BasicBlock(128, 128),
+            blocks.BasicBlock(128, 128),
+            blocks.BasicBlock(128, 128),
+            blocks.BasicBlock(128, 128),
+            blocks.BasicBlock(128, 128),
+        )
+        self.up_layers = nn.Sequential(
+            nn.ConvTranspose2d(128, 64, 3, 2, 1, 1, bias=False),
+            nn.InstanceNorm2d(64, affine=True),
+            nn.ReLU(),
+
+            nn.ConvTranspose2d(64, 32, 3, 2, 1, 1, bias=False),
+            nn.InstanceNorm2d(32, affine=True),
+            nn.ReLU(),
+
+            nn.Conv2d(32, out_dim, 9, 1, 4)
+        )
+
+    def forward(self, x):
+        x = self.down_layers(x)
+        x = self.mid_layers(x)
+        x = self.up_layers(x)
+
+        return x.sigmoid()

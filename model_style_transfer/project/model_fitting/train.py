@@ -19,7 +19,7 @@ def fit_epoch(net, feature_extractor: FeatureExtractor, dataloader, lr_rate, tra
     else:
         net.eval()
     torch.set_grad_enabled(train)
-    torch.backends.cudnn.benchmark = train
+    # torch.backends.cudnn.benchmark = train
     total_loss = 0.0
     output_images = []
     input_images = []
@@ -30,21 +30,21 @@ def fit_epoch(net, feature_extractor: FeatureExtractor, dataloader, lr_rate, tra
         augmentation.OutputTransform()]
     )(ref_image, 0)[0].unsqueeze(0)
     ref_image = ref_image[..., :256]
-    ref_features = feature_extractor(ref_image)
+    ref_features = feature_extractor(ref_image)[:4]
     style_losses = [losses.StyleLoss(f) for f in ref_features]
 
     for i, data in enumerate(tqdm(dataloader)):
         image, _ = data
         if train:
             optimizer.zero_grad()
-        outputs = net(image.cuda())
-        features = feature_extractor(outputs)
-        input_features = feature_extractor(image)
+        outputs = net(image.cuda()).clamp(min=0, max=1)
+        features = feature_extractor(outputs)[:4]
+        input_features = feature_extractor(image)[:4]
         content_loss = losses.ContentLoss(input_features[-2])
         c_loss = content_loss(features[-2])
         s_loss = sum(style_losses[i](features[i])
                      for i in range(len(style_losses)))
-        loss = c_loss + s_loss/1000
+        loss = c_loss/1000000 + s_loss
         if train:
             loss.backward()
             optimizer.step()
@@ -52,9 +52,9 @@ def fit_epoch(net, feature_extractor: FeatureExtractor, dataloader, lr_rate, tra
 
         if i >= len(dataloader)-10:
             image = image[0].permute(1, 2, 0).detach().cpu().numpy()
-            input_images += [image*256]
+            input_images += [image*255]
             output_images += [outputs[0].permute(1,
-                                                 2, 0).detach().cpu().numpy()*256]
+                                                 2, 0).detach().cpu().numpy()*255]
 
     data_len = len(dataloader)
     return total_loss/data_len, input_images, output_images
@@ -70,7 +70,7 @@ def fit(net, trainloader, validationloader, epochs=1000, lower_learning_period=1
         net = torch.load(checkpoint_name_path)
         train_config.load(checkpoint_conf_path)
     net.cuda()
-    # summary(net, (3, 512, 512))
+    summary(net, (3, 256, 256))
     writer = SummaryWriter(os.path.join('logs', model_dir_header))
     images, _ = next(iter(trainloader))
 
