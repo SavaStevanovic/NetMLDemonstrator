@@ -31,7 +31,7 @@ class VggExtractor(FeatureExtractor):
         output_features = []
         for i, f in enumerate(self._features):
             input = f(input)
-            layer_num = i+1
+            layer_num = i-1
             if layer_num < len(self._features) and "Pool" in self._features[layer_num].__class__.__name__:
                 output_features.append(input)
 

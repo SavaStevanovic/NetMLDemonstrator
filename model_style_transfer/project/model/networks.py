@@ -37,7 +37,7 @@ class Unet(nn.Module, utils.Identifier):
         return nn.ConvTranspose2d(planes*2, planes, 2, 2)
 
     def _make_lateral_layer(self, block, planes):
-        return block(planes, planes)
+        return block(planes * 2, planes)
 
     def forward(self, x):
         x = self.first_layer(x)
@@ -53,7 +53,7 @@ class Unet(nn.Module, utils.Identifier):
 
         for i in range(self.depth-1, -1, -1):
             x = self.up_layers[i](x)
-            # x = torch.cat((x, outputs[i]), 1)
+            x = torch.cat((x, outputs[i]), 1)
             x = self.lateral_layers[i](x)
 
         x = self.out_layer(x)
