@@ -45,7 +45,7 @@ class UnifiedKeypointDataset(Dataset):
 
         if not train:
             self.transforms = augmentation.PairCompose([
-                augmentation.RandomCropTransform((256, 256)),
+                augmentation.CenterCropTransform((256, 256)),
                 augmentation.JPEGcompression(95),
                 augmentation.OutputTransform()]
             )

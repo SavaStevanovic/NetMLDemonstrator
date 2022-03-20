@@ -30,6 +30,16 @@ class PairCompose(object):
         return format_string
 
 
+class CenterCropTransform(object):
+    def __init__(self, crop_size):
+        self.crop_size = crop_size
+
+    def __call__(self, image, dataset_id):
+        image = transforms.functional.center_crop(image, self.crop_size)
+
+        return image, dataset_id
+
+
 class RandomCropTransform(object):
     def __init__(self, crop_size):
         self.crop_size = crop_size
