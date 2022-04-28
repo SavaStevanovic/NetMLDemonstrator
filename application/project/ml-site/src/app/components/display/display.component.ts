@@ -23,7 +23,6 @@ export class DisplayComponent implements AfterViewInit, OnInit {
   video_native_element: any;
   quality: number;
   sock: any;
-  mask: any;
   production = environment.production;
 
   constructor(
@@ -31,12 +30,10 @@ export class DisplayComponent implements AfterViewInit, OnInit {
     private filterService: FilterService,
     private snackBar: MatSnackBar,
     private stateService: StateService) {
-      this.stateService.videoQuality$
-        .subscribe(quality => this.quality = quality)
 
   }
 
-  private capture():void {
+  private capture(): void {
     this.setPlaying();
     if (!this.stateService.videoPlaying$) {
       this.toggle_play(false)
@@ -44,67 +41,26 @@ export class DisplayComponent implements AfterViewInit, OnInit {
     }
 
     this.unprocessed_context.drawImage(this.video_native_element, 0, 0, this.video_native_element.clientWidth, this.video_native_element.clientHeight, 0, 0, this.unprocessed_context.canvas.width, this.unprocessed_context.canvas.height);
-    if (this.shouldSendReques()){
-      let post_data = {'frame': this.unprocessedCanvas.toDataURL("image/jpeg", 0.95), 'config': this.filters}
+    if (this.shouldSendReques()) {
+      let post_data = { 'frame': this.unprocessedCanvas.toDataURL("image/jpeg", 0.95), 'config': this.filters }
       this.sock.send(JSON.stringify(post_data))
     }
-    else{
-      this.processed_context.globalCompositeOperation = 'source-over';
-      this.drawProcessedFrame();
+    else {
+      this.drawProcessedFrame(null, null, {});
       requestAnimationFrame(this.capture.bind(this));
     }
   }
 
-  private drawProcessedFrame() {
-    this.processed_context.drawImage(this.video_native_element, 0, 0, this.processedCanvas.nativeElement.width, this.processedCanvas.nativeElement.height);
-  }
-
-  ngOnInit(): void {
-    this.getFilters();
-    this.mask = new Image();
-    this.mask.onload = () => {
-      this.processed_context.globalCompositeOperation = 'source-over';
-      this.drawProcessedFrame();
+  private drawProcessedFrame(procesed_frame, mask, data) {
+    if (!procesed_frame) {
+      procesed_frame = this.video_native_element
+    }
+    this.processed_context.globalCompositeOperation = 'source-over';
+    this.processed_context.drawImage(procesed_frame, 0, 0, this.processedCanvas.nativeElement.width, this.processedCanvas.nativeElement.height);
+    if (mask) {
       this.processed_context.globalCompositeOperation = 'multiply';
-      this.processed_context.drawImage(this.mask, 0, 0, this.processedCanvas.nativeElement.width, this.processedCanvas.nativeElement.height);
-      this.processResponse(this.mask.data);
+      this.processed_context.drawImage(mask, 0, 0, this.processedCanvas.nativeElement.width, this.processedCanvas.nativeElement.height);
     }
-  }
-
-  private shouldSendReques(): boolean {
-    if (this.quality==0){
-      return false;
-    }
-    for (let i = 0; i < this.filters.length; i++) {
-      if (this.filters[i].selectedModel) {
-        return true;
-      }
-    }
-    return false;
-  }
-
-  private setupConnection(): void {
-    this.sock = this.frameService.openImageConnection(environment.domains.vision.frame_upload_stream);
-    this.sock.onmessage = (v) => {
-      let data = JSON.parse(v['data'])
-      this.processResponse(data);
-      requestAnimationFrame(this.capture.bind(this));
-    };
-  }
-
-  private processResponse(data: any): void {
-    if (!data['mask']){
-      this.processed_context.globalCompositeOperation = 'source-over';
-      this.drawProcessedFrame();
-    }
-    else if (data['mask'] != 'processed') {
-      let mask_src = data['mask']
-      data['mask'] = 'processed'
-      this.mask.data = data
-      this.mask.src = mask_src;
-      return;
-    }
-
     if (data['bboxes']) {
       for (let box of data['bboxes']) {
         this.processed_context.beginPath();
@@ -160,13 +116,72 @@ export class DisplayComponent implements AfterViewInit, OnInit {
     }
   }
 
+  private imageCollector(expectedCount, completeFn) {
+    var receivedCount = 0;
+    return function () {
+      if (++receivedCount == expectedCount) {
+        completeFn();
+      }
+    };
+  };
+
+  ngOnInit(): void {
+    this.getFilters();
+  }
+
+  private shouldSendReques(): boolean {
+    if (this.quality == 0) {
+      return false;
+    }
+    for (let i = 0; i < this.filters.length; i++) {
+      if (this.filters[i].selectedModel) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  private setupConnection(): void {
+    this.sock = this.frameService.openImageConnection(environment.domains.vision.frame_upload_stream);
+    this.sock.onmessage = (v) => {
+      let data = JSON.parse(v['data'])
+      this.processResponse(data);
+      requestAnimationFrame(this.capture.bind(this));
+    };
+  }
+
+  private processResponse(data: any): void {
+    let images_to_load = 0
+    let procesed_frame = null
+    if (data['image']) {
+      procesed_frame = new Image()
+      procesed_frame.src = data['image']
+      data['image'] = null
+      images_to_load += 1
+    }
+    let mask = null
+    if (data['mask']) {
+      mask = new Image()
+      mask.src = data['mask'];
+      data['mask'] = null
+      images_to_load += 1
+    }
+    let collector = this.imageCollector(images_to_load, this.drawProcessedFrame.bind(this, procesed_frame, mask, data))
+    if (procesed_frame) {
+      procesed_frame.onload = collector
+    }
+    if (mask) {
+      mask.onload = collector
+    }
+  }
+
   private toColor(num: number): string {
     num >>>= 0;
     var b = num & 0xFF,
-        g = (num & 0xFF00) >>> 8,
-        r = (num & 0xFF0000) >>> 16;
+      g = (num & 0xFF00) >>> 8,
+      r = (num & 0xFF0000) >>> 16;
     return "rgba(" + [r, g, b].join(",") + ")";
-}
+  }
 
   getFilters(): void {
     this.filterService.getFilters()
@@ -177,27 +192,29 @@ export class DisplayComponent implements AfterViewInit, OnInit {
     this.processed_context = this.processedCanvas.nativeElement.getContext("2d");
     this.unprocessed_context = this.unprocessedCanvas.getContext("2d");
     this.video_native_element = this.videoElement.nativeElement;
+    this.stateService.videoQuality$
+      .subscribe(quality => { this.quality = quality; this.updateUnprocessedCanvas() })
     this.videoElement.nativeElement.onplay = () => this.setPlaying()
     this.videoElement.nativeElement.onstop = () => this.setPlaying()
-    this.stateService.videoStart$.subscribe(playing => {if (this.filterService.domainSubject.value=="vision") this.toggle_play(playing)})
+    this.stateService.videoStart$.subscribe(playing => { if (this.filterService.domainSubject.value == "vision") this.toggle_play(playing) })
     this.stateService.menuOpened$.subscribe(opened => this.resizeCanvas())
   }
 
   toggle_play(play: boolean): void {
-    if (play){
-      if (!this.video_native_element.srcObject?.active){
+    if (play) {
+      if (!this.video_native_element.srcObject?.active) {
         navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } }).then(stream => {
           this.video_native_element.srcObject = stream;
           this.setup_stream()
           this.processedCanvas.nativeElement.style.visibility = "visible";
         },
-        error => {
-          this.snackBar.open('Camera not found.', 'Confirm', {
-            duration: 2000
-          });
-        }
-      );
-      }else{
+          error => {
+            this.snackBar.open('Camera not found.', 'Confirm', {
+              duration: 2000
+            });
+          }
+        );
+      } else {
         this.setup_stream()
       }
     } else {
@@ -207,10 +224,10 @@ export class DisplayComponent implements AfterViewInit, OnInit {
   }
 
   private setup_stream(): void {
-    let is_opened_conn   = this.sock?.readyState == WebSocket.OPEN;
+    let is_opened_conn = this.sock?.readyState == WebSocket.OPEN;
     let is_active_camera = this.video_native_element.srcObject?.active;
 
-    if(is_active_camera && is_opened_conn) {
+    if (is_active_camera && is_opened_conn) {
       this.start_stream();
     }
 
@@ -226,7 +243,7 @@ export class DisplayComponent implements AfterViewInit, OnInit {
   };
 
   setPlaying(): void {
-    this.stateService.setVideoPlaying(this.video_native_element.paused==false
+    this.stateService.setVideoPlaying(this.video_native_element.paused == false
       && this.sock.readyState == WebSocket.OPEN
       && this.video_native_element.srcObject.active)
   }
@@ -239,17 +256,17 @@ export class DisplayComponent implements AfterViewInit, OnInit {
   }
 
   resizeCanvas(): void {
-    var w = this.processedCanvas.nativeElement.parentElement.clientWidth-20;
-    var h = this.processedCanvas.nativeElement.parentElement.clientHeight-20;
-    var aspectRatio = this.video_native_element.videoWidth/this.video_native_element.videoHeight
-    if (w/h > aspectRatio){
+    var w = this.processedCanvas.nativeElement.parentElement.clientWidth - 20;
+    var h = this.processedCanvas.nativeElement.parentElement.clientHeight - 20;
+    var aspectRatio = this.video_native_element.videoWidth / this.video_native_element.videoHeight
+    if (w / h > aspectRatio) {
       this.processedCanvas.nativeElement.width = h * aspectRatio;
       this.processedCanvas.nativeElement.height = h;
-    } else{
+    } else {
       this.processedCanvas.nativeElement.width = w;
       this.processedCanvas.nativeElement.height = w / aspectRatio;
     }
-    this.drawProcessedFrame();
+    this.drawProcessedFrame(null, null, {});
 
   }
 

@@ -1,6 +1,8 @@
 <mat-toolbar class="controls">
-  <button mat-flat-button *ngIf="!videoPlaying" (click)="resume()" color="primary" class="video-control play-button">Play</button>
-  <button mat-flat-button *ngIf="videoPlaying" (click)="pause()" color="warn" class="video-control play-button">Pause</button>
+  <button mat-flat-button *ngIf="!videoPlaying" (click)="resume()" color="primary"
+    class="video-control play-button">Play</button>
+  <button mat-flat-button *ngIf="videoPlaying" (click)="pause()" color="warn"
+    class="video-control play-button">Pause</button>
   <mat-label> Res:</mat-label>
   <mat-slider min="0" max="1" step="0.01" color="primary" [(value)]="quality" (change)="updateQuality()"></mat-slider>
   <span class="spacer"></span>

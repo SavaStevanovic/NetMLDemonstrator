@@ -110,17 +110,20 @@ class FrameUploadConnection(sockjs.tornado.SockJSConnection):
             model_outputs.append(r)
 
         for future in asyncio.as_completed(model_outputs):
-            result = yield future
-            content = tornado.escape.json_decode(result.body)
-            if 'detection' in result.effective_url:
-                return_data['bboxes'] = content
-            if 'keypoint' in result.effective_url:
-                return_data['parts'] = content['parts']
-                return_data['joints'] = content['joints']
-            if 'segmentation' in result.effective_url:
-                return_data['mask'] = content
-            if 'style' in result.effective_url:
-                return_data['image'] = content
+            try:
+                result = yield future
+                content = tornado.escape.json_decode(result.body)
+                if 'detection' in result.effective_url:
+                    return_data['bboxes'] = content
+                if 'keypoint' in result.effective_url:
+                    return_data['parts'] = content['parts']
+                    return_data['joints'] = content['joints']
+                if 'segmentation' in result.effective_url:
+                    return_data['mask'] = content
+                if 'style' in result.effective_url:
+                    return_data['image'] = content
+            except Exception as _:
+                pass
         self.send(tornado.escape.json_encode(return_data))
         print("--- {} ms ---".format((time.time() - start_time)*1000))
 
