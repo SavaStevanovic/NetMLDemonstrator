@@ -1,12 +1,9 @@
 import pybase64
 import torch
-from visualization import output_transform
-from visualization import apply_output
 from PIL import Image
 from data_loader import augmentation
 import tornado.web
 import io
-import torch.nn.functional as F
 from prometheus_client import start_http_server, Summary
 
 FILTERS_TIME = Summary('get_filters', 'Time spent processing filters')
@@ -16,21 +13,23 @@ camera_models = {}
 torch.set_grad_enabled(False)
 
 model_paths = {
-        "UNet" : {'path': 'checkpoints/Unet/64/ConvBlock/checkpoints_final.pth'},
-        "DeepLabV3+" : {'path': 'checkpoints/DeepLabV3Plus/256/ResNetBackbone/256/3-4-6/checkpoints_final.pth'},
-    }
+    "Starry Night": {'path': 'checkpoints/Unet/32/checkpoints_final.pth'},
+}
+
 
 class BaseHandler(tornado.web.RequestHandler):
     def set_default_headers(self):
         self.set_header("Access-Control-Allow-Origin", "*")
         self.set_header("Access-Control-Allow-Headers", "x-requested-with")
         self.set_header('Access-Control-Allow-Methods', 'GET, OPTIONS, POST')
-        self.set_header("Access-Control-Allow-Headers", "access-control-allow-origin,authorization,content-type") 
+        self.set_header("Access-Control-Allow-Headers",
+                        "access-control-allow-origin,authorization,content-type")
 
     def options(self):
         # no body
         self.set_status(204)
         self.finish()
+
 
 class GetModelsHandler(BaseHandler):
     def initialize(self, model_paths):
@@ -40,9 +39,10 @@ class GetModelsHandler(BaseHandler):
     def get(self):
         data = {
             'models': list(self.model_paths.keys()),
-        } 
-      
+        }
+
         self.write(data)
+
 
 class FrameUploadHandler(BaseHandler):
     @MESSAGE_TIME.time()
@@ -67,14 +67,19 @@ class FrameUploadHandler(BaseHandler):
             ])
             camera_models[model_key] = model.cuda()
         model = camera_models[model_key]
-        img_tensor, _, _ = model.preprocessing(img_input, None, None)
+        img_tensor, _ = model.preprocessing(img_input, None)
         img_tensor = img_tensor.unsqueeze(0).float().cuda()
-        output = model(img_tensor).detach()[0, 0, :img_input.size[1], :img_input.size[0]].sigmoid().cpu().numpy()
+        output = model(img_tensor).detach()[
+            0, :, :img_input.size[1], :img_input.size[0]].clamp(min=0, max=1).cpu().permute(1, 2, 0).numpy()
 
         mask_byte_arr = io.BytesIO()
-        Image.fromarray((output*255).astype('uint8')).save(mask_byte_arr, format='jpeg')
-        encoded_mask = 'data:image/jpeg;base64,' + pybase64.b64encode(mask_byte_arr.getvalue()).decode('utf-8')
+        Image.fromarray((output*255).astype('uint8')
+                        ).save(mask_byte_arr, format='jpeg')
+        encoded_mask = 'data:image/jpeg;base64,' + \
+            pybase64.b64encode(mask_byte_arr.getvalue()).decode('utf-8')
+        print(img_tensor.shape)
         self.write(tornado.escape.json_encode(encoded_mask))
+
 
 if __name__ == "__main__":
     import logging
@@ -83,10 +88,10 @@ if __name__ == "__main__":
     # 2. Create Tornado application
     app = tornado.web.Application([
         (r'/get_models', GetModelsHandler, dict(model_paths=model_paths)),
-        (r'/frame_upload', FrameUploadHandler),] 
+        (r'/frame_upload', FrameUploadHandler), ]
     )
     start_http_server(8000)
     server = tornado.httpserver.HTTPServer(app)
-    server.listen(5005)
-   
+    server.listen(5009)
+
     tornado.ioloop.IOLoop.current().start()

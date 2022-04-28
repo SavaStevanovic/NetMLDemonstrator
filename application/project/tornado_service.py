@@ -11,7 +11,8 @@ MESSAGE_TIME = Summary('on_message', 'Time spent processing messages')
 filter_data = {
     "detection": {'path': 'http://detection:5001/get_models'},
     "keypoint": {'path': 'http://keypoint:5004/get_models'},
-    "segmentation": {'path': 'http://segmentation:5005/get_models'}
+    "segmentation": {'path': 'http://segmentation:5005/get_models'},
+    "style": {'path': 'http://style:5009/get_models'}
 }
 
 
@@ -32,11 +33,12 @@ class BaseHandler(tornado.web.RequestHandler):
 
 class GetFilterHandler(BaseHandler):
     def initialize(self, filter_data):
-        self.filter_data = filter_data
+        self.filter_data = filter_data.copy()
 
     @tornado.gen.coroutine
     @FILTERS_TIME.time()
     def get(self):
+        remove_elems = []
         filters = [{
             'name': "Test",
             'models': ['Test_good', 'Test_bad'],
@@ -51,6 +53,7 @@ class GetFilterHandler(BaseHandler):
 
         for k, d in self.filter_data.items():
             http_client = tornado.httpclient.AsyncHTTPClient()
+            http_client.defaults["connect_timeout"] = 0.05
             try:
                 response = yield http_client.fetch(d['path'])
                 if response.code == 200:
@@ -58,7 +61,11 @@ class GetFilterHandler(BaseHandler):
                     models['name'] = k
                     filters.append(models)
             except Exception as e:
-                pass
+                remove_elems.append(k)
+            http_client.defaults["connect_timeout"] = 20
+
+        for k in remove_elems:
+            self.filter_data.pop(k)
         self.write(tornado.escape.json_encode(filters))
 
 
@@ -112,7 +119,8 @@ class FrameUploadConnection(sockjs.tornado.SockJSConnection):
                 return_data['joints'] = content['joints']
             if 'segmentation' in result.effective_url:
                 return_data['mask'] = content
-
+            if 'style' in result.effective_url:
+                return_data['image'] = content
         self.send(tornado.escape.json_encode(return_data))
         print("--- {} ms ---".format((time.time() - start_time)*1000))
 

@@ -14,6 +14,9 @@ cd ..
 cd reinforcement_learning
 ./docker.sh
 cd ..
+cd model_style_transfer
+./docker.sh
+cd ..
 cd prometheus
 ./docker.sh
 cd ..

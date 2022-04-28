@@ -1,2 +1,2 @@
-docker build -t pytorch2012segmentation_playground -f prod.Dockerfile .
-docker run --rm --name segmentation --ipc=host --gpus all -p 5005:5005 -dit -v `pwd`/project:/app pytorch2012segmentation_playground
+docker build -t pytorch2201style_playground -f prod.Dockerfile .
+docker run --rm --name style --ipc=host --gpus all -p 5009:5009 -dit -v `pwd`/project:/app pytorch2201style_playground
