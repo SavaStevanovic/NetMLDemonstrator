@@ -166,12 +166,16 @@ export class DisplayComponent implements AfterViewInit, OnInit {
       data['mask'] = null
       images_to_load += 1
     }
-    let collector = this.imageCollector(images_to_load, this.drawProcessedFrame.bind(this, procesed_frame, mask, data))
-    if (procesed_frame) {
-      procesed_frame.onload = collector
-    }
-    if (mask) {
-      mask.onload = collector
+    if (images_to_load == 0) {
+      this.drawProcessedFrame(null, null, data)
+    } else {
+      let collector = this.imageCollector(images_to_load, this.drawProcessedFrame.bind(this, procesed_frame, mask, data))
+      if (procesed_frame) {
+        procesed_frame.onload = collector
+      }
+      if (mask) {
+        mask.onload = collector
+      }
     }
   }
 
