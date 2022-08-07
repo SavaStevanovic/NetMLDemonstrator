@@ -1,0 +1,113 @@
+# xhost +local:root
+services:
+  menager:
+    build:
+      context: application
+      dockerfile: prod.Dockerfile
+    environment:
+      DISPLAY: $DISPLAY
+    ports:
+      - "4321:4321"
+      - "4200:4200"
+      - "4320:4320"
+    volumes:
+      - ./application/project:/app
+      - /tmp/.X11-unix:/tmp/.X11-unix
+      - ~/.Xauthority:/root/.Xauthority
+  detection:
+    ipc: host
+    build:
+      context: model
+      dockerfile: prod.Dockerfile
+    environment:
+      DISPLAY: $DISPLAY
+    ports:
+      - "6009:6009"
+      - "5001:5001"
+    volumes:
+      - ./model/project:/app
+      - /media/sava/Data/Coco:/Data/Coco
+      - /tmp/.X11-unix:/tmp/.X11-unix
+      - ~/.Xauthority:/root/.Xauthority
+    runtime: nvidia
+  keypoint:
+    ipc: host
+    build:
+      context: model_keypoint
+      dockerfile: prod.Dockerfile
+    environment:
+      DISPLAY: $DISPLAY
+    ports:
+      - "6007:6007"
+      - "5004:5004"
+    volumes:
+      - ./model_keypoint/project:/app
+      - /media/sava/Data/Coco:/Data/Coco
+      - /tmp/.X11-unix:/tmp/.X11-unix
+      - ~/.Xauthority:/root/.Xauthority
+    runtime: nvidia
+  segmentation:
+    ipc: host
+    build:
+      context: model_segmentation
+      dockerfile: prod.Dockerfile
+    environment:
+      DISPLAY: $DISPLAY
+    ports:
+      - "6008:6006"
+      - "5005:5005"
+    volumes:
+      - ./model_segmentation/project:/app
+      - /tmp/.X11-unix:/tmp/.X11-unix
+      - ~/Documents/Data:/Data
+      - ~/.Xauthority:/root/.Xauthority
+    runtime: nvidia
+  style:
+    ipc: host
+    build:
+      context: model_style_transfer
+      dockerfile: prod.Dockerfile
+    environment:
+      DISPLAY: $DISPLAY
+    ports:
+      - "6006:6006"
+      - "5009:5009"
+    volumes:
+      - ./model_style_transfer/project:/app
+      - /tmp/.X11-unix:/tmp/.X11-unix
+      - /media/sava/Data/Data:/Data
+      - ~/.Xauthority:/root/.Xauthority
+    runtime: nvidia
+  reinforcement:
+    ipc: host
+    privileged: true
+    build:
+      context: reinforcement_learning
+      dockerfile: prod.Dockerfile
+    environment:
+      DISPLAY: unix$DISPLAY
+      QT_X11_NO_MITSHM: 1
+      XAUTHORITY: /tmp/.docker.xauth
+    volumes:
+      - ./reinforcement_learning/project:/app
+      - ~/.Xauthority:/root/.Xauthority
+      - /tmp/.X11-unix:/tmp/.X11-unix
+      - /tmp/.docker.xauth:/tmp/.docker.xauth:rw
+    runtime: nvidia
+    network_mode: "host"
+  prometheus:
+    image: prom/prometheus
+    restart: always
+    ports:
+      - 9090:9090
+    volumes:
+      - ./prometheus/:/etc/prometheus/
+  grafana:
+    image: grafana/grafana
+    restart: always
+    ports:
+      - 3000:3000
+  nvidia:
+    image: mindprince/nvidia_gpu_prometheus_exporter:0.1
+    restart: always
+    runtime: nvidia
