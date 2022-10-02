@@ -39,8 +39,10 @@ class RandomCropTransform(object):
             if abs(bbox_center[0]-x)<self.crop_size[0]//2 and abs(bbox_center[1]-y)<self.crop_size[1]//2:
                 bbox[0]=max(self.crop_size[0]//2 + bbox_center[0] - x - bbox[2]/2, 0)
                 bbox[1]=max(self.crop_size[1]//2 + bbox_center[1] - y - bbox[3]/2, 0)
-                bbox[2]=min(bbox[2], self.crop_size[0]-bbox[0])
-                bbox[3]=min(bbox[3], self.crop_size[1]-bbox[1])
+                bbox[2]=min(self.crop_size[0]//2 + bbox_center[0] - x + bbox[2]/2, self.crop_size[0])
+                bbox[3]=min(self.crop_size[1]//2 + bbox_center[1] - y + bbox[3]/2, self.crop_size[1])
+                bbox[2]-=bbox[0]
+                bbox[3]-=bbox[1]
                 label[i]['bbox'] = bbox
             else:
                 label[i]=None
