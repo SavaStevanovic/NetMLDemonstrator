@@ -1,25 +1,35 @@
 import torch
 from data_loader.unified_dataloader import UnifiedDataloader
+from data_loader.unified_dataset import DetectionDatasetWrapper, UnifiedDataset
 from model import blocks
 from model import networks
 from model_fitting.train import fit
-from visualization.output_transform import TargetTransformToBoxes
 
 torch.backends.cudnn.benchmark = True
 
-th_count = 1
+th_count = 24
 ratios = [0.5, 1.0, 2.0]
 dataset_name = 'Coco'
 block_size = [3, 4, 6, 3]
+batch_size = 8
 backbone = networks.ResNetBackbone(
     inplanes=64, block=blocks.BasicBlock, block_counts=block_size)
-data_provider = UnifiedDataloader(len(block_size), batch_size=8, th_count=th_count)
+train_dataset = UnifiedDataset(True, len(block_size)+1, debug=th_count)
+val_dataset = UnifiedDataset(False, len(block_size)+1, debug=th_count)
 net = networks.RetinaNet(backbone=[
-                         networks.FeaturePyramidBackbone, backbone], classes=data_provider.classes_map, ratios=ratios)
+                         networks.FeaturePyramidBackbone, backbone], classes=train_dataset.classes_map, ratios=ratios)
+
+train_dataset = DetectionDatasetWrapper(train_dataset, net)
+val_dataset = DetectionDatasetWrapper(val_dataset, net)
+trainloader = torch.utils.data.DataLoader(train_dataset, batch_size=(
+    th_count > 1)*(batch_size-1)+1, shuffle=th_count > 1, num_workers=th_count)
+validationloader = torch.utils.data.DataLoader(
+    val_dataset, batch_size=1, shuffle=False, bbox_center=th_count//2)
 
 
-fit(net, data_provider.trainloader, data_provider.validationloader,
+fit(net, 
+    trainloader, 
+    validationloader,
     dataset_name=dataset_name,
-    box_transform=TargetTransformToBoxes(prior_box_sizes=net.prior_box_sizes, classes=net.classes, ratios=net.ratios, strides=net.strides),
     epochs=1000,
     lower_learning_period=3)

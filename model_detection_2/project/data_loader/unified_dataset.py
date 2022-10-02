@@ -3,6 +3,7 @@ from torch.utils.data import Dataset
 
 from data_loader.indoors_dataset import IndoorDetection
 from data_loader.class_dataset import ClassDataset
+from visualization.output_transform import TargetTransform
 
 
 class UnifiedDataset(ClassDataset):
@@ -59,7 +60,25 @@ class UnifiedDataset(ClassDataset):
 
     def __getitem__(self, idx):
         identifier = self.data_ids[idx]
-        data = self.datasets[identifier[0]][identifier[1]]
+        data, labels = self.datasets[identifier[0]][identifier[1]]
         if self.transforms:
-            data = self.transforms(data, identifier[0])
+            data = self.transforms(data, labels)
         return data
+
+
+class DetectionDatasetWrapper(ClassDataset):
+    def __init__(self, dateset: ClassDataset, net) -> None:
+        super().__init__()
+        self._dateset = dateset
+        self._output_transformation = TargetTransform(prior_box_sizes=net.prior_box_sizes, classes=net.classes, ratios=net.ratios, strides=net.strides)
+        
+    @property
+    def classes_map(self):
+        self._dateset.classes_map    
+
+    def __len__(self):
+        return len(self._dateset)
+    
+    def __getitem__(self, idx):
+        data = self._dateset.__getitem__(idx)
+        return self._output_transformation(*data)

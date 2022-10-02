@@ -1,7 +1,7 @@
-from PIL import ImageDraw
+from PIL import ImageDraw, ImageFont
 import numpy as np
 
-def apply_detections(box_transform, outputs, labels, image, cats, thresh = 0.5, apply_nms = False):
+def apply_detections(box_transform, outputs, labels, image, thresh = 0.5, apply_nms = False):
     boxes_pr=[]
     for i, out in enumerate(outputs):
         boxes_pr += box_transform(out, threshold = thresh, depth = i)
@@ -10,9 +10,9 @@ def apply_detections(box_transform, outputs, labels, image, cats, thresh = 0.5, 
     boxes_tr = box_transform(labels)
     draw = ImageDraw.Draw(image)
     for l in boxes_pr:
-        draw_box(draw, l['bbox'], cats[l['category_id']][1], 'red', 3)
+        draw_box(draw, l['bbox'], l['category'], 'red', 5)
     for l in boxes_tr:
-        draw_box(draw, l['bbox'], cats[l['category_id']][1], 'blue', 1)
+        draw_box(draw, l['bbox'], l['category'], 'blue', 3)
     return np.array(image)
 
 def non_max_suppression(boxes):
@@ -43,4 +43,4 @@ def draw_box(draw, bbox, label, color, size):
     text_position = bbox[1]
     if text_position-10>0:
         text_position-=10
-    draw.text((bbox[0]+3, text_position), label)
+    draw.text((bbox[0]+3, text_position), label, fill="yellow")

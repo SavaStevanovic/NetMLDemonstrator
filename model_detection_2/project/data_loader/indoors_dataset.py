@@ -21,7 +21,10 @@ class IndoorDetection(ClassDataset):
         self._image_anns = [(os.path.join(x, file_name), [self._convert_bounding_box(v) for v in (self._annotations[file_name])]) for x in image_folders for file_name in os.listdir(x)]
 
     def _convert_bounding_box(self, ann):
-        return {"bbox": [ann["@top"], ann["@left"], ann["@width"], ann["@height"]], "category": ann["label"]}
+        ann = {"bbox": [ann["@left"], ann["@top"], ann["@width"], ann["@height"]], "category": ann["label"]}
+        ann["bbox"] = [float(x) for x in ann["bbox"]]
+        
+        return ann
     
     def __len__(self):
         return len(self._image_anns)

@@ -64,7 +64,7 @@ class RandomResizeTransform(object):
     def __call__(self, image, label):
         p = random.random()/2+0.5
         new_size = [np.round(s*p).astype(np.int32) for s in list(image.size)[::-1]]
-        image = transforms.functional.resize(image, new_size, Image.ANTIALIAS)
+        image = transforms.functional.resize(image, new_size, transforms.functional.InterpolationMode.LANCZOS)
         for i, l in enumerate(label):
             bbox = l['bbox']
             bbox = [b*p for b in bbox]
@@ -136,32 +136,4 @@ class OutputTransform(object):
         image_padded = transforms.functional.to_tensor(image)
         return image_padded, label
 
-class TargetTransform(object):
-    def __init__(self, prior_box_sizes, classes, ratios, strides):
-        self.classes = [x[0] for x in classes]
-        self.classes_len = len(classes)
-        self.prior_box_sizes = prior_box_sizes
-        self.ratios = ratios
-        self.strides = strides
 
-    def __call__(self, image, labels):
-        targets = []
-        for i in range(min(len(self.strides), len(self.prior_box_sizes))):
-            stride = self.strides[i]
-            prior_box_size = self.prior_box_sizes[i]
-            target = np.zeros((len(self.ratios), (5 + self.classes_len), image.size[1]//stride, image.size[0]//stride), dtype=np.float32)
-            for l in labels:
-                id = self.classes.index(l['category_id']) + 5
-                bbox = l['bbox']
-                box_center = (bbox[0] + bbox[2]/2)/stride, (bbox[1] + bbox[3]/2)/stride  
-                box_position = np.floor(box_center[0]).astype(np.int), np.floor(box_center[1]).astype(np.int)
-                i = min(range(len(self.ratios)), key=lambda i: abs(self.ratios[i]-bbox[2]/(bbox[3]+1e-9)))
-                if  target[i,  0, box_position[1], box_position[0]]== 0:
-                    target[i,  0, box_position[1], box_position[0]] = 1
-                    target[i,  1, box_position[1], box_position[0]] = np.log(max(bbox[2], 1)/prior_box_size*self.ratios[i])
-                    target[i,  2, box_position[1], box_position[0]] = np.log(max(bbox[3], 1)/prior_box_size)
-                    target[i,  3, box_position[1], box_position[0]] = box_center[0] - box_position[0]
-                    target[i,  4, box_position[1], box_position[0]] = box_center[1] - box_position[1]
-                    target[i, id, box_position[1], box_position[0]] = 1
-            targets.append(target)
-        return image, targets
