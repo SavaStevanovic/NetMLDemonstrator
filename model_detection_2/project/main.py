@@ -24,7 +24,7 @@ val_dataset = DetectionDatasetWrapper(val_dataset, net)
 trainloader = torch.utils.data.DataLoader(train_dataset, batch_size=(
     th_count > 1)*(batch_size-1)+1, shuffle=th_count > 1, num_workers=th_count)
 validationloader = torch.utils.data.DataLoader(
-    val_dataset, batch_size=1, shuffle=False, bbox_center=th_count//2)
+    val_dataset, batch_size=1, shuffle=False, num_workers=th_count//2)
 
 
 fit(net, 
