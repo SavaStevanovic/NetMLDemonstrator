@@ -2,15 +2,16 @@ from data_loader import augmentation
 from torch.utils.data import Dataset
 
 from data_loader.indoors_dataset import IndoorDetection
+from data_loader.class_dataset import ClassDataset
 
 
-class UnifiedDataset(Dataset):
-    def __init__(self, train, net, debug=False):
+class UnifiedDataset(ClassDataset):
+    def __init__(self, train, depth, debug=False):
         self.debug = debug
         self.train = train
         train_datasets = [
             IndoorDetection(
-                "/Data/Data/detection/IndoorObjectDetectionDataset/train"),
+                "/Data/detection/IndoorObjectDetectionDataset/train"),
         ]
 
         if train:
@@ -22,7 +23,7 @@ class UnifiedDataset(Dataset):
                 # ADEChallengeData2016('val', 'ADEChallengeData2016'),
                 # CityscapesDataset('val', 'fine', 'Cityscapes'),
                 IndoorDetection(
-                    "/Data/Data/detection/IndoorObjectDetectionDataset/validation"),
+                    "/Data/detection/IndoorObjectDetectionDataset/validation"),
             ]
 
         if train:
@@ -34,15 +35,11 @@ class UnifiedDataset(Dataset):
                 augmentation.RandomColorJitterTransform(),
                 augmentation.RandomBlurTransform(),
                 augmentation.RandomJPEGcompression(95),
-                augmentation.TargetTransform(
-                    prior_box_sizes=net.prior_box_sizes, classes=net.classes, ratios=net.ratios, strides=net.strides),
                 augmentation.OutputTransform()]
             )
         if not train:
             self.transforms = augmentation.PairCompose([
-                augmentation.PaddTransform(pad_size=2**net.depth),
-                augmentation.TargetTransform(
-                    prior_box_sizes=net.prior_box_sizes, classes=net.classes, ratios=net.ratios, strides=net.strides),
+                augmentation.PaddTransform(pad_size=2**depth),
                 augmentation.OutputTransform()]
             )
 
@@ -53,6 +50,10 @@ class UnifiedDataset(Dataset):
             self.data_ids = [(i, j) for i, dataset in enumerate(
                 self.datasets) for j in range(len(self.datasets[i]))]
 
+    @property
+    def classes_map(self):
+        return sorted(set(sum([x.classes_map for x in self.datasets], [])))
+    
     def __len__(self):
         return len(self.data_ids)
 
