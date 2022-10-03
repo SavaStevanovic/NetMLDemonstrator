@@ -5,7 +5,7 @@ import functools
 import torch
 import numpy as np
 import torchvision.models as models
-
+from torchvision.models import ResNet50_Weights
 
 class ResNetBackbone(nn.Module, utils.Identifier):
 
@@ -138,7 +138,7 @@ class YoloV2(nn.Module, utils.Identifier):
         self.strides = [2**(i+1) for i in feature_range]
         self.ranges = DetectionRanges(len(classes), len(ratios))
 
-        modules = list(models.resnet50(pretrained=True).children())[:-2]
+        modules = list(models.resnet50(weights=ResNet50_Weights.IMAGENET1K_V1).children())[:-2]
         self._backbone = nn.Sequential(*modules)
         self.grad_backbone(False)
         
