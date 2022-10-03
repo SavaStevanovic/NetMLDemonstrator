@@ -1,5 +1,5 @@
 from data_loader import augmentation
-from torch.utils.data import Dataset
+from data_loader.manual_dataset import ManualDetection
 
 from data_loader.indoors_dataset import IndoorDetection
 from data_loader.class_dataset import ClassDataset
@@ -13,6 +13,7 @@ class UnifiedDataset(ClassDataset):
         train_datasets = [
             IndoorDetection(
                 "/Data/detection/IndoorObjectDetectionDataset/train"),
+            ManualDetection("/Data/detection/manual/voc"),
         ]
 
         if train:
@@ -46,7 +47,7 @@ class UnifiedDataset(ClassDataset):
 
         if self.debug == 1:
             self.data_ids = [(i, j) for i, dataset in enumerate(
-                self.datasets) for j in range(50)]
+                self.datasets) for j in range(20)]
         else:
             self.data_ids = [(i, j) for i, dataset in enumerate(
                 self.datasets) for j in range(len(self.datasets[i]))]
