@@ -3,6 +3,8 @@ from data_loader.manual_dataset import ManualDetection
 
 from data_loader.indoors_dataset import IndoorDetection
 from data_loader.class_dataset import ClassDataset
+from data_loader.subset_dataset import SubsetDataset
+from data_loader.voc_dataset import VOCDataset
 from visualization.output_transform import TargetTransform
 
 
@@ -10,22 +12,25 @@ class UnifiedDataset(ClassDataset):
     def __init__(self, train, depth, debug=False):
         self.debug = debug
         self.train = train
+        val_data = IndoorDetection(
+                    "/Data/detection/IndoorObjectDetectionDataset/validation")
         train_datasets = [
-            IndoorDetection(
-                "/Data/detection/IndoorObjectDetectionDataset/train"),
-            ManualDetection("/Data/detection/manual/voc"),
+            # IndoorDetection(
+            #     "/Data/detection/IndoorObjectDetectionDataset/train"),
+            # ManualDetection("/Data/detection/manual/voc"),
+            SubsetDataset(VOCDataset(mode="train", directory="/Data/detection/VOC/"), {"tvmonitor": "screen", 
+                                                                                    #    "chair": "chair"
+                                                                                       })
         ]
 
         if train:
             self.datasets = train_datasets
-
         if not train:
             self.datasets = [
                 # VOCDataset('val', 'Voc'),
                 # ADEChallengeData2016('val', 'ADEChallengeData2016'),
                 # CityscapesDataset('val', 'fine', 'Cityscapes'),
-                IndoorDetection(
-                    "/Data/detection/IndoorObjectDetectionDataset/validation"),
+                val_data,
             ]
 
         if train:
@@ -61,10 +66,11 @@ class UnifiedDataset(ClassDataset):
 
     def __getitem__(self, idx):
         identifier = self.data_ids[idx]
-        data, labels = self.datasets[identifier[0]][identifier[1]]
+        dataset = self.datasets[identifier[0]]
+        data, labels = dataset[identifier[1]]
         if self.transforms:
             data = self.transforms(data, labels)
-        return data
+        return data, tuple(dataset.classes_map)
 
 
 class DetectionDatasetWrapper(ClassDataset):
@@ -81,5 +87,5 @@ class DetectionDatasetWrapper(ClassDataset):
         return len(self._dateset)
     
     def __getitem__(self, idx):
-        data = self._dateset.__getitem__(idx)
-        return self._output_transformation(*data)
+        data, labels = self._dateset.__getitem__(idx)
+        return self._output_transformation(*data), "%".join(labels)

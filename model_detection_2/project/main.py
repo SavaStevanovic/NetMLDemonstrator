@@ -16,7 +16,7 @@ backbone = networks.ResNetBackbone(
     inplanes=64, block=blocks.BasicBlock, block_counts=block_size)
 train_dataset = UnifiedDataset(True, len(block_size)+1, debug=th_count)
 val_dataset = UnifiedDataset(False, len(block_size)+1, debug=th_count)
-net = networks.YoloV2(classes=train_dataset.classes_map, ratios=ratios)
+net = networks.YoloV2(classes=val_dataset.classes_map, ratios=ratios)
 
 train_dataset = DetectionDatasetWrapper(train_dataset, net)
 val_dataset = DetectionDatasetWrapper(val_dataset, net)

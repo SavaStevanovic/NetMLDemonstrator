@@ -36,15 +36,28 @@ def fit_epoch(net, dataloader, lr_rate, train, epoch=1):
     images = []
     map_metrics = MeanAveragePrecision(box_format="xywh", class_metrics=True)
     for i, data in enumerate(tqdm(dataloader)):
-        image, labels = data
+        (image, labels), data_labels = data
+        data_labels = [dl.split("%") for dl in data_labels]
+        data_labels_ids = [[net.ranges.classes[net.classes.index(l)] for l in ls] for ls in data_labels]
+        data_labels_neg_ids = [[x for x in net.ranges.classes if x not in dl] for dl in data_labels_ids]
         if train:
             optimizer.zero_grad()
         outputs = net(image.cuda())
-        criterions = [criterion(outputs[i], labels[i].cuda()) for i in range(len(outputs))]
+        for indf, output in enumerate(outputs):
+            output[:, :, data_labels_neg_ids[indf], ...] = 0
+        criterions = [
+            criterion(
+                outputs[i], 
+                labels[i].cuda()
+            ) for i in range(len(outputs))
+        ]
         loss, objectness_loss, size_loss, offset_loss, class_loss = (sum(x) for x in zip(*criterions))
         if train:
             loss.backward()
             optimizer.step()
+            
+        outputs = net(image.cuda())
+        outputs = [out.detach() for out in outputs]
         total_objectness_loss += objectness_loss
         total_size_loss += size_loss
         losses += loss.item()
