@@ -147,7 +147,17 @@ class YoloV2(nn.Module, utils.Identifier):
     def grad_backbone(self, freeze):
         for param in self._backbone.parameters():
             param.requires_grad = freeze
+            
     
+    def unlock_layer(self):
+        for i, param in reversed(list(enumerate(self._backbone.parameters()))):
+            if not param.requires_grad:
+                param.requires_grad = True
+                print(f"Layer {i} unlocked")
+                return
+        
+        
+        
     def forward(self, input):
         output = self._backbone(input)
         output = self.stage3_conv2(output)

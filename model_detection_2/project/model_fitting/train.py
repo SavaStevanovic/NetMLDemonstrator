@@ -39,16 +39,14 @@ def fit_epoch(net, dataloader, lr_rate, train, epoch=1):
         (image, labels), data_labels = data
         data_labels = [dl.split("%") for dl in data_labels]
         data_labels_ids = [[net.ranges.classes[net.classes.index(l)] for l in ls] for ls in data_labels]
-        data_labels_neg_ids = [[x for x in net.ranges.classes if x not in dl] for dl in data_labels_ids]
+        # data_labels_neg_ids = [[x for x in net.ranges.classes if x not in dl] for dl in data_labels_ids]
         if train:
             optimizer.zero_grad()
         outputs = net(image.cuda())
-        for indf, output in enumerate(outputs):
-            output[:, :, data_labels_neg_ids[indf], ...] = 0
         criterions = [
             criterion(
-                outputs[i], 
-                labels[i].cuda()
+                outputs[i][:, :, list(range(5)) + data_labels_ids[i], ...], 
+                labels[i][:, :, list(range(5)) + data_labels_ids[i], ...].cuda()
             ) for i in range(len(outputs))
         ]
         loss, objectness_loss, size_loss, offset_loss, class_loss = (sum(x) for x in zip(*criterions))
@@ -56,8 +54,8 @@ def fit_epoch(net, dataloader, lr_rate, train, epoch=1):
             loss.backward()
             optimizer.step()
             
-        outputs = net(image.cuda())
-        outputs = [out.detach() for out in outputs]
+        # outputs = net(image.cuda())
+        # outputs = [out.detach() for out in outputs]
         total_objectness_loss += objectness_loss
         total_size_loss += size_loss
         losses += loss.item()
@@ -143,8 +141,8 @@ def fit(net, trainloader, validationloader, dataset_name, epochs=1000, lower_lea
         else:
             train_config.iteration_age+=1
             print('Epoch {} metric: {}'.format(epoch, loss))
-        if train_config.iteration_age == 1 + lower_learning_period:
-            net.grad_backbone(True)
+        if train_config.iteration_age == lower_learning_period-1:
+            net.unlock_layer()
             print("Model unfrozen")
         if train_config.iteration_age and (train_config.iteration_age % lower_learning_period) == 0:
             train_config.learning_rate*=0.5

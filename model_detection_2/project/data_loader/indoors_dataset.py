@@ -1,3 +1,4 @@
+from functools import cached_property
 from torch.utils.data import Dataset
 from PIL import Image
 import os
@@ -29,10 +30,10 @@ class IndoorDetection(ClassDataset):
     def __len__(self):
         return len(self._image_anns)
 
-    @property
+    @cached_property
     def classes_map(self):
         anns = sum([x[1] for x in self._image_anns], [])
-        return sorted(set([v["category"] for v in anns]))
+        return sorted(set([v["category"] for v in anns if v]))
 
     def __getitem__(self, idx):
         img_pth, anns = self._image_anns[idx]

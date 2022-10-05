@@ -35,7 +35,7 @@ class ManualDetection(ClassDataset):
     @property
     def classes_map(self):
         anns = sum([x[1] for x in self._image_anns], [])
-        return sorted(set([v["category"] for v in anns]))
+        return sorted(set([v["category"] for v in anns if v]))
 
     def __getitem__(self, idx):
         img_pth, anns = self._image_anns[idx]
