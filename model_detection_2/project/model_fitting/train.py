@@ -13,6 +13,7 @@ from model_fitting.configuration import TrainingConfiguration
 from torchsummary import summary
 from torchvision.transforms.functional import to_pil_image
 from torchmetrics.detection.mean_ap import MeanAveragePrecision
+from torchvision.ops import nms
 
 from visualization.output_transform import TargetTransformToBoxes
 
@@ -37,25 +38,14 @@ def fit_epoch(net, dataloader, lr_rate, train, epoch=1):
     map_metrics = MeanAveragePrecision(box_format="xywh", class_metrics=True)
     for i, data in enumerate(tqdm(dataloader)):
         (image, labels), data_labels = data
-        data_labels = [dl.split("%") for dl in data_labels]
-        data_labels_ids = [[net.ranges.classes[net.classes.index(l)] for l in ls] for ls in data_labels]
-        # data_labels_neg_ids = [[x for x in net.ranges.classes if x not in dl] for dl in data_labels_ids]
         if train:
             optimizer.zero_grad()
         outputs = net(image.cuda())
-        criterions = [
-            criterion(
-                outputs[i][:, :, list(range(5)) + data_labels_ids[i], ...], 
-                labels[i][:, :, list(range(5)) + data_labels_ids[i], ...].cuda()
-            ) for i in range(len(outputs))
-        ]
+        criterions = [criterion(outputs[i], labels[i].cuda()) for i in range(len(outputs))]
         loss, objectness_loss, size_loss, offset_loss, class_loss = (sum(x) for x in zip(*criterions))
         if train:
             loss.backward()
             optimizer.step()
-            
-        # outputs = net(image.cuda())
-        # outputs = [out.detach() for out in outputs]
         total_objectness_loss += objectness_loss
         total_size_loss += size_loss
         losses += loss.item()
@@ -70,10 +60,13 @@ def fit_epoch(net, dataloader, lr_rate, train, epoch=1):
             images.append(pilImage)
         
     data_len = len(dataloader)
+    map = 0
     if not train:
-        pprint.pprint(map_metrics.compute())
+        mapc = map_metrics.compute()
+        pprint.pprint(mapc)
+        map = mapc["map"].item()
         
-    return losses/data_len, total_objectness_loss/data_len, total_size_loss/data_len, total_offset_loss/data_len, total_class_loss/data_len, images
+    return losses/data_len, total_objectness_loss/data_len, total_size_loss/data_len, total_offset_loss/data_len, total_class_loss/data_len, images, map
 
 def new_func(net, box_transform, map_metrics, labels, outputs):
     box_labels = box_transform([labels[0].cpu()[0].numpy()])
@@ -81,8 +74,11 @@ def new_func(net, box_transform, map_metrics, labels, outputs):
     boxes_pr = []
     for l, out in enumerate(box_outs):
         boxes_pr += box_transform(out, threshold = 0.20, depth = l)
+    preds = box_to_torch(boxes_pr, net.classes)
+    boxes = [[p[0], p[1], p[0] + p[2], p[1]+ p[3]] for p in preds["boxes"]]
+    score_ids = nms(torch.tensor(boxes), scores = preds["scores"].to(torch.float64), iou_threshold = 0.5)
     labs = box_to_torch(box_labels, net.classes)
-    map_metrics.update([box_to_torch(boxes_pr, net.classes)], [labs])
+    map_metrics.update([{k: v[score_ids] for k, v in preds.items()}], [labs])
 
 def box_to_torch(boxes: list, classes: list):
     dd = dict(
@@ -120,30 +116,32 @@ def fit(net, trainloader, validationloader, dataset_name, epochs=1000, lower_lea
     # summary(net, (3, 224, 224))
     writer = SummaryWriter(os.path.join('logs', model_dir_header))
     for epoch in range(train_config.epoch, epochs):
-        loss, objectness_loss, size_loss, offset_loss, class_loss, samples = fit_epoch(net, trainloader, train_config.learning_rate, True, epoch=epoch)
+        loss, objectness_loss, size_loss, offset_loss, class_loss, samples, _ = fit_epoch(net, trainloader, train_config.learning_rate, True, epoch=epoch)
         writer.add_scalars('Train/Metrics', {'objectness_loss': objectness_loss, 'size_loss':size_loss, 'offset_loss':offset_loss, 'class_loss':class_loss}, epoch)
         writer.add_scalar('Train/Metrics/loss', loss, epoch)
         grid = join_images(samples)
         writer.add_images('train_sample', grid, epoch, dataformats='HWC')
         
-        loss, objectness_loss, size_loss, offset_loss, class_loss, samples = fit_epoch(net, validationloader, train_config.learning_rate, False, epoch)
+        loss, objectness_loss, size_loss, offset_loss, class_loss, samples, map = fit_epoch(net, validationloader, train_config.learning_rate, False, epoch)
         writer.add_scalars('Validation/Metrics', {'objectness_loss': objectness_loss, 'size_loss':size_loss, 'offset_loss':offset_loss, 'class_loss':class_loss}, epoch)
         writer.add_scalar('Validation/Metrics/loss', loss, epoch)
+        writer.add_scalar('Validation/Metrics/MAP', map, epoch)
         grid = join_images(samples)
         writer.add_images('validation_sample', grid, epoch, dataformats='HWC')
 
         os.makedirs((chp_dir), exist_ok=True)
-        if train_config.best_metric > loss:
+        if train_config.best_metric < map:
             train_config.iteration_age = 0
-            train_config.best_metric = loss
-            print('Epoch {}. Saving model with metric: {}'.format(epoch, loss))
+            train_config.best_metric = map
+            print('Epoch {}. Saving model with metric: {}'.format(epoch, map))
             torch.save(net, checkpoint_name_path.replace('.pth', '_final.pth'))
         else:
             train_config.iteration_age+=1
-            print('Epoch {} metric: {}'.format(epoch, loss))
-        if train_config.iteration_age == lower_learning_period-1:
+            print('Epoch {} metric: {}'.format(epoch, map))
             net.unlock_layer()
-            print("Model unfrozen")
+        # if train_config.iteration_age and ((train_config.iteration_age+2) % lower_learning_period) == 0:
+        #     net.unlock_layer()
+        #     print("Model unfrozen")
         if train_config.iteration_age and (train_config.iteration_age % lower_learning_period) == 0:
             train_config.learning_rate*=0.5
             print("Learning rate lowered to {}".format(train_config.learning_rate))

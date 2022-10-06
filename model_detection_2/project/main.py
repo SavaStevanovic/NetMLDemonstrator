@@ -31,4 +31,4 @@ fit(net,
     validationloader,
     dataset_name=dataset_name,
     epochs=1000,
-    lower_learning_period=3)
+    lower_learning_period=5)

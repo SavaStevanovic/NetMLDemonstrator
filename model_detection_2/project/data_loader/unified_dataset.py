@@ -15,12 +15,12 @@ class UnifiedDataset(ClassDataset):
         val_data = IndoorDetection(
                     "/Data/detection/IndoorObjectDetectionDataset/validation")
         train_datasets = [
-            # IndoorDetection(
-            #     "/Data/detection/IndoorObjectDetectionDataset/train"),
+            IndoorDetection(
+                "/Data/detection/IndoorObjectDetectionDataset/train"),
             # ManualDetection("/Data/detection/manual/voc"),
-            SubsetDataset(VOCDataset(mode="train", directory="/Data/detection/VOC/"), {"tvmonitor": "screen", 
-                                                                                    #    "chair": "chair"
-                                                                                       })
+            # SubsetDataset(VOCDataset(mode="train", directory="/Data/detection/VOC/"), {"tvmonitor": "screen", 
+            #                                                                            "chair": "chair"
+            #                                                                            })
         ]
 
         if train:
@@ -35,13 +35,13 @@ class UnifiedDataset(ClassDataset):
 
         if train:
             self.transforms = augmentation.PairCompose([
-                augmentation.RandomResizeTransform(),
-                augmentation.RandomHorizontalFlipTransform(),
-                augmentation.RandomCropTransform((416, 416)),
-                augmentation.RandomNoiseTransform(),
-                augmentation.RandomColorJitterTransform(),
-                augmentation.RandomBlurTransform(),
-                augmentation.RandomJPEGcompression(95),
+                # augmentation.RandomResizeTransform(),
+                # augmentation.RandomHorizontalFlipTransform(),
+                augmentation.RandomCropTransform((768, 672)),
+                # augmentation.RandomNoiseTransform(),
+                # augmentation.RandomColorJitterTransform(),
+                # augmentation.RandomBlurTransform(),
+                # augmentation.RandomJPEGcompression(95),
                 augmentation.OutputTransform()]
             )
         if not train:
