@@ -13,7 +13,7 @@ from model_fitting.configuration import TrainingConfiguration
 from torchsummary import summary
 from torchvision.transforms.functional import to_pil_image
 from torchmetrics.detection.mean_ap import MeanAveragePrecision
-from torchvision.ops import nms
+from torchvision.ops import nms, box_convert
 
 from visualization.output_transform import TargetTransformToBoxes
 
@@ -75,8 +75,10 @@ def new_func(net, box_transform, map_metrics, labels, outputs):
     for l, out in enumerate(box_outs):
         boxes_pr += box_transform(out, threshold = 0.20, depth = l)
     preds = box_to_torch(boxes_pr, net.classes)
-    boxes = [[p[0], p[1], p[0] + p[2], p[1]+ p[3]] for p in preds["boxes"]]
-    score_ids = nms(torch.tensor(boxes), scores = preds["scores"].to(torch.float64), iou_threshold = 0.5)
+    # boxes = [[p[0], p[1], p[0] + p[2], p[1]+ p[3]] for p in preds["boxes"]]
+    score_ids = []
+    if len(preds["boxes"]):
+        score_ids = nms(box_convert(preds["boxes"], "xywh", "xyxy"), scores = preds["scores"].to(torch.float64), iou_threshold = 0.5)
     labs = box_to_torch(box_labels, net.classes)
     map_metrics.update([{k: v[score_ids] for k, v in preds.items()}], [labs])
 
