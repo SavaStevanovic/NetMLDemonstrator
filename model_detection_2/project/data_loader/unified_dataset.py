@@ -10,14 +10,14 @@ from visualization.output_transform import TargetTransform
 
 
 class UnifiedDataset(ClassDataset):
-    def __init__(self, train, depth, debug=False):
+    def __init__(self, mode, depth, debug=False):
         self.debug = debug
-        self.train = train
+        self._mode = mode
         val_data = IndoorDetection(
                     "/Data/detection/IndoorObjectDetectionDataset/validation")
         train_datasets = [
-            # IndoorDetection(
-            #     "/Data/detection/IndoorObjectDetectionDataset/train"),
+            IndoorDetection(
+                "/Data/detection/IndoorObjectDetectionDataset/train"),
             # ManualDetection("/Data/detection/manual/voc"),
             # SubsetDataset(
             #     VOCDataset(mode="train", directory="/Data/detection/VOC/"), 
@@ -27,28 +27,30 @@ class UnifiedDataset(ClassDataset):
             #     },
             #     "voc.json"
             # ),
-            SubsetDataset(
-                CocoDataset("/Data/detection/coco/"), 
-                {
-                    "tv": "screen", 
-                    "chair": "chair",
-                    "clock": "clock"
-                },
-                "coco.json"
-            )
+            # SubsetDataset(
+            #     CocoDataset("/Data/detection/coco/"), 
+            #     {
+            #         "tv": "screen", 
+            #         "chair": "chair",
+            #         "clock": "clock"
+            #     },
+            #     "coco.json"
+            # )
         ]
 
-        if train:
+        if mode == "train":
             self.datasets = train_datasets
-        if not train:
+        if mode == "validation":
             self.datasets = [
-                # VOCDataset('val', 'Voc'),
-                # ADEChallengeData2016('val', 'ADEChallengeData2016'),
-                # CityscapesDataset('val', 'fine', 'Cityscapes'),
                 val_data,
             ]
+        if mode == "test":
+            self.datasets = [
+                IndoorDetection(
+                    "/Data/detection/IndoorObjectDetectionDataset/test"),
+            ]
 
-        if train:
+        if mode == "train":
             self.transforms = augmentation.PairCompose([
                 augmentation.RandomResizeTransform(),
                 augmentation.RandomHorizontalFlipTransform(),
@@ -57,12 +59,14 @@ class UnifiedDataset(ClassDataset):
                 augmentation.RandomColorJitterTransform(),
                 augmentation.RandomBlurTransform(),
                 augmentation.RandomJPEGcompression(95),
-                augmentation.OutputTransform()]
+                augmentation.OutputTransform(),
+                ]
             )
-        if not train:
+        else:
             self.transforms = augmentation.PairCompose([
                 augmentation.PaddTransform(pad_size=2**depth),
-                augmentation.OutputTransform()]
+                augmentation.OutputTransform(),
+                ]
             )
 
         if self.debug == 1:

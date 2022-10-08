@@ -142,7 +142,7 @@ class YoloV2(nn.Module, utils.Identifier):
         self._backbone = nn.Sequential(*modules)
         self.grad_backbone(False)
         
-        self.stage3_conv2 = nn.Conv2d(2048, len(self.ratios) * (5 + len(self.classes)), 1, 1, 0, bias=False)
+        self.stage3_conv2 = nn.Conv2d(2048, len(self.ratios) * (5 + len(self.classes)), 1, 1, 0, bias=True)
 
     def grad_backbone(self, freeze):
         for param in self._backbone.parameters():

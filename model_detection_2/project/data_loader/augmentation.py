@@ -138,4 +138,11 @@ class OutputTransform(object):
         image_padded = transforms.functional.to_tensor(image)
         return image_padded, label
 
+class Normalize(object):
+    def __init__(self,  mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]):
+        self._transform = transforms.Normalize(mean=mean, std=std)
+        
+    def __call__(self, image):
+        image = self._transform(image)
+        return image
 

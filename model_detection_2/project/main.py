@@ -14,21 +14,25 @@ block_size = [3, 4, 6, 3]
 batch_size = 8
 backbone = networks.ResNetBackbone(
     inplanes=64, block=blocks.BasicBlock, block_counts=block_size)
-train_dataset = UnifiedDataset(True, len(block_size)+1, debug=th_count)
-val_dataset = UnifiedDataset(False, len(block_size)+1, debug=th_count)
+train_dataset = UnifiedDataset("train", len(block_size)+1, debug=th_count)
+val_dataset = UnifiedDataset("validation", len(block_size)+1, debug=th_count)
+test_dataset = UnifiedDataset("test", len(block_size)+1, debug=th_count)
 net = networks.YoloV2(classes=val_dataset.classes_map, ratios=ratios)
 
 train_dataset = DetectionDatasetWrapper(train_dataset, net)
 val_dataset = DetectionDatasetWrapper(val_dataset, net)
+test_dataset = DetectionDatasetWrapper(test_dataset, net)
 trainloader = torch.utils.data.DataLoader(train_dataset, batch_size=(
     th_count > 1)*(batch_size-1)+1, shuffle=th_count > 1, num_workers=th_count)
 validationloader = torch.utils.data.DataLoader(
     val_dataset, batch_size=1, shuffle=False, num_workers=th_count//2)
-
+testloader = torch.utils.data.DataLoader(
+    test_dataset, batch_size=1, shuffle=False, num_workers=th_count//2)
 
 fit(net, 
     trainloader, 
     validationloader,
+    testloader,
     dataset_name=dataset_name,
     epochs=1000,
     lower_learning_period=5)
