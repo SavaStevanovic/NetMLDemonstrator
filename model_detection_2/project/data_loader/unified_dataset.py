@@ -1,4 +1,5 @@
 from data_loader import augmentation
+from data_loader.coco_dataset import CocoDataset
 from data_loader.manual_dataset import ManualDetection
 
 from data_loader.indoors_dataset import IndoorDetection
@@ -15,12 +16,26 @@ class UnifiedDataset(ClassDataset):
         val_data = IndoorDetection(
                     "/Data/detection/IndoorObjectDetectionDataset/validation")
         train_datasets = [
-            IndoorDetection(
-                "/Data/detection/IndoorObjectDetectionDataset/train"),
+            # IndoorDetection(
+            #     "/Data/detection/IndoorObjectDetectionDataset/train"),
             # ManualDetection("/Data/detection/manual/voc"),
-            # SubsetDataset(VOCDataset(mode="train", directory="/Data/detection/VOC/"), {"tvmonitor": "screen", 
-            #                                                                            "chair": "chair"
-            #                                                                            })
+            # SubsetDataset(
+            #     VOCDataset(mode="train", directory="/Data/detection/VOC/"), 
+            #     {
+            #         "tvmonitor": "screen",
+            #         "chair": "chair"
+            #     },
+            #     "voc.json"
+            # ),
+            SubsetDataset(
+                CocoDataset("/Data/detection/coco/"), 
+                {
+                    "tv": "screen", 
+                    "chair": "chair",
+                    "clock": "clock"
+                },
+                "coco.json"
+            )
         ]
 
         if train:
@@ -35,13 +50,13 @@ class UnifiedDataset(ClassDataset):
 
         if train:
             self.transforms = augmentation.PairCompose([
-                # augmentation.RandomResizeTransform(),
-                # augmentation.RandomHorizontalFlipTransform(),
+                augmentation.RandomResizeTransform(),
+                augmentation.RandomHorizontalFlipTransform(),
                 augmentation.RandomCropTransform((768, 672)),
-                # augmentation.RandomNoiseTransform(),
-                # augmentation.RandomColorJitterTransform(),
-                # augmentation.RandomBlurTransform(),
-                # augmentation.RandomJPEGcompression(95),
+                augmentation.RandomNoiseTransform(),
+                augmentation.RandomColorJitterTransform(),
+                augmentation.RandomBlurTransform(),
+                augmentation.RandomJPEGcompression(95),
                 augmentation.OutputTransform()]
             )
         if not train:
