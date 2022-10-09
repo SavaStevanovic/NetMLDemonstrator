@@ -12,7 +12,8 @@ filter_data = {
     "detection": {'path': 'http://detection:5001/get_models'},
     "keypoint": {'path': 'http://keypoint:5004/get_models'},
     "segmentation": {'path': 'http://segmentation:5005/get_models'},
-    "style": {'path': 'http://style:5009/get_models'}
+    "style": {'path': 'http://style:5009/get_models'},
+    "indoor": {'path': 'http://indoor:5010/get_models'}
 }
 
 
@@ -115,6 +116,9 @@ class FrameUploadConnection(sockjs.tornado.SockJSConnection):
                 content = tornado.escape.json_decode(result.body)
                 if 'detection' in result.effective_url:
                     return_data['bboxes'] = content
+                if 'indoor' in result.effective_url:
+                    return_data['bboxes'] = return_data.get('bboxes', [])
+                    return_data['bboxes'].extend(content)
                 if 'keypoint' in result.effective_url:
                     return_data['parts'] = content['parts']
                     return_data['joints'] = content['joints']

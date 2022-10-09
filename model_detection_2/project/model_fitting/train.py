@@ -138,19 +138,33 @@ def fit(net, trainloader, validationloader, dataset_name, epochs=1000, lower_lea
             print('Epoch {}. Saving model with metric: {}'.format(epoch, map))
             torch.save(net, checkpoint_name_path.replace('.pth', '_final.pth'))
         else:
-            train_config.iteration_age+=1
+            train_config.iteration_age += 1
             print('Epoch {} metric: {}'.format(epoch, map))
             net.unlock_layer()
-        # if train_config.iteration_age and ((train_config.iteration_age+2) % lower_learning_period) == 0:
-        #     net.unlock_layer()
-        #     print("Model unfrozen")
+            net.unlock_layer()
+        if (train_config.iteration_age-2) and ((train_config.iteration_age-2) % lower_learning_period) == 0:
+            net.grad_backbone(True)
+            print("Model unfrozen")
         if train_config.iteration_age and (train_config.iteration_age % lower_learning_period) == 0:
-            train_config.learning_rate*=0.5
-            print("Learning rate lowered to {}".format(train_config.learning_rate))
+            train_config.learning_rate *= 0.5
+            print("Learning rate lowered to {}".format(
+                train_config.learning_rate))
         
         train_config.epoch = epoch+1
         train_config.save(checkpoint_conf_path)
         torch.save(net, checkpoint_name_path)
-        torch.save(net.state_dict(), checkpoint_name_path.replace('.pth', '_final_state_dict.pth'))
+        torch.save(net.state_dict(), checkpoint_name_path.replace(
+            '.pth', '_final_state_dict.pth'))
+    net = torch.load(
+        "checkpoints/YoloV2/64/0,5-1,0-2,0/Coco_checkpoints_final.pth")
     print('Finished Training')
-    return best_map
+    loss, objectness_loss, size_loss, offset_loss, class_loss, samples, map = fit_epoch(
+        net, testloader, train_config.learning_rate, False, train_config.epoch)
+    writer.add_scalars('Test/Metrics', {'objectness_loss': objectness_loss, 'size_loss': size_loss,
+                                        'offset_loss': offset_loss, 'class_loss': class_loss}, train_config.epoch)
+    writer.add_scalar('Test/Metrics/loss', loss, train_config.epoch)
+    writer.add_scalar('Test/Metrics/MAP', map, train_config.epoch)
+    grid = join_images(samples)
+    writer.add_images('Test_sample', grid,
+                      train_config.epoch, dataformats='HWC')
+    return map

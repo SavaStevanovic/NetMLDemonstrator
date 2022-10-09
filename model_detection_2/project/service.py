@@ -15,37 +15,38 @@ camera_models = {}
 torch.set_grad_enabled(False)
 
 model_paths = {
-        "YoloV2" : {'path': 'checkpoints/YoloV2/64/0,5-1,0-2,0/Coco_checkpoints_final.pth'},
-        "Yolo" : {'path': 'checkpoints/YoloNet/512/0,5-1,0-2,0/ResNetBackbone/512/3-4-6-3/Coco_checkpoints_final.pth'},
-        "RetinaNet" : {'path': 'checkpoints/RetinaNet/512/0,5-1,0-2,0/FeaturePyramidBackbone/512/ResNetBackbone/512/3-4-6-3/Coco_checkpoints_final.pth'},
-        "FPN" : {'path': 'checkpoints/FeaturePyramidNet/512/0,5-1,0-2,0/FeaturePyramidBackbone/512/ResNetBackbone/512/3-4-6-3/SqueezeExcitationBlock/Coco_checkpoints_final.pth'},
-    }
+    "YoloV2": {'path': 'checkpoints/YoloV2/64/0,5-1,0-2,0/Coco_checkpoints_final.pth'},
+}
+
 
 class BaseHandler(tornado.web.RequestHandler):
     def set_default_headers(self):
         self.set_header("Access-Control-Allow-Origin", "*")
         self.set_header("Access-Control-Allow-Headers", "x-requested-with")
         self.set_header('Access-Control-Allow-Methods', 'GET, OPTIONS, POST')
-        self.set_header("Access-Control-Allow-Headers", "access-control-allow-origin,authorization,content-type") 
+        self.set_header("Access-Control-Allow-Headers",
+                        "access-control-allow-origin,authorization,content-type")
 
     def options(self):
         # no body
         self.set_status(204)
         self.finish()
 
+
 class GetModelsHandler(BaseHandler):
     def initialize(self, model_paths):
         self.model_paths = model_paths
-    
+
     @FILTERS_TIME.time()
     def get(self):
         data = {
             'models': list(self.model_paths.keys()),
-            'progress_bars':[{'name':'threshold',  'value':0.5}], 
-            'check_boxes': [{'name':'NMS', 'checked':True}],
-        } 
-      
+            'progress_bars': [{'name': 'threshold',  'value': 0.5}],
+            'check_boxes': [{'name': 'NMS', 'checked': True}],
+        }
+
         self.write(data)
+
 
 class FrameUploadHandler(BaseHandler):
     @MESSAGE_TIME.time()
@@ -75,20 +76,22 @@ class FrameUploadHandler(BaseHandler):
             ])
             camera_models[model_key] = model
         model = camera_models[model_key]
-        img_tensor, _  = model.preprocessing(img_input, None)
+        img_tensor, _ = model.preprocessing(img_input, None)
         img_tensor = img_tensor.unsqueeze(0).float().cuda()
         outputs = model(img_tensor)
         outs = [out.cpu().detach().numpy() for out in outputs]
 
-        boxes_pr=[]
+        boxes_pr = []
         for i, out in enumerate(outs):
-            boxes_pr += model.target_to_box_transform(out, data['threshold'], scale=img_input.size, depth = i)
+            boxes_pr += model.target_to_box_transform(
+                out, data['threshold'], scale=img_input.size, depth=i)
         if data['NMS']:
             boxes_pr = apply_output.non_max_suppression(boxes_pr)
-         
+
         for b in boxes_pr:
-            b['class'] = model.classes[b['category_id']][1]
+            b['class'] = b['category']
         self.write(tornado.escape.json_encode(boxes_pr))
+
 
 if __name__ == "__main__":
     import logging
@@ -97,10 +100,10 @@ if __name__ == "__main__":
     # 2. Create Tornado application
     app = tornado.web.Application([
         (r'/get_models', GetModelsHandler, dict(model_paths=model_paths)),
-        (r'/frame_upload', FrameUploadHandler),] 
+        (r'/frame_upload', FrameUploadHandler), ]
     )
     start_http_server(8000)
     server = tornado.httpserver.HTTPServer(app)
-    server.listen(5001)
-   
+    server.listen(5010)
+
     tornado.ioloop.IOLoop.current().start()
