@@ -5,6 +5,7 @@ docker network connect embraceml detection
 docker network connect embraceml keypoint
 docker network connect embraceml segmentation
 docker network connect embraceml reinforcement
+docker network connect embraceml style
 
 docker network connect embraceml prometheus
 docker network connect embraceml grafana

@@ -134,7 +134,7 @@ __pycache__/
 
 # app
 logs/
-checkpoints/
+checkpoints*/
 
 # data
 val2017

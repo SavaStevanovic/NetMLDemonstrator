@@ -3,6 +3,8 @@ opencv-contrib-python
 pillow
 flask-cors
 autopep8
-sockjs-tornado
 prometheus_client
 pybase64
+tornado
+sockjs
+sockjs-tornado

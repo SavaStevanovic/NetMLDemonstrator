@@ -1,8 +1,9 @@
 torchsummary
 imutils
+autopep8
 sockjs-tornado
 pybase64
 pycocotools
-prometheus_client
-tensorboard==2.4.0
+seaborn
+ujson
 scikit-image==0.17.2
