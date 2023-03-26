@@ -22,11 +22,25 @@ services:
     environment:
       DISPLAY: $DISPLAY
     ports:
-      - "6009:6009"
       - "5001:5001"
     volumes:
       - ./model/project:/app
       - /media/sava/Data/Coco:/Data/Coco
+      - /tmp/.X11-unix:/tmp/.X11-unix
+      - ~/.Xauthority:/root/.Xauthority
+    runtime: nvidia
+  indoor:
+    ipc: host
+    build:
+      context: model_detection_2
+      dockerfile: prod.Dockerfile
+    environment:
+      DISPLAY: $DISPLAY
+    ports:
+      - "5010:5010"
+    volumes:
+      - ./model_detection_2/project:/app
+      - /media/sava/Data/Data/detection/:/Data/detection
       - /tmp/.X11-unix:/tmp/.X11-unix
       - ~/.Xauthority:/root/.Xauthority
     runtime: nvidia
@@ -38,7 +52,6 @@ services:
     environment:
       DISPLAY: $DISPLAY
     ports:
-      - "6007:6007"
       - "5004:5004"
     volumes:
       - ./model_keypoint/project:/app
@@ -54,7 +67,6 @@ services:
     environment:
       DISPLAY: $DISPLAY
     ports:
-      - "6008:6006"
       - "5005:5005"
     volumes:
       - ./model_segmentation/project:/app
@@ -70,7 +82,6 @@ services:
     environment:
       DISPLAY: $DISPLAY
     ports:
-      - "6006:6006"
       - "5009:5009"
     volumes:
       - ./model_style_transfer/project:/app
