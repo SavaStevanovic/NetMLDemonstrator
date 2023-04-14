@@ -1,3 +1,13 @@
+from model import utils
+from nlgeval import compute_metrics
+import seaborn as sn
+from operator import itemgetter
+from model_fitting import metrics
+from utils import plt_to_np
+import torch.nn.functional as F
+from PIL import Image
+import numpy as np
+import matplotlib.pyplot as plt
 import torch
 import os
 from model_fitting.losses import SegmentationLoss
@@ -12,16 +22,7 @@ from torchsummary import summary
 from torchvision.transforms.functional import to_pil_image
 import matplotlib
 matplotlib.use('Agg')
-import matplotlib.pyplot as plt
-import numpy as np
-from PIL import Image
-import torch.nn.functional as F
-from utils import plt_to_np
-from model_fitting import metrics
-from operator import itemgetter
-import seaborn as sn
-from nlgeval import compute_metrics
-from model import utils
+
 
 def fit_epoch(net, dataloader, lr_rate, train, epoch=1):
     if train:
@@ -29,7 +30,8 @@ def fit_epoch(net, dataloader, lr_rate, train, epoch=1):
         optimizer = torch.optim.Adam(net.parameters(), lr_rate)
     else:
         net.eval()
-    criterion = torch.nn.CrossEntropyLoss(ignore_index = np.where(net.vectorizer.vocab == net.vectorizer.pad_token)[0][0])
+    criterion = torch.nn.CrossEntropyLoss(ignore_index=np.where(
+        net.vectorizer.vocab == net.vectorizer.pad_token)[0][0])
     torch.set_grad_enabled(train)
     torch.backends.cudnn.benchmark = train
     losses = 0.0
@@ -50,18 +52,22 @@ def fit_epoch(net, dataloader, lr_rate, train, epoch=1):
         image, labels, all_labels = data
         # labels_lens (seq_length, batch_size)
         if image is None:
-            continue    
+            continue
         if train:
             optimizer.zero_grad()
         labels_cuda = labels.cuda()
 
-        outputs, atts = net(image.cuda(), labels_cuda[:, :-1])
-
+        if train:
+            outputs, atts = net(image.cuda(), labels_cuda[:, :-1])
+        else:
+            outputs, atts = net.forward_single_inference(image.cuda()), []
 
         if len(atts) != 0:
-            att_loss = 5 * ((atts.mean((1,2)).unsqueeze(-1)-atts.sum(2)) ** 2).mean() 
+            att_loss = 5 * \
+                ((atts.mean((1, 2)).unsqueeze(-1)-atts.sum(2)) ** 2).mean()
 
-        crit_loss = criterion(outputs, labels_cuda[:, 1:])
+        crit_loss = criterion(
+            outputs[..., :labels_cuda[:, 1:].shape[1]], labels_cuda[:, 1:])
         loss = crit_loss + att_loss
 
         if train:
@@ -79,7 +85,8 @@ def fit_epoch(net, dataloader, lr_rate, train, epoch=1):
             if not train:
                 h = outputs[j].detach().argmax(0).cpu().numpy().tolist()
                 hypotheses.append(h)
-                lab_text = utils.get_output_text(net.vectorizer, labels[j, 1:].detach().cpu().numpy().tolist())
+                lab_text = utils.get_output_text(
+                    net.vectorizer, labels[j, 1:].detach().cpu().numpy().tolist())
                 out_text = utils.get_output_text(net.vectorizer, h)
                 ls = []
                 for p, l in enumerate(all_labels[j]):
@@ -90,14 +97,15 @@ def fit_epoch(net, dataloader, lr_rate, train, epoch=1):
                 references.append(ls)
                 out_file.write(out_text + os.linesep)
 
-        if i>=len(dataloader)-10:
+        if i >= len(dataloader)-10:
             image = image[0]
-            lab_text = utils.get_output_text(net.vectorizer, labels[0, 1:].detach().cpu().numpy().tolist())
-            out_text = utils.get_output_text(net.vectorizer, outputs[0].detach().argmax(0).cpu().numpy().tolist())
+            lab_text = utils.get_output_text(
+                net.vectorizer, labels[0, 1:].detach().cpu().numpy().tolist())
+            out_text = utils.get_output_text(
+                net.vectorizer, outputs[0].detach().argmax(0).cpu().numpy().tolist())
             for t, m, s in zip(image, [0.485, 0.456, 0.406], [0.229, 0.224, 0.225]):
                 t.mul_(s).add_(m)
-            image = image.permute(1,2,0).detach().cpu().numpy()
-            
+            image = image.permute(1, 2, 0).detach().cpu().numpy()
 
             plt.gcf().subplots_adjust(bottom=0.15)
             plt.imshow(image)
@@ -109,8 +117,10 @@ def fit_epoch(net, dataloader, lr_rate, train, epoch=1):
         l.close()
     metrics_dict = {}
     if not train:
-        metrics_dict = compute_metrics(references=lab_file_names, hypothesis='output.txt', no_overlap=False, no_skipthoughts=True, no_glove=True)
+        metrics_dict = compute_metrics(
+            references=lab_file_names, hypothesis='output.txt', no_overlap=False, no_skipthoughts=True, no_glove=True)
     return losses/sample_count, att_losses/sample_count, crit_losses/sample_count, output_images, accs/sample_count, metrics_dict
+
 
 def fit(net, trainloader, validationloader, epochs=1000, lower_learning_period=10):
     model_dir_header = net.get_identifier()
@@ -126,12 +136,13 @@ def fit(net, trainloader, validationloader, epochs=1000, lower_learning_period=1
     writer = SummaryWriter(os.path.join('logs', model_dir_header))
 
     images, label, _ = next(iter(trainloader))
-    summary(net, [tuple(images.shape[1:]), tuple(label.shape[1:])])
-    with torch.no_grad():
-        writer.add_graph(net, (images[:2].cuda(), label[:2].cuda()))
+    # summary(net, [tuple(images.shape[1:]), tuple(label.shape[1:])])
+    # with torch.no_grad():
+    #     writer.add_graph(net, (images[:2].cuda(), label[:2].cuda()))
 
     for epoch in range(train_config.epoch, epochs):
-        loss, att_losses, crit_losses, output_images, accs, _ = fit_epoch(net, trainloader, train_config.learning_rate, train = True, epoch=epoch)
+        loss, att_losses, crit_losses, output_images, accs, _ = fit_epoch(
+            net, trainloader, train_config.learning_rate, train=True, epoch=epoch)
         writer.add_scalar('Train/Metrics_att_losses', att_losses, epoch)
         writer.add_scalar('Train/Metrics_crit_losses', crit_losses, epoch)
         writer.add_scalar('Train/Metrics_loss', loss, epoch)
@@ -139,7 +150,8 @@ def fit(net, trainloader, validationloader, epochs=1000, lower_learning_period=1
         grid = join_images(output_images)
         writer.add_images('train_outputs', grid, epoch, dataformats='HWC')
 
-        loss, att_losses, crit_losses, output_images, accs, metrics_dict = fit_epoch(net, validationloader, None, train = False, epoch=epoch)
+        loss, att_losses, crit_losses, output_images, accs, metrics_dict = fit_epoch(
+            net, validationloader, None, train=False, epoch=epoch)
         writer.add_scalars('Validation/Metrics', metrics_dict, epoch)
         writer.add_scalar('Validation/Metrics_att_losses', att_losses, epoch)
         writer.add_scalar('Validation/Metrics_crit_losses', crit_losses, epoch)
@@ -149,24 +161,27 @@ def fit(net, trainloader, validationloader, epochs=1000, lower_learning_period=1
         writer.add_images('validation_outputs', grid, epoch, dataformats='HWC')
 
         os.makedirs((chp_dir), exist_ok=True)
+        accs = metrics_dict["Bleu_4"]
         if train_config.best_metric < accs:
             train_config.iteration_age = 0
             train_config.best_metric = accs
             print('Epoch {}. Saving model with metric: {}'.format(epoch, accs))
             torch.save(net, checkpoint_name_path.replace('.pth', '_final.pth'))
         else:
-            train_config.iteration_age+=1
+            train_config.iteration_age += 1
             print('Epoch {} metric: {}'.format(epoch, accs))
         if train_config.iteration_age and (train_config.iteration_age % lower_learning_period) == 0:
-            train_config.learning_rate*=0.5
-            print("Learning rate lowered to {}".format(train_config.learning_rate))
+            train_config.learning_rate *= 0.5
+            print("Learning rate lowered to {}".format(
+                train_config.learning_rate))
         if train_config.iteration_age == 1 + lower_learning_period:
             net.grad_backbone(True)
             print("Model unfrozen")
         train_config.epoch = epoch+1
         train_config.save(checkpoint_conf_path)
         torch.save(net, checkpoint_name_path)
-        torch.save(net.state_dict(), checkpoint_name_path.replace('.pth', '_final_state_dict.pth'))
+        torch.save(net.state_dict(), checkpoint_name_path.replace(
+            '.pth', '_final_state_dict.pth'))
 
     checkpoint_name_path = os.path.join(chp_dir, 'checkpoints_final.pth')
     net = torch.load(checkpoint_name_path)
@@ -174,5 +189,6 @@ def fit(net, trainloader, validationloader, epochs=1000, lower_learning_period=1
 
     for beam_size in range(1, 10):
         metrics_dict = metrics.eval(net, validationloader, beam_size)
-        writer.add_scalars('Validation/Metrics@{}'.format(beam_size), metrics_dict, 0)
+        writer.add_scalars(
+            'Validation/Metrics@{}'.format(beam_size), metrics_dict, 0)
     print('Finished Training')

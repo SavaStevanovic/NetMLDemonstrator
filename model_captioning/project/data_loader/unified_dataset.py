@@ -1,5 +1,6 @@
 import torch
 from data_loader.conceptual_dataset import ConceptualDataset
+from data_loader.sbu_captioning_dataset import SBUCaptioningDataset
 from data_loader.sbu_dataset import SBUDataset
 from data_loader.coco_dataset import CocoDataset
 import torchvision.transforms as transforms
@@ -9,7 +10,7 @@ from torch.utils.data import Dataset, DataLoader
 from pycocotools.coco import COCO
 import os
 import random
-import io 
+import io
 import pickle
 from model.utils import WordVocabulary
 import warnings
@@ -22,26 +23,30 @@ class UnifiedDataset(Dataset):
         self.debug = debug
         self.train = train
         train_datasets = [
-                CocoDataset('train2017', 'annotations_trainval2017/annotations/captions_train2017.json')
-            ]
+            CocoDataset(
+                'train2017', 'annotations_trainval2017/annotations/captions_train2017.json'),
+            SBUCaptioningDataset("/Data1/Data/captioning/SBU")
+        ]
 
         if train:
             self.datasets = train_datasets
-            
+
         if not train:
             self.datasets = [
-                CocoDataset('val2017', 'annotations_trainval2017/annotations/captions_val2017.json')
+                CocoDataset(
+                    'val2017', 'annotations_trainval2017/annotations/captions_val2017.json')
             ]
         normalize = transforms.Normalize(mean=[0.485, 0.456, 0.406],
-                                 std=[0.229, 0.224, 0.225])
+                                         std=[0.229, 0.224, 0.225])
         if train:
             self.transforms = transforms.Compose([
                 transforms.Resize((224, 224)),
                 transforms.RandomHorizontalFlip(),
-                transforms.ColorJitter(brightness=0.2, contrast=0.2, saturation=0.2),
+                transforms.ColorJitter(
+                    brightness=0.2, contrast=0.2, saturation=0.2),
                 augmentation.OutputTransform(),
                 normalize,
-                ]
+            ]
             )
 
         if not train:
@@ -49,7 +54,7 @@ class UnifiedDataset(Dataset):
                 transforms.Resize((224, 224)),
                 augmentation.OutputTransform(),
                 normalize,
-                ]
+            ]
             )
 
         vectorizer_path = 'vectorizer.p'
@@ -62,11 +67,13 @@ class UnifiedDataset(Dataset):
             with open(vectorizer_path, 'wb') as handle:
                 pickle.dump(self.vectorizer, handle)
 
-        if self.debug==1:
-            self.data_ids = [(i, j) for i, dataset in enumerate(self.datasets) for j in range(50)]
+        if self.debug == 1:
+            self.data_ids = [(i, j) for i, dataset in enumerate(
+                self.datasets) for j in range(50)]
         else:
-            self.data_ids = [(i, j) for i, dataset in enumerate(self.datasets) for j in range(len(self.datasets[i]))]
-        
+            self.data_ids = [(i, j) for i, dataset in enumerate(
+                self.datasets) for j in range(len(self.datasets[i]))]
+
         self.data_ids = np.array(self.data_ids)
 
     def __len__(self):
@@ -78,11 +85,11 @@ class UnifiedDataset(Dataset):
         image, label, labels = self.datasets[identifier[0]][identifier[1]]
         if image.mode not in ("RGB", "L", "RGBA", "P", "1", "LA"):
             print(image.mode)
-        if image.mode=='LA':
+        if image.mode == 'LA':
             image = Image.fromarray(np.array(image)[..., 0])
-        if image.mode=='P':
+        if image.mode == 'P':
             image = image.convert('RGBA')
-        if image.mode=='RGBA':
+        if image.mode == 'RGBA':
             image = Image.fromarray(np.array(image)[..., :3])
         if any([m == image.mode for m in ("1", "P")]):
             image = image.convert('RGB')
@@ -90,6 +97,7 @@ class UnifiedDataset(Dataset):
         if self.transforms:
             image = self.transforms(image)
 
-        label_tokenized = torch.tensor(self.vectorizer(label), dtype=torch.long)
+        label_tokenized = torch.tensor(
+            self.vectorizer(label), dtype=torch.long)
         labels_tokenized = [self.vectorizer(l).tolist() for l in labels]
         return image, label_tokenized, labels_tokenized
