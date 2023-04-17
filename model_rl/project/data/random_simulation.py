@@ -23,8 +23,8 @@ class RandomSymulation(Dataset):
     def __len__(self) -> int:
         return len(self._data)
 
-    def __getitem__(self, idx):
-        self._data[idx]
+    def __getitem__(self, idx) -> StepDescriptor:
+        return self._data[idx]
     
     def save(self, path: str):
         with open(path, 'wb') as outp:  # Overwrites any existing file.
