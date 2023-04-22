@@ -1,30 +1,79 @@
+from abc import abstractmethod
 import pickle
+import typing
 import gym
 from torch.utils.data import Dataset
 from tqdm import tqdm
 
 from data.step_data import StepDescriptor
+from data.transforms import Standardizer, Transform
 
-class RandomSymulation(Dataset):
+class DataFetchStrategy:
+    @abstractmethod
+    def generate_data(self) -> typing.List[StepDescriptor]:
+        pass
+
+class DoneDataFetch(DataFetchStrategy):
     def __init__(self, size: int, env_name: str) -> None:
+        self._env_name = env_name
+        self._size = size
         super().__init__()
-        self._data = []
-        env = gym.make(env_name)
-        for _ in  tqdm(range(size)):
-            cur_state = env.reset()
+    
+    def generate_data(self) -> typing.List[StepDescriptor]:
+        data = []
+        env = gym.make(self._env_name, exclude_current_positions_from_observation=False)
+        cur_state = env.reset()
+        for _ in  tqdm(range(self._size)):
             action = env.action_space.sample()  # sample random action
             next_state, reward, done, _ = env.step(action)
-            self._data.append(StepDescriptor(cur_state, next_state, action, reward, done))
+            data.append(StepDescriptor(cur_state, next_state, action, reward, done))
             cur_state = next_state
             if done:
                 cur_state = env.reset()
         env.close()
+        return data
+
+class EpisodeLengthDataFetch(DataFetchStrategy):
+    def __init__(self, episode_count: int, episode_length: int, env_name: str) -> None:
+        self._episode_count = episode_count
+        self._episode_length = episode_length
+        self._env_name = env_name
+        super().__init__()
+    
+    def generate_data(self) -> typing.List[StepDescriptor]:
+        data = []
+        env = gym.make(self._env_name, exclude_current_positions_from_observation=False)
+        cur_state = env.reset()
+        for _ in  tqdm(range(self._episode_count)):
+            for _ in range(self._episode_length):
+                action = env.action_space.sample()  # sample random action
+                next_state, reward, done, _ = env.step(action)
+                data.append(StepDescriptor(cur_state, next_state, action, reward, done))
+                cur_state = next_state
+            cur_state = env.reset()
+        env.close()
+
+        return data
+
+
+class RandomSymulation(Dataset):
+    def __init__(self, data_fetcher: DataFetchStrategy, transoforms) -> None:
+        super().__init__()
+        self._data = data_fetcher.generate_data()
+        self._transforms = transoforms
+
+    @property
+    def data(self) -> typing.List[StepDescriptor]:
+        return self._data
 
     def __len__(self) -> int:
         return len(self._data)
 
     def __getitem__(self, idx) -> StepDescriptor:
-        return self._data[idx]
+        sample = self._data[idx]
+        for t in self._transforms:
+            sample = t(sample)
+        return sample
     
     def save(self, path: str):
         with open(path, 'wb') as outp:  # Overwrites any existing file.

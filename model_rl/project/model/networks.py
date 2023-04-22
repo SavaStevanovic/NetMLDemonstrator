@@ -7,7 +7,7 @@ from model.identifier import Identifier
 
 class LinearNet(nn.Module, Identifier):
     def __init__(self, input_size: list):
-        Identifier.__init__(self, len(input_size), sum(input_size, 0))
+        Identifier.__init__(self, input_size, sum(input_size, 0))
         nn.Module.__init__(self)
 
         layers = [

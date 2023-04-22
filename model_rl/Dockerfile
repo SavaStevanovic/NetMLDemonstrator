@@ -12,7 +12,7 @@ RUN pip3 install -r /app/requirements.txt
 RUN pip3 install gym[atari] 
 RUN pip3 install gym[accept-rom-license]
 RUN apt-get -y install -y python3-tk
-RUN conda install pytorch
+RUN conda install pytorch==1.11.0 torchvision==0.12.0 torchaudio==0.11.0 cudatoolkit=11.3 -c pytorch
 RUN curl https://mujoco.org/download/mujoco210-linux-x86_64.tar.gz --output mujoco210.tar.gz
 RUN mkdir /root/.mujoco
 RUN pip3 install -U gym[mujoco]
