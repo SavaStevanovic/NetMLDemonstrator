@@ -14,44 +14,40 @@ class DataFetchStrategy:
         pass
 
 class DoneDataFetch(DataFetchStrategy):
-    def __init__(self, size: int, env_name: str) -> None:
-        self._env_name = env_name
+    def __init__(self, size: int, env: gym.Env) -> None:
+        self._env = env
         self._size = size
         super().__init__()
     
     def generate_data(self) -> typing.List[StepDescriptor]:
         data = []
-        env = gym.make(self._env_name, exclude_current_positions_from_observation=False)
-        cur_state = env.reset()
+        cur_state = self._env.reset()
         for _ in  tqdm(range(self._size)):
-            action = env.action_space.sample()  # sample random action
-            next_state, reward, done, _ = env.step(action)
+            action = self._env.action_space.sample()  # sample random action
+            next_state, reward, done, _ = self._env.step(action)
             data.append(StepDescriptor(cur_state, next_state, action, reward, done))
             cur_state = next_state
             if done:
-                cur_state = env.reset()
-        env.close()
+                cur_state = self._env.reset()
         return data
 
 class EpisodeLengthDataFetch(DataFetchStrategy):
-    def __init__(self, episode_count: int, episode_length: int, env_name: str) -> None:
+    def __init__(self, episode_count: int, episode_length: int, env: gym.Env) -> None:
         self._episode_count = episode_count
         self._episode_length = episode_length
-        self._env_name = env_name
+        self._env = env
         super().__init__()
     
     def generate_data(self) -> typing.List[StepDescriptor]:
         data = []
-        env = gym.make(self._env_name, exclude_current_positions_from_observation=False)
-        cur_state = env.reset()
+        cur_state = self._env.reset()
         for _ in  tqdm(range(self._episode_count)):
             for _ in range(self._episode_length):
-                action = env.action_space.sample()  # sample random action
-                next_state, reward, done, _ = env.step(action)
+                action = self._env.action_space.sample()  # sample random action
+                next_state, reward, done, _ = self._env.step(action)
                 data.append(StepDescriptor(cur_state, next_state, action, reward, done))
                 cur_state = next_state
-            cur_state = env.reset()
-        env.close()
+            cur_state = self._env.reset()
 
         return data
 

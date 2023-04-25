@@ -77,8 +77,9 @@ def random_shooting_mpc(model, env, horizon, num_iterations, num_samples):
 th_count = 24
 batch_size = 512
 env_name = "HalfCheetah-v3"
-data = RandomSymulation(EpisodeLengthDataFetch(0, 1000, env_name), [])
-val_data = RandomSymulation(EpisodeLengthDataFetch(0, 1000, env_name), [])
+environment = gym.make(env_name, exclude_current_positions_from_observation=False)
+data = RandomSymulation(EpisodeLengthDataFetch(0, 1000, environment), [])
+val_data = RandomSymulation(EpisodeLengthDataFetch(0, 1000, environment), [])
 # data.save("data.pkl")
 # val_data.save("val_data.pkl")
 data.load("data.pkl")
@@ -112,4 +113,4 @@ chp_dir = os.path.join('checkpoints', model_dir_header)
 checkpoint_name_path = os.path.join(chp_dir, '{}_checkpoints_final.pth'.format(env_name))
 model = torch.load(checkpoint_name_path)
 fit(model, dataloader, val_dataloader, env_name, epochs=1000, lower_learning_period=3)
-random_shooting_mpc(model, gym.make(env_name, exclude_current_positions_from_observation=False), horizon=10, num_samples = 1000, num_iterations=1)
+random_shooting_mpc(model, environment, horizon=10, num_samples = 1000, num_iterations=1)
