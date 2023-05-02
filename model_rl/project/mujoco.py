@@ -8,6 +8,7 @@ from data.random_simulation import DoneDataFetch, EpisodeLengthDataFetch, Random
 from data.step_data import StepDescriptor
 from data.transforms import Standardizer, Transform
 from environment.boptestGymEnv import BoptestGymEnv
+from model import action_space_generator
 from model.networks import LinearNet
 from model.trainer import fit, fit_epoch
 from torch import nn
@@ -15,12 +16,11 @@ from citylearn.citylearn import CityLearnEnv
 from citylearn.wrappers import NormalizedObservationWrapper, StableBaselines3Wrapper
 
 
-def random_shooting_mpc(model, env, horizon, num_iterations, num_samples):
+def random_shooting_mpc(model, env, horizon, num_iterations, action_space: action_space_generator.ActionSpaceProducer):
     model.eval()
     state_dim = env.observation_space.shape[0]
-    action_dim = env.action_space.shape[0]
     optimizer = torch.optim.Adam(model.parameters(), lr=0.01)
-
+    num_samples = action_space(env.action_space).shape[1]
     for i in range(num_iterations):
 
         rewards = np.zeros((horizon, num_samples))
@@ -35,8 +35,8 @@ def random_shooting_mpc(model, env, horizon, num_iterations, num_samples):
                 np.zeros((horizon+1, num_samples, state_dim))).float()
             rewards = torch.tensor(
                 np.zeros((horizon, num_samples))).float()
-            action_seqs = torch.tensor(np.random.uniform(
-                low=env.action_space.low, high=env.action_space.high, size=(horizon, num_samples, action_dim))).float()
+
+            action_seqs = torch.tensor(action_space(env.action_space)).float()
             start_state = state
             states[0, :, :] = torch.tensor(start_state)
             for t in range(horizon):
@@ -145,5 +145,7 @@ model = torch.load(checkpoint_name_path)
 fit(model, dataloader, val_dataloader, env_name,
     epochs=1000, lower_learning_period=3)
 sleep(5)
-random_shooting_mpc(model, val_env, horizon=10,
-                    num_samples=1000, num_iterations=1)
+horizon = 2
+action_space = action_space_generator.RandomSpaceProducer(horizon, 1000)
+action_space = action_space_generator.EvenlyspacedSpaceProducer(horizon, 2)
+random_shooting_mpc(model, val_env, horizon=horizon, num_iterations=1, action_space=action_space)
