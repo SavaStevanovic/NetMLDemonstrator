@@ -1,12 +1,15 @@
 from abc import abstractmethod
 import pickle
 import typing
+from typing import Any
 import gym
+import numpy as np
 from torch.utils.data import Dataset
 from tqdm import tqdm
 
 from data.step_data import StepDescriptor
 from data.transforms import Standardizer, Transform
+
 
 class DataFetchStrategy:
     @abstractmethod
@@ -23,9 +26,16 @@ class DoneDataFetch(DataFetchStrategy):
         data = []
         cur_state = self._env.reset()
         for _ in  tqdm(range(self._size)):
-            action = self._env.action_space.sample()  # sample random action
+            if isinstance(self._env.action_space, list):
+                action = [x.sample() for x in self._env.action_space]
+            else:
+                action = self._env.action_space.sample()  # sample random action
             next_state, reward, done, _ = self._env.step(action)
-            data.append(StepDescriptor(cur_state, next_state, action, reward, done))
+
+            if isinstance(self._env.action_space, list):
+                data.append(StepDescriptor(np.concatenate(cur_state), np.concatenate(next_state), np.concatenate(action), sum(reward), done))
+            else:
+                data.append(StepDescriptor(cur_state, next_state, action, reward, done))
             cur_state = next_state
             if done:
                 cur_state = self._env.reset()

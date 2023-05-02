@@ -400,7 +400,7 @@ class BoptestGymEnv(gym.Env):
         # Get test information
         #=============================================================
         # Test case name
-        self.name = requests.get('{0}/name'.format(url)).json()['payload']
+        self.name = requests.get('{0}/name'.format(url)).json()['payload']["name"]
         # Measurements available
         self.all_measurement_vars = requests.get('{0}/measurements'.format(url)).json()['payload']
         # Predictive variables available

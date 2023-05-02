@@ -6,14 +6,16 @@ from torch.utils.tensorboard import SummaryWriter
 
 from model.configuration import TrainingConfiguration
 
+
 class WeightedMSELoss(nn.Module):
-    
+
     def forward(self, output, target):
         mean = 0
         std = target.std(0)
-        # output = (output - mean)/std
-        # target = (target - mean)/std
-        loss = ((output - target) ** 2)/std
+        std[std == 0] = 1
+        output = (output - mean)/std
+        target = (target - mean)/std
+        loss = (output - target) ** 2
         return loss.mean()
 
 
@@ -31,8 +33,15 @@ def fit_epoch(net, dataloader, lr_rate, train, epoch=1):
         cur_state, next_states, act, reward, _ = data
         if train:
             optimizer.zero_grad()
-        outputs = net(torch.cat((cur_state[..., 1:], act), dim=-1))
-        loss = criterion(outputs, next_states - cur_state)
+        outputs = net(torch.cat((cur_state, act), dim=-1))
+        roward_label = torch.cat(
+            (
+                torch.tensor(reward, requires_grad=False).unsqueeze(-1),
+                (next_states - cur_state),
+                
+            ), dim=-1
+        )
+        loss = criterion(outputs, roward_label)
         if train:
             loss.backward()
             optimizer.step()
@@ -40,11 +49,14 @@ def fit_epoch(net, dataloader, lr_rate, train, epoch=1):
     data_len = len(dataloader)
     return losses/data_len
 
+
 def fit(net, trainloader, validationloader, dataset_name, epochs=1000, lower_learning_period=10):
     model_dir_header = net.get_identifier()
     chp_dir = os.path.join('checkpoints', model_dir_header)
-    checkpoint_name_path = os.path.join(chp_dir, '{}_checkpoints.pth'.format(dataset_name))
-    checkpoint_conf_path = os.path.join(chp_dir, '{}_configuration.json'.format(dataset_name))
+    checkpoint_name_path = os.path.join(
+        chp_dir, '{}_checkpoints.pth'.format(dataset_name))
+    checkpoint_conf_path = os.path.join(
+        chp_dir, '{}_configuration.json'.format(dataset_name))
     train_config = TrainingConfiguration()
     if os.path.exists(chp_dir):
         net = torch.load(checkpoint_name_path)
@@ -52,14 +64,16 @@ def fit(net, trainloader, validationloader, dataset_name, epochs=1000, lower_lea
     net
     writer = SummaryWriter(os.path.join('logs', model_dir_header))
     for epoch in range(train_config.epoch, epochs):
-        loss = fit_epoch(net, trainloader, train_config.learning_rate, True, epoch=epoch)
+        loss = fit_epoch(net, trainloader,
+                         train_config.learning_rate, True, epoch=epoch)
         writer.add_scalar('Train/Metrics/loss', loss, epoch)
-        
-        loss = fit_epoch(net, validationloader, train_config.learning_rate, False, epoch)
+
+        loss = fit_epoch(net, validationloader,
+                         train_config.learning_rate, False, epoch)
         writer.add_scalar('Validation/Metrics/loss', loss, epoch)
 
         os.makedirs((chp_dir), exist_ok=True)
-        if train_config.best_metric > loss:
+        if (train_config.best_metric is None) or (train_config.best_metric > loss):
             train_config.iteration_age = 0
             train_config.best_metric = loss
             print('Epoch {}. Saving model with metric: {}'.format(epoch, loss))
@@ -71,12 +85,13 @@ def fit(net, trainloader, validationloader, dataset_name, epochs=1000, lower_lea
             train_config.learning_rate *= 0.5
             print("Learning rate lowered to {}".format(
                 train_config.learning_rate))
-        
+
         train_config.epoch = epoch+1
         train_config.save(checkpoint_conf_path)
         torch.save(net, checkpoint_name_path)
         torch.save(net.state_dict(), checkpoint_name_path.replace(
             '.pth', '_final_state_dict.pth'))
-    loss = fit_epoch(net, validationloader, train_config.learning_rate, False, 1000)
+    loss = fit_epoch(net, validationloader,
+                     train_config.learning_rate, False, 1000)
     print(f'Final metric: {loss}')
     return map
