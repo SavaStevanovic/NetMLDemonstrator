@@ -25,7 +25,7 @@ def fit_epoch(net, dataloader, lr_rate, train, epoch=1):
         optimizer = torch.optim.Adam(net.parameters(), lr_rate)
     else:
         net.eval()
-    criterion = WeightedMSELoss()
+    criterion = nn.MSELoss()
     torch.set_grad_enabled(train)
     torch.backends.cudnn.benchmark = train
     losses = 0.0
@@ -50,7 +50,7 @@ def fit_epoch(net, dataloader, lr_rate, train, epoch=1):
     return losses/data_len
 
 
-def fit(net, trainloader, validationloader, dataset_name, epochs=1000, lower_learning_period=10):
+def fit(net, trainloader, validationloader, dataset_name, writer: SummaryWriter, epochs=1000, lower_learning_period=10):
     model_dir_header = net.get_identifier()
     chp_dir = os.path.join('checkpoints', model_dir_header)
     checkpoint_name_path = os.path.join(
@@ -61,8 +61,6 @@ def fit(net, trainloader, validationloader, dataset_name, epochs=1000, lower_lea
     if os.path.exists(chp_dir):
         net = torch.load(checkpoint_name_path)
         train_config.load(checkpoint_conf_path)
-    net
-    writer = SummaryWriter(os.path.join('logs', model_dir_header))
     for epoch in range(train_config.epoch, epochs):
         loss = fit_epoch(net, trainloader,
                          train_config.learning_rate, True, epoch=epoch)

@@ -15,6 +15,7 @@ class RandomSpaceProducer(ActionSpaceProducer):
         self._num_samples = num_samples
 
     def __call__(self, space_box: Box) -> np.array:
+        np.random.seed(42)
         return np.random.uniform(
             low=space_box.low, high=space_box.high, size=(self._horizon, self._num_samples, len(space_box.low))
         )
