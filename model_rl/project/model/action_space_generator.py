@@ -6,13 +6,20 @@ from gym.spaces import Box
 import numpy as np
 
 class ActionSpaceProducer:
+    def __init__(self, horizon: int) -> None:
+        self._horizon = horizon
+    
+    @property
+    def horizon(self) -> int:
+        return self._horizon
+
     def __call__(self, space_box: Box) -> np.array:
         pass
 
 class RandomSpaceProducer(ActionSpaceProducer):
     def __init__(self, horizon, num_samples) -> None:
-        self._horizon = horizon
         self._num_samples = num_samples
+        super().__init__(horizon)
 
     def __call__(self, space_box: Box) -> np.array:
         np.random.seed(42)
@@ -22,8 +29,8 @@ class RandomSpaceProducer(ActionSpaceProducer):
     
 class EvenlyspacedSpaceProducer(ActionSpaceProducer):
     def __init__(self, horizon, size) -> None:
-        self._horizon = horizon
         self._size = size
+        super().__init__(horizon)
 
     @staticmethod
     def _cartesian_product_itertools(arrays):

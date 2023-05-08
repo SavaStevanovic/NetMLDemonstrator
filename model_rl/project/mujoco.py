@@ -13,6 +13,7 @@ from data.transforms import Standardizer, Transform
 from environment.boptestGymEnv import BoptestGymEnv
 from environment.model_environment import ModelEnv
 from model import action_space_generator
+from model.model_predictive_contol import MPC, PolicyModel
 from model.networks import LinearNet
 from model.trainer import fit, fit_epoch
 from torch import nn
@@ -21,83 +22,28 @@ from citylearn.wrappers import NormalizedObservationWrapper, StableBaselines3Wra
 from stable_baselines3.sac import SAC
 from torch.utils.tensorboard import SummaryWriter
 
-def random_shooting_mpc(model, env, horizon, action_space: action_space_generator.ActionSpaceProducer) -> dict:
-    model.eval()
-    state_dim = env.observation_space.shape[0]
-    optimizer = torch.optim.Adam(model.parameters(), lr=0.01)
-    num_samples = action_space(env.action_space).shape[1]
+def infer(model: PolicyModel, env) -> dict:
     metrics = defaultdict(int)
-
-    rewards = np.zeros((horizon, num_samples))
-
     # Sample action sequences
 
     # Simulate the system using the dynamics model
     state = env.reset()
-
-    def get_next_action(state, env, model):
-        states = torch.tensor(
-            np.zeros((horizon+1, num_samples, state_dim))).float()
-        rewards = torch.tensor(
-            np.zeros((horizon, num_samples))).float()
-
-        action_seqs = torch.tensor(action_space(env.action_space)).float()
-        start_state = state
-        states[0, :, :] = torch.tensor(start_state)
-        for t in range(horizon):
-            state_action = torch.cat(
-                (states[t], action_seqs[t]), dim=-1)
-            next_state = model(state_action)
-            rewards[t] = next_state[..., 0]
-            next_state = next_state[..., 1:]
-            next_state = next_state.detach()
-            states[t+1, :, :] = next_state
-            # Compute the reward as the speed in the x-direction
-
-        # Compute the returns for each action sequence
-        returns = ((0.95**torch.arange(rewards.shape[0])
-                ).unsqueeze(1) * rewards).sum(0)
-        best_index = np.argmax(returns.detach().numpy())
-        print(returns[best_index], "Predicted return: ",
-                (rewards[0, best_index]).item())
-        # Choose the best action sequence and take the first action
-        return action_seqs[0, best_index, :].detach().numpy()
     done = False
     i=0
     reward_relative_error = []
     while (not done) and (i<1000):
         i+=1
-        action = get_next_action(state, env, model)
+        action, decription = model.predict(state)
         next_state, reward, done, info = env.step(action)
-        out = model(
-            torch.cat((torch.tensor(state), torch.tensor(action)), dim=-1).float())
-        # torch.set_grad_enabled(True)
-        # state_action = torch.cat((torch.tensor(state[1:]), torch.tensor(action)), dim=-1).float()
-        # next_state_pred = model(state_action)
-        # optimizer.zero_grad()
-        # loss = nn.MSELoss()(next_state_pred, torch.tensor(next_state - state).float())
-        # loss.backward()
-        # print("Loss", loss.item())
-        # optimizer.step()
-        # torch.set_grad_enabled(False)
-        print("Predicted: ", out[0].item(), "Correct: ",
-                reward, "Margin: ", out[0].item() - reward)
+        # out = model(
+        #     torch.cat((torch.tensor(state), torch.tensor(action)), dim=-1).float())
+        # print("Predicted: ", out[0].item(), "Correct: ",
+        #         reward, "Margin: ", out[0].item() - reward)
         state = next_state
         metrics["total_reward"] += reward
-        reward_relative_error.append(abs(reward - out[0].item())/abs(reward + out[0].item()))
+        reward_relative_error.append(abs(reward - decription["reward"])/abs(reward + decription["reward"]))
     metrics["reward_relative_error"] = np.mean(reward_relative_error)
     print(metrics)
-    # env.render()
-
-    # Update the dynamics model using the best action sequence
-    # state_actions = np.hstack((states[:-1, best_index, :], best_action_seq))
-    # next_states = states[1:, best_index, :]
-    # next_states = torch.tensor(next_states, dtype=torch.float32)
-    # optimizer.zero_grad()
-    # pred_next_states = model(torch.tensor(state_actions, dtype=torch.float32))
-    # loss = nn.MSELoss()(pred_next_states, next_states)
-    # loss.backward()
-    # optimizer.step()
     return dict(metrics)
 
 
@@ -160,14 +106,25 @@ fit(model, dataloader, val_dataloader, env_name, writer,
 horizon = 40
 
 
-action_space = action_space_generator.RandomSpaceProducer(horizon, 1000)
+action_space_producer = action_space_generator.RandomSpaceProducer(horizon, 1000)
 # action_space = action_space_generator.EvenlyspacedSpaceProducer(horizon, 2)
-
-torch.set_grad_enabled(True)
+model.eval()
+policy_model = MPC(action_space_producer, model, val_env.action_space, val_env.observation_space)
+# torch.set_grad_enabled(True)
 # train_env = ModelEnv(model, val_env.observation_space, val_env.action_space)
 # model1 = SAC('MlpPolicy', train_env)
 # model1.learn(total_timesteps=10000, log_interval=4, progress_bar=True)
 
 sleep(5)
-info = random_shooting_mpc(model, val_env, horizon=horizon, action_space=action_space)
+info = infer(policy_model, val_env)
 writer.add_scalars('Plaining', info, 0)
+
+#MF_RL(F) -> Policy
+
+
+#Real environment -> F     F: SxA -> S*xR  F-real env citylearn 1344 sample
+#Data(F)-> d
+#Supervised model(d) -> f     f: SxA -> S*xR  f-
+#MPC(f) -> reward(F) 
+#------Model free fine tuning------
+#MF_RL(f) -> Policy   
