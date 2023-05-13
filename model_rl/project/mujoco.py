@@ -1,4 +1,5 @@
 from collections import defaultdict
+import json
 import os
 from time import sleep
 import gym
@@ -21,12 +22,20 @@ from citylearn.citylearn import CityLearnEnv
 from citylearn.wrappers import NormalizedObservationWrapper, StableBaselines3Wrapper
 from stable_baselines3.sac import SAC
 from torch.utils.tensorboard import SummaryWriter
+from stable_baselines3.sac import SAC
+from stable_baselines3.common.callbacks import CheckpointCallback, EvalCallback
+from stable_baselines3.common.monitor import Monitor
+from stable_baselines3.common.env_util import make_vec_env
+
+def dict_mean(dict_list):
+    mean_dict = {}
+    for key in dict_list[0].keys():
+        mean_dict[key] = sum(d[key] for d in dict_list) / len(dict_list)
+    return mean_dict
 
 def infer(model: PolicyModel, env) -> dict:
     metrics = defaultdict(int)
     # Sample action sequences
-
-    # Simulate the system using the dynamics model
     state = env.reset()
     done = False
     i=0
@@ -41,7 +50,7 @@ def infer(model: PolicyModel, env) -> dict:
         #         reward, "Margin: ", out[0].item() - reward)
         state = next_state
         metrics["total_reward"] += reward
-        reward_relative_error.append(abs(reward - decription["reward"])/abs(reward + decription["reward"]))
+        # reward_relative_error.append(abs(reward - decription["reward"])/abs(reward + decription["reward"]))
     metrics["reward_relative_error"] = np.mean(reward_relative_error)
     print(metrics)
     return dict(metrics)
@@ -51,7 +60,7 @@ th_count = 24
 batch_size = 32
 env_name = 'citylearn_challenge_2022_phase_1'
 environment = StableBaselines3Wrapper(NormalizedObservationWrapper(CityLearnEnv(env_name, central_agent=True, simulation_start_time_step = 0, simulation_end_time_step=1344)))
-val_env = StableBaselines3Wrapper(NormalizedObservationWrapper(CityLearnEnv(env_name, central_agent=True, simulation_start_time_step = 1344, simulation_end_time_step=2688, random_seed=42)))
+val_env = Monitor(StableBaselines3Wrapper(NormalizedObservationWrapper(CityLearnEnv(env_name, central_agent=True, simulation_start_time_step = 1344, simulation_end_time_step=2688, random_seed=42))))
 # environment.get_summary()
 
 
@@ -62,10 +71,7 @@ val_data = RandomSymulation(DoneDataFetch(1334, val_env), [])
 data.load(f"{env_name}_data.pkl")
 val_data.load(f"{env_name}_val_data.pkl")
 
-# data._transforms = [
-#     Transform(data.data, [1, 9, 10, 11, 12, 13, 14, 15, 16, 17], 0, 0.001)]
 print(len(data))
-# standardizer = Standardizer(data.data)
 sample = data[0]
 
 
@@ -86,7 +92,7 @@ dataloader = torch.utils.data.DataLoader(data, batch_size=(
 val_dataloader = torch.utils.data.DataLoader(val_data, batch_size=(
     th_count > 1)*(batch_size-1)+1, shuffle=th_count > 1, num_workers=th_count, collate_fn=collate_fn)
 model = LinearNet([len(sample.current_state) +
-                   len(sample.action), 256, 254, len(sample.current_state) + 1])
+                   len(sample.action), 256, 256, len(sample.current_state) + 1])
 
 model_dir_header = model.get_identifier()
 writer = SummaryWriter(os.path.join('logs', model_dir_header))
@@ -103,7 +109,7 @@ checkpoint_name_path = os.path.join(
 model = torch.load(checkpoint_name_path)
 fit(model, dataloader, val_dataloader, env_name, writer,
     epochs=1000, lower_learning_period=3)
-horizon = 40
+horizon = 10
 
 
 action_space_producer = action_space_generator.RandomSpaceProducer(horizon, 1000)
@@ -112,13 +118,22 @@ model.eval()
 policy_model = MPC(action_space_producer, model, val_env.action_space, val_env.observation_space)
 # torch.set_grad_enabled(True)
 # train_env = ModelEnv(model, val_env.observation_space, val_env.action_space)
-# model1 = SAC('MlpPolicy', train_env)
-# model1.learn(total_timesteps=10000, log_interval=4, progress_bar=True)
+# policy_model = SAC('MlpPolicy', environment)
+# eval_callback = EvalCallback(val_env, best_model_save_path='./best_model', log_path='./logs', eval_freq=1000, deterministic=True, render=False)
+# checkpoint_callback = CheckpointCallback(save_freq=10000, save_path='./checkpoints')
 
-sleep(5)
-info = infer(policy_model, val_env)
-writer.add_scalars('Plaining', info, 0)
+# Train the model
+# policy_model.learn(total_timesteps=100000, callback=[checkpoint_callback], progress_bar=True)
 
+sleep(1)
+infos = [infer(policy_model, val_env) for _ in range(2)]
+info = dict_mean(infos)
+writer.add_scalars(f'Plaining/{env_name}', info, 0)
+
+info["env_name"] = env_name
+with open("matrix.txt", "a") as f:
+    json.dump(info, f)
+    json.dump("\n", f)
 #MF_RL(F) -> Policy
 
 

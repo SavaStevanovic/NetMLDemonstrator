@@ -83,6 +83,8 @@ def fit(net, trainloader, validationloader, dataset_name, writer: SummaryWriter,
             train_config.learning_rate *= 0.5
             print("Learning rate lowered to {}".format(
                 train_config.learning_rate))
+        if train_config.iteration_age and (train_config.iteration_age % (2*lower_learning_period+1)) == 0:
+            break
 
         train_config.epoch = epoch+1
         train_config.save(checkpoint_conf_path)
@@ -92,4 +94,4 @@ def fit(net, trainloader, validationloader, dataset_name, writer: SummaryWriter,
     loss = fit_epoch(net, validationloader,
                      train_config.learning_rate, False, 1000)
     print(f'Final metric: {loss}')
-    return map
+    return loss

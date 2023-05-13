@@ -48,7 +48,7 @@ class MPC(PolicyModel):
         returns = ((0.95**torch.arange(rewards.shape[0])
                 ).unsqueeze(1) * rewards).sum(0)
         best_index = np.argmax(returns.detach().numpy())
-        print("Predicted return: ",
-                (rewards[0, best_index]).item())
+        # print("Predicted return: ",
+        #         (rewards[0, best_index]).item())
         # Choose the best action sequence and take the first action
         return action_seqs[0, best_index, :].detach().numpy(), {"reward": rewards[0, best_index].item()}
