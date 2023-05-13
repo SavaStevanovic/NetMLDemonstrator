@@ -115,25 +115,40 @@ horizon = 10
 action_space_producer = action_space_generator.RandomSpaceProducer(horizon, 1000)
 # action_space = action_space_generator.EvenlyspacedSpaceProducer(horizon, 2)
 model.eval()
-policy_model = MPC(action_space_producer, model, val_env.action_space, val_env.observation_space)
-# torch.set_grad_enabled(True)
-# train_env = ModelEnv(model, val_env.observation_space, val_env.action_space)
-# policy_model = SAC('MlpPolicy', environment)
-# eval_callback = EvalCallback(val_env, best_model_save_path='./best_model', log_path='./logs', eval_freq=1000, deterministic=True, render=False)
-# checkpoint_callback = CheckpointCallback(save_freq=10000, save_path='./checkpoints')
 
-# Train the model
-# policy_model.learn(total_timesteps=100000, callback=[checkpoint_callback], progress_bar=True)
+DEBUG = True
 
-sleep(1)
-infos = [infer(policy_model, val_env) for _ in range(2)]
-info = dict_mean(infos)
-writer.add_scalars(f'Plaining/{env_name}', info, 0)
+trani_steps = 1000 if DEBUG else 100000 
+inference_episodes = 2 if DEBUG else 10 
+for model_strat in ["MPC", "RL_real", "RL_modelenv"]:
+    eval_callback = EvalCallback(val_env, best_model_save_path='./best_model', log_path='./logs', eval_freq=1000, deterministic=True, render=False)
+    checkpoint_callback = CheckpointCallback(save_freq=10000, save_path='./checkpoints')
+    if model_strat =="MPC":
+        policy_model = MPC(action_space_producer, model, val_env.action_space, val_env.observation_space)
+    elif model_strat =="RL_real":
+        torch.set_grad_enabled(True)
+        policy_model = SAC('MlpPolicy', environment)
 
-info["env_name"] = env_name
-with open("matrix.txt", "a") as f:
-    json.dump(info, f)
-    json.dump("\n", f)
+        # Train the model
+        policy_model.learn(total_timesteps=trani_steps, callback=[checkpoint_callback], progress_bar=True)
+    elif model_strat =="RL_modelenv":
+        torch.set_grad_enabled(True)
+        train_env = ModelEnv(model, val_env.observation_space, val_env.action_space)
+        policy_model = SAC('MlpPolicy', train_env)
+
+        # Train the model
+        policy_model.learn(total_timesteps=trani_steps, callback=[checkpoint_callback], progress_bar=True)
+
+    sleep(1)
+    infos = [infer(policy_model, val_env) for _ in range(inference_episodes)]
+    info = dict_mean(infos)
+    writer.add_scalars(f'Plaining/{model_strat}/{env_name}', info, 0)
+
+    info["env_name"] = env_name
+    info["model_strat"] = model_strat
+    with open("matrix.txt", "a") as f:
+        json.dump(info, f)
+        f.write("\n")
 #MF_RL(F) -> Policy
 
 
