@@ -25,7 +25,7 @@ def fit_epoch(net, dataloader, lr_rate, train, epoch=1):
         optimizer = torch.optim.Adam(net.parameters(), lr_rate)
     else:
         net.eval()
-    criterion = nn.MSELoss()
+    criterion = WeightedMSELoss()
     torch.set_grad_enabled(train)
     torch.backends.cudnn.benchmark = train
     losses = 0.0
@@ -62,6 +62,8 @@ def fit(net, trainloader, validationloader, dataset_name, writer: SummaryWriter,
         net = torch.load(checkpoint_name_path)
         train_config.load(checkpoint_conf_path)
     for epoch in range(train_config.epoch, epochs):
+        if train_config.iteration_age and (train_config.iteration_age % (2*lower_learning_period+1)) == 0:
+            break
         loss = fit_epoch(net, trainloader,
                          train_config.learning_rate, True, epoch=epoch)
         writer.add_scalar('Train/Metrics/loss', loss, epoch)
@@ -83,8 +85,7 @@ def fit(net, trainloader, validationloader, dataset_name, writer: SummaryWriter,
             train_config.learning_rate *= 0.5
             print("Learning rate lowered to {}".format(
                 train_config.learning_rate))
-        if train_config.iteration_age and (train_config.iteration_age % (2*lower_learning_period+1)) == 0:
-            break
+        
 
         train_config.epoch = epoch+1
         train_config.save(checkpoint_conf_path)
