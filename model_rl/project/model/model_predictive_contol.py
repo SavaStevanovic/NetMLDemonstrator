@@ -9,6 +9,18 @@ class PolicyModel:
     def predict(self, state: np.ndarray) -> typing.Tuple[np.ndarray, typing.Optional[np.ndarray]]:
         pass
 
+class RandomModel(PolicyModel):
+    def __init__(
+            self, 
+            action_space: Box,
+        ) -> None:
+        self._action_space = action_space
+        super().__init__()
+    
+    def predict(self, state: np.ndarray) -> typing.Tuple[np.ndarray, dict]:
+        return self._action_space.sample(), {}
+
+
 
 class MPC(PolicyModel):
     def __init__(

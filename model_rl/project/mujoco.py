@@ -14,7 +14,7 @@ from data.transforms import Standardizer, Transform
 from environment.boptestGymEnv import BoptestGymEnv
 from environment.model_environment import ModelEnv
 from model import action_space_generator
-from model.model_predictive_contol import MPC, PolicyModel
+from model.model_predictive_contol import MPC, PolicyModel, RandomModel
 from model.networks import LinearNet
 from model.trainer import fit, fit_epoch
 from torch import nn
@@ -129,7 +129,7 @@ for env_name in [
     # action_space = action_space_generator.EvenlyspacedSpaceProducer(horizon, 2)
     model.eval()
 
-    for model_strat in ["RL_modelenv", "MPC", "RL_real"]:
+    for model_strat in ["RL_modelenv", "MPC", "RL_real", "Random"]:
         # eval_callback = EvalCallback(val_env, best_model_save_path='./best_model', log_path='./logs', eval_freq=1000, deterministic=True, render=False)
         checkpoint_callback = CheckpointCallback(save_freq=10000, save_path='./checkpoints')
         if model_strat =="MPC":
@@ -147,7 +147,9 @@ for env_name in [
 
             # Train the model
             policy_model.learn(total_timesteps=trani_steps, callback=[checkpoint_callback], progress_bar=True)
-
+        elif model_strat == "Random":
+            policy_model = RandomModel(val_env.action_space)
+            
         sleep(1)
         infos = [infer(policy_model, val_env) for _ in range(inference_episodes)]
         info = dict_mean(infos)
