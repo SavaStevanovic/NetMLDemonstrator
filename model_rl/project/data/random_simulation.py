@@ -35,7 +35,7 @@ class DoneDataFetch(DataFetchStrategy):
             if isinstance(self._env.action_space, list):
                 data.append(StepDescriptor(np.concatenate(cur_state), np.concatenate(next_state), np.concatenate(action), sum(reward), done))
             else:
-                data.append(StepDescriptor(cur_state, next_state, action, reward, done))
+                data.append(StepDescriptor(np.array(cur_state).squeeze(), np.array(next_state).squeeze(), np.array(action), reward, done))
             cur_state = next_state
             if done:
                 cur_state = self._env.reset()

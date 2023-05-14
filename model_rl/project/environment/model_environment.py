@@ -19,8 +19,6 @@ class ModelEnv(gym.Env):
     def step(self, action):
         self._ep_step += 100
         action = action.clip(self.action_space.low, self.action_space.high)
-        # if np.isnan(action).any():
-        #     print("smalluf")
         # apply the action to the model to get the next state
         state_action = torch.cat(
                     (torch.tensor(self.state[1:]), torch.tensor(action)), dim=-1)
@@ -29,6 +27,4 @@ class ModelEnv(gym.Env):
         # return the next state, reward, done, and info
         done = True if self._ep_step>=100 else False  # in this example, the environment never terminates
         info = {}  # you can use this dictionary to provide additional information
-        # if np.isnan(self.state[1:]).any():
-        #     print("biguf")
         return self.state[1:], self.state[0], done, info

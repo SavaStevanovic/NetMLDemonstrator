@@ -56,19 +56,19 @@ def infer(model: PolicyModel, env) -> dict:
     return dict(metrics)
 
 
-DEBUG = True
+DEBUG = False
 th_count = 1 if DEBUG else 24
 batch_size = 32
 
 trani_steps = 1000 if DEBUG else 100000 
 inference_episodes = 2 if DEBUG else 10 
 for env_name in [
-    # "citylearn_challenge_2022_phase_1", 
+    "citylearn_challenge_2022_phase_1", 
     "HalfCheetah-v2"
 ]:
     if "citylearn_" in env_name:
-        base_train_env = NormalizedObservationWrapper(StableBaselines3Wrapper(CityLearnEnv(env_name, central_agent=True, simulation_start_time_step = 0, simulation_end_time_step=1344)))
-        base_valid_env = NormalizedObservationWrapper(StableBaselines3Wrapper(CityLearnEnv(env_name, central_agent=True, simulation_start_time_step = 1344, simulation_end_time_step=2688, random_seed=42)))
+        base_train_env = StableBaselines3Wrapper(NormalizedObservationWrapper(CityLearnEnv(env_name, central_agent=True, simulation_start_time_step = 0, simulation_end_time_step=1344)))
+        base_valid_env = StableBaselines3Wrapper(NormalizedObservationWrapper(CityLearnEnv(env_name, central_agent=True, simulation_start_time_step = 1344, simulation_end_time_step=2688, random_seed=42)))
     else:
         base_train_env = gym.make(env_name)
         base_valid_env = gym.make(env_name)
@@ -130,7 +130,7 @@ for env_name in [
     model.eval()
 
     for model_strat in ["RL_modelenv", "MPC", "RL_real"]:
-        eval_callback = EvalCallback(val_env, best_model_save_path='./best_model', log_path='./logs', eval_freq=1000, deterministic=True, render=False)
+        # eval_callback = EvalCallback(val_env, best_model_save_path='./best_model', log_path='./logs', eval_freq=1000, deterministic=True, render=False)
         checkpoint_callback = CheckpointCallback(save_freq=10000, save_path='./checkpoints')
         if model_strat =="MPC":
             policy_model = MPC(action_space_producer, model, val_env.action_space, val_env.observation_space)
