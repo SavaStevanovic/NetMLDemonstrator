@@ -1,6 +1,4 @@
-from tensorboard import summary
 import torch.nn as nn
-import torch
 
 from model.identifier import Identifier
 
