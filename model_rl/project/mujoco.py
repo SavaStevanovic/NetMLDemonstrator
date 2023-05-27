@@ -12,7 +12,7 @@ from data.random_simulation import DoneDataFetch, EpisodeLengthDataFetch, Random
 from data.step_data import StepDescriptor
 from data.transforms import Standardizer, Transform
 from environment.boptestGymEnv import BoptestGymEnv
-from environment.model_environment import ModelEnv
+from environment.model_environment import ModelEnv, StateActionRootReduction
 from model import action_space_generator
 from model.model_predictive_contol import MPC, PolicyModel, RandomModel
 from model.networks import LinearNet
@@ -44,13 +44,8 @@ def infer(model: PolicyModel, env) -> dict:
         i+=1
         action, decription = model.predict(state)
         next_state, reward, done, info = env.step(action)
-        # out = model(
-        #     torch.cat((torch.tensor(state), torch.tensor(action)), dim=-1).float())
-        # print("Predicted: ", out[0].item(), "Correct: ",
-        #         reward, "Margin: ", out[0].item() - reward)
         state = next_state
         metrics["total_reward"] += reward
-        # reward_relative_error.append(abs(reward - decription["reward"])/abs(reward + decription["reward"]))
     metrics["reward_relative_error"] = np.mean(reward_relative_error)
     print(metrics)
     return dict(metrics)
@@ -63,7 +58,7 @@ batch_size = 32
 trani_steps = 1000 if DEBUG else 100000 
 inference_episodes = 2 if DEBUG else 10 
 for env_name in [
-    "citylearn_challenge_2022_phase_1", 
+    # "citylearn_challenge_2022_phase_1", 
     "HalfCheetah-v2"
 ]:
     if "citylearn_" in env_name:
@@ -74,11 +69,10 @@ for env_name in [
         base_valid_env = gym.make(env_name)
     environment = base_train_env
     val_env = Monitor(base_valid_env)
-    # environment.get_summary()
-
 
     data = RandomSymulation(DoneDataFetch(1334, environment), [])
     val_data = RandomSymulation(DoneDataFetch(1334, val_env), [])
+
     if os.path.exists(f"./checkpoints/{env_name}_data.pkl"):
         data.load(f"./checkpoints/{env_name}_data.pkl")
         val_data.load(f"./checkpoints/{env_name}_val_data.pkl")
@@ -86,9 +80,10 @@ for env_name in [
         data.save(f"./checkpoints/{env_name}_data.pkl")
         val_data.save(f"./checkpoints/{env_name}_val_data.pkl")
 
-    print(len(data))
-    sample = data[0]
-
+    # environment = StateActionRootReduction(environment, data.data)
+    # val_env = StateActionRootReduction(val_env, data.data)
+    # data.data = environment.get_subsampled_data(data)
+    # val_data.data = environment.get_subsampled_data(val_data.data)
 
     def collate_fn(datas: typing.List[StepDescriptor]):
         return (
@@ -104,6 +99,7 @@ for env_name in [
 
     dataloader = torch.utils.data.DataLoader(data, batch_size=batch_size, shuffle=th_count > 1, num_workers=th_count, collate_fn=collate_fn)
     val_dataloader = torch.utils.data.DataLoader(val_data, batch_size=batch_size, shuffle=th_count > 1, num_workers=th_count, collate_fn=collate_fn)
+    sample = data[0]
     model = LinearNet([len(sample.current_state) +
                     len(sample.action), 256, 256, len(sample.current_state) + 1])
 
@@ -111,44 +107,41 @@ for env_name in [
     writer = SummaryWriter(os.path.join('logs', model_dir_header))
     fit(model, dataloader, val_dataloader, env_name, writer,
         epochs=1000, lower_learning_period=3)
-    # loss = fit_epoch(model, dataloader, 0.001, True, 1)
-    # val_loss = fit_epoch(model, val_dataloader, None, False, 1)
-    # print(loss, val_loss)
-    # model(torch.Tensor(np.concatenate((sample.current_state, sample.action))))
 
     chp_dir = os.path.join('checkpoints', model_dir_header)
     checkpoint_name_path = os.path.join(
         chp_dir, '{}_checkpoints_final.pth'.format(env_name))
-    model = torch.load(checkpoint_name_path)
+    # model = torch.load(checkpoint_name_path)
     fit(model, dataloader, val_dataloader, env_name, writer,
         epochs=1000, lower_learning_period=3)
     horizon = 10
 
 
     action_space_producer = action_space_generator.RandomSpaceProducer(horizon, 1000)
-    # action_space = action_space_generator.EvenlyspacedSpaceProducer(horizon, 2)
     model.eval()
 
-    for model_strat in ["RL_modelenv", "MPC", "RL_real", "Random"]:
-        # eval_callback = EvalCallback(val_env, best_model_save_path='./best_model', log_path='./logs', eval_freq=1000, deterministic=True, render=False)
-        checkpoint_callback = CheckpointCallback(save_freq=10000, save_path='./checkpoints')
-        if model_strat =="MPC":
-            policy_model = MPC(action_space_producer, model, val_env.action_space, val_env.observation_space)
-        elif model_strat =="RL_real":
+    for model_strat in ["MPC_RL_real", "MPC_RL_modelenv", "MPC", "RL_real", "Random"]:
+        policy_model = None
+        if "RL_real" in model_strat:
             torch.set_grad_enabled(True)
             policy_model = SAC('MlpPolicy', environment)
 
             # Train the model
-            policy_model.learn(total_timesteps=trani_steps, callback=[checkpoint_callback], progress_bar=True)
-        elif model_strat =="RL_modelenv":
+            policy_model.learn(total_timesteps=trani_steps, callback=[], progress_bar=True)
+        if "RL_modelenv" in model_strat:
             torch.set_grad_enabled(True)
             train_env = ModelEnv(model, val_env.observation_space, val_env.action_space)
             policy_model = SAC('MlpPolicy', train_env)
 
             # Train the model
-            policy_model.learn(total_timesteps=trani_steps, callback=[checkpoint_callback], progress_bar=True)
-        elif model_strat == "Random":
+            policy_model.learn(total_timesteps=trani_steps, callback=[], progress_bar=True)
+        if model_strat == "Random":
             policy_model = RandomModel(val_env.action_space)
+        
+        if "MPC" in model_strat:
+            critic = None if policy_model is None else policy_model.critic.cpu().eval()
+            print("Starting MPC with critic", str(critic))
+            policy_model = MPC(action_space_producer, model, val_env.action_space, val_env.observation_space, critic)
             
         sleep(1)
         infos = [infer(policy_model, val_env) for _ in range(inference_episodes)]
@@ -169,3 +162,4 @@ for env_name in [
 #MPC(f) -> reward(F) 
 #------Model free fine tuning------
 #MF_RL(f) -> Policy   
+#gde je model u mpcu i sta je razlika sa rl-om

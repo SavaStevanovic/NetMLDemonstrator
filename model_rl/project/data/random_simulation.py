@@ -71,6 +71,10 @@ class RandomSymulation(Dataset):
     @property
     def data(self) -> typing.List[StepDescriptor]:
         return self._data
+    
+    @data.setter
+    def data(self, value: typing.List[StepDescriptor]):
+        self._data = value
 
     def __len__(self) -> int:
         return len(self._data)
