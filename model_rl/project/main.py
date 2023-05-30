@@ -1,23 +1,11 @@
 from collections import defaultdict
 import itertools
 import json
-import os
 from time import sleep
 import numpy as np
-from stable_baselines3.sac import SAC
-import torch
-import typing
-from data.random_simulation import DoneDataFetch, RandomSymulation
-from data.step_data import StepDescriptor
 from environment.environment_factory import EnvironmentFactory
-from environment.model_environment import ModelEnv
-from model import action_space_generator
 from model.model_factory import ModelFactory
-from model.model_predictive_contol import MPC, PolicyModel, RandomModel
-from model.networks import LinearNet
-from stable_baselines3.sac import SAC
-from torch.utils.tensorboard import SummaryWriter
-from stable_baselines3.sac import SAC
+from model.model_predictive_contol import PolicyModel
 from stable_baselines3.common.monitor import Monitor
 from stable_baselines3.common.env_util import make_vec_env
 
@@ -53,6 +41,10 @@ inference_episodes = 2 if DEBUG else 10
 
 env_names = [
     # "citylearn_challenge_2022_phase_1", 
+    # "Acrobot-v1",
+    # "CartPole-v1",
+    "Pendulum-v1",
+    "MountainCarContinuous-v0",
     "HalfCheetah-v2"
 ]
 
