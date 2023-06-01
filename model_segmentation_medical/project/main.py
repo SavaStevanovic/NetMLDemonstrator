@@ -1,22 +1,27 @@
-import torch
 from model import blocks
 from model import networks
 from data_loader.unified_dataloader import UnifiedKeypointDataloader
 from model_fitting.train import fit
-import os
+from torch import nn
 
-th_count = 24
+th_count = 1
 block_counts = [3, 4, 6]
-depth = len(block_counts)+2
+depth = len(block_counts) + 2
 
-dataloader = UnifiedKeypointDataloader(batch_size = 16, depth=depth, th_count=th_count)
+dataloader = UnifiedKeypointDataloader(batch_size=16, depth=depth, th_count=th_count)
 
-net_backbone = networks.ResNetBackbone(block = blocks.BasicBlock, block_counts = block_counts, inplanes=64)
-net = networks.DeepLabV3Plus(net_backbone, dataloader.labels)
+net = networks.Unet(
+    block=blocks.ConvBlock,
+    inplanes=64,
+    in_dim=3,
+    labels=dataloader.labels,
+    norm_layer=nn.BatchNorm2d,
+)
 
-fit(net, 
-    dataloader.trainloader, 
-    dataloader.validationloader, 
-    epochs = 1000, 
-    lower_learning_period = 3
-)       
+fit(
+    net,
+    dataloader.trainloader,
+    dataloader.validationloader,
+    epochs=1000,
+    lower_learning_period=3,
+)
