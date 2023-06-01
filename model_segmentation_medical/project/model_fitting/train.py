@@ -10,16 +10,17 @@ import matplotlib.pyplot as plt
 from utils import plt_to_np
 from model_fitting import metrics
 import seaborn as sn
+import torchmetrics
 
 
-def process_output(lab, flat_mask):
+def process_output(lab):
     lab = lab > 0.5
 
-    return lab.flatten()[flat_mask]
+    return lab.flatten()
 
 
 def output_to_image(lab):
-    lab = (lab > 0.5).int().squeeze(0)
+    lab = (lab > 0.5).int().argmax(0)
     color_map = [[0, 0, 0], [0, 0.99, 0]]
     lab = visualize_label(color_map, lab.numpy())
 
@@ -43,19 +44,15 @@ def fit_epoch(net, dataloader, lr_rate, train, epoch=1):
     label_images = []
     accs = 0
     f1_score = 0
+    iou_total = 0
 
     for i, data in enumerate(tqdm(dataloader)):
         image, labels, dataset_id = data
         # print(image.shape)
         if train:
             optimizer.zero_grad()
-        mask = 1 - labels[:, -1]
         labels_cuda = labels.cuda()
-        labels_cuda = labels_cuda[:, 1:]
-        mask_cuda = mask.cuda()
-        labels_cuda = labels_cuda[:, :-1]
         outputs = net(image.cuda())
-        outputs = outputs * mask_cuda.unsqueeze(1)
         loss, focal_loss, dice_loss = criterion(outputs, labels_cuda)
         if train:
             loss.backward()
@@ -63,16 +60,24 @@ def fit_epoch(net, dataloader, lr_rate, train, epoch=1):
         losses += loss.item()
         total_focal_loss += focal_loss
         total_dice_loss += dice_loss
+        iou_total += (
+            torchmetrics.JaccardIndex(
+                task="multiclass",
+                num_classes=labels_cuda.shape[1],
+                average="macro",
+                threshold=0.6,
+            )
+            .cuda()(outputs.sigmoid(), labels_cuda.argmax(1))
+            .item()
+        )
 
-        flat_mask = mask_cuda.flatten().bool()
-        lab = process_output(labels_cuda, flat_mask)
-        out = process_output(outputs.sigmoid(), flat_mask)
-
+        lab = process_output(labels_cuda)
+        out = process_output(outputs.sigmoid())
         cm.update_matrix(lab.int(), out.int())
 
         if i >= len(dataloader) - 10:
             image = image[0].permute(1, 2, 0).detach().cpu().numpy()
-            lab = output_to_image(labels[0, 1:-1].detach().cpu())
+            lab = output_to_image(labels[0].detach().cpu())
             out = output_to_image(outputs[0].detach().sigmoid().cpu())
 
             plt.imshow(image)
@@ -94,6 +99,7 @@ def fit_epoch(net, dataloader, lr_rate, train, epoch=1):
         "loss": losses / data_len,
         "focal_loss": total_focal_loss / data_len,
         "dice_loss": total_dice_loss / data_len,
+        "iou": iou_total / data_len,
         "accs": accs,
         "f1_score": f1_score,
     }
@@ -156,22 +162,22 @@ def fit(net, trainloader, validationloader, epochs=1000, lower_learning_period=1
         grid = join_images(output_images)
         writer.add_images("validation_outputs", grid, epoch, dataformats="HWC")
         writer.add_images("validation_confusion_matrix", cm, epoch, dataformats="HWC")
-
+        chosen_metric = "iou"
         os.makedirs((chp_dir), exist_ok=True)
         if (train_config.best_metric is None) or (
-            train_config.best_metric < metrics["f1_score"]
+            train_config.best_metric < metrics[chosen_metric]
         ):
             train_config.iteration_age = 0
-            train_config.best_metric = metrics["f1_score"]
+            train_config.best_metric = metrics[chosen_metric]
             print(
                 "Epoch {}. Saving model with metric: {}".format(
-                    epoch, metrics["f1_score"]
+                    epoch, metrics[chosen_metric]
                 )
             )
             torch.save(net, checkpoint_name_path.replace(".pth", "_final.pth"))
         else:
             train_config.iteration_age += 1
-            print("Epoch {} metric: {}".format(epoch, metrics["f1_score"]))
+            print("Epoch {} metric: {}".format(epoch, metrics[chosen_metric]))
         if train_config.iteration_age == lower_learning_period:
             train_config.learning_rate *= 0.5
             train_config.iteration_age = 0

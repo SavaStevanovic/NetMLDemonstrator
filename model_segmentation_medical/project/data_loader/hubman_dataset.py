@@ -19,7 +19,7 @@ class HubmapDataset(Dataset):
             if x["id"] in ids
         ]
 
-        self.labels = ["blood_vessel"]
+        self.labels = ["background", "blood_vessel"]
 
     def __len__(self):
         return len(self.json_labels)

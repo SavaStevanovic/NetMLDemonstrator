@@ -37,9 +37,7 @@ class UnifiedKeypointDataset(Dataset):
                     augmentation.RandomCropTransform((448, 448)),
                     augmentation.RandomNoiseTransform(),
                     augmentation.RandomColorJitterTransform(),
-                    augmentation.OneHotTransform(
-                        len(self.supported_labels) + 1, self.selector
-                    ),
+                    augmentation.OneHotTransform(len(self.supported_labels)),
                     augmentation.OutputTransform(),
                 ]
             )
@@ -48,9 +46,7 @@ class UnifiedKeypointDataset(Dataset):
             self.transforms = augmentation.PairCompose(
                 [
                     augmentation.PaddTransform(2**depth),
-                    augmentation.OneHotTransform(
-                        len(self.supported_labels) + 1, self.selector
-                    ),
+                    augmentation.OneHotTransform(len(self.supported_labels)),
                     augmentation.OutputTransform(),
                 ]
             )
