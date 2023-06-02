@@ -22,7 +22,7 @@ class HubmapDataset(Dataset):
         self.labels = ["background", "blood_vessel"]
 
     def __len__(self):
-        return len(self.json_labels)
+        return len(self._json_labels)
 
     def __getitem__(self, idx):
         image_path, annots = self._json_labels[idx]

@@ -1,25 +1,54 @@
 import torch
-from torchmetrics import Dice
+import torch.nn.functional as F
+import torch.nn as nn
+
+
+class DiceLoss(nn.Module):
+    def forward(self, inputs, targets, smooth=1):
+        # comment out if your model contains a sigmoid or equivalent activation layer
+        inputs = F.sigmoid(inputs)
+
+        # flatten label and prediction tensors
+        inputs = inputs.view(-1)
+        targets = targets.view(-1)
+
+        intersection = (inputs * targets).sum()
+        dice = (2.0 * intersection + smooth) / \
+            (inputs.sum() + targets.sum() + smooth)
+
+        return 1 - dice
+
+
+ALPHA = 0.8
+GAMMA = 2
+
+
+class FocalLoss(nn.Module):
+    def forward(self, inputs, targets, alpha=ALPHA, gamma=GAMMA, smooth=1):
+        # comment out if your model contains a sigmoid or equivalent activation layer
+        inputs = F.sigmoid(inputs)
+
+        # flatten label and prediction tensors
+        inputs = inputs.view(-1)
+        targets = targets.view(-1)
+
+        # first compute binary cross-entropy
+        BCE = F.binary_cross_entropy(inputs, targets.float(), reduction="mean")
+        BCE_EXP = torch.exp(-BCE)
+        focal_loss = alpha * (1 - BCE_EXP) ** gamma * BCE
+
+        return focal_loss
 
 
 class SegmentationLoss(torch.nn.Module):
-    def __init__(self):
-        super(SegmentationLoss, self).__init__()
-        self.focal_loss_scale = 20.0
-        self.dice_loss_scale = 1.0
-        self._dice_loss = Dice().cuda()
-
     def forward(self, output, label):
-        output = output.sigmoid()
-        fc_loss = self.focal_loss_scale * self.focal_loss(output, label)
-        dice_loss = self.dice_loss_scale * self._dice_loss(output, label.int())
-        total_loss = dice_loss + fc_loss
-
-        return total_loss, dice_loss, fc_loss
+        fc_loss = FocalLoss()(output, label)
+        dice_loss = 0  # DiceLoss()(output, label)
+        return fc_loss + dice_loss, fc_loss.item(), 0
 
     def focal_loss(self, probs, target):
         gamma = 2
-        alpha = 0.25
+        alpha = 0.60
         eps = 1e-8
 
         F_loss = -alpha * torch.pow((1.0 - probs), gamma) * target * torch.log(

@@ -4,7 +4,7 @@ from data_loader.unified_dataloader import UnifiedKeypointDataloader
 from model_fitting.train import fit
 from torch import nn
 
-th_count = 1
+th_count = 24
 block_counts = [3, 4, 6]
 depth = len(block_counts) + 2
 
