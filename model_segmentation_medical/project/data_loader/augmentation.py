@@ -61,6 +61,16 @@ class RandomHorizontalFlipTransform(object):
         return image, label, dataset_id
 
 
+class RandomWidthFlipTransform(object):
+    def __call__(self, image, label, dataset_id):
+        p = random.random()
+        if p >= 0.5:
+            image = transforms.functional.vflip(image)
+            label = transforms.functional.vflip(label)
+
+        return image, label, dataset_id
+
+
 class RandomResizeTransform(object):
     def __call__(self, image, label, dataset_id):
         p = random.random() / 2 + 0.5

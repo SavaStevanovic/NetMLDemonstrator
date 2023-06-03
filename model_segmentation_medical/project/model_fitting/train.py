@@ -67,18 +67,18 @@ def fit_epoch(net, dataloader, lr_rate, train, epoch=1):
                 average="macro",
                 threshold=0.6,
             )
-            .cuda()(outputs.sigmoid(), labels_cuda.argmax(1))
+            .cuda()(outputs.softmax(dim=1), labels_cuda.argmax(1))
             .item()
         )
 
         lab = process_output(labels_cuda)
-        out = process_output(outputs.sigmoid())
+        out = process_output(outputs.softmax(dim=1))
         cm.update_matrix(lab.int(), out.int())
 
         if i >= len(dataloader) - 10:
             image = image[0].permute(1, 2, 0).detach().cpu().numpy()
             lab = output_to_image(labels[0].detach().cpu())
-            out = output_to_image(outputs[0].detach().sigmoid().cpu())
+            out = output_to_image(outputs[0].detach().softmax(dim=1).cpu())
 
             plt.imshow(image)
             plt.imshow(lab, alpha=0.55)
@@ -117,7 +117,7 @@ def fit(net, trainloader, validationloader, epochs=1000, lower_learning_period=1
     checkpoint_name_path = os.path.join(chp_dir, "checkpoints.pth")
     checkpoint_conf_path = os.path.join(chp_dir, "configuration.json")
     train_config = TrainingConfiguration()
-    if os.path.exists(chp_dir):
+    if os.path.exists(checkpoint_name_path):
         net = torch.load(checkpoint_name_path)
         train_config.load(checkpoint_conf_path)
     net.cuda()
@@ -178,9 +178,18 @@ def fit(net, trainloader, validationloader, epochs=1000, lower_learning_period=1
         else:
             train_config.iteration_age += 1
             print("Epoch {} metric: {}".format(epoch, metrics[chosen_metric]))
-        if train_config.iteration_age == lower_learning_period:
+        # net.unlock_layer()
+        # net.unlock_layer()
+        # if train_config.iteration_age > lower_learning_period:
+        #     net.unlock_layer()
+        #     net.unlock_layer()
+        #     net.unlock_layer()
+        #     net.unlock_layer()
+        #     net.unlock_layer()
+        if (train_config.iteration_age != 0) and (
+            (train_config.iteration_age % lower_learning_period) == 0
+        ):
             train_config.learning_rate *= 0.5
-            train_config.iteration_age = 0
             print("Learning rate lowered to {}".format(train_config.learning_rate))
         train_config.epoch = epoch + 1
         train_config.save(checkpoint_conf_path)

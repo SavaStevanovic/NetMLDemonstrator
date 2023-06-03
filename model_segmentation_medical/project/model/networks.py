@@ -2,64 +2,40 @@ import torch.nn as nn
 from model import utils, blocks
 import torch
 import torch.nn.functional as F
+import segmentation_models_pytorch as smp
 
 
 class Unet(nn.Module, utils.Identifier):
     def __init__(self, block, inplanes, in_dim, labels, depth=4, norm_layer=None):
         super(Unet, self).__init__()
+        self._model = smp.Unet(
+            encoder_name="efficientnet-b0",
+            in_channels=in_dim,
+            classes=len(labels),
+            encoder_depth=depth,
+        )
+        # for i, x in enumerate(self._model.encoder.parameters()):
+        #     if getattr(x, "shape", [0])[0] == len(labels):
+        #         print(
+        #             f"stoped freasing at {i} out of {len(list(self._model.parameters()))} layers"
+        #         )
+        #         break
+        #     if hasattr(x, "requires_grad"):
+        #         x.requires_grad = False
         self.labels = labels
         self.depth = depth
-        self.block = block
-        self._norm_layer = norm_layer
         self.inplanes = inplanes
-        self.in_dim = in_dim
-        self.out_dim = len(labels)
-
-        self.first_layer = block(in_dim, inplanes, norm_layer=norm_layer)
-        self.down_layers = nn.ModuleList(
-            [self._make_down_layer(block, inplanes * 2**i) for i in range(depth)]
-        )
-        self.downsample = nn.MaxPool2d(2, 2)
-        mid_planes = inplanes * 2**depth
-        self.mid_layer = self._make_mid_layer(block, mid_planes)
-        self.up_layers = nn.ModuleList(
-            [self._make_up_layer(block, inplanes * 2**i) for i in range(depth)]
-        )
-        self.lateral_layers = nn.ModuleList(
-            [self._make_lateral_layer(block, inplanes * 2**i) for i in range(depth)]
-        )
-        self.out_layer = nn.Conv2d(inplanes, self.out_dim, 1)
-
-    def _make_down_layer(self, block, planes):
-        return block(planes, planes * 2, norm_layer=self._norm_layer)
-
-    def _make_mid_layer(self, block, planes):
-        return block(planes, planes, norm_layer=self._norm_layer)
-
-    def _make_up_layer(self, block, planes):
-        return nn.ConvTranspose2d(planes * 2, planes, 2, 2)
-
-    def _make_lateral_layer(self, block, planes):
-        return block(planes * 2, planes, norm_layer=self._norm_layer)
 
     def forward(self, x):
-        x = self.first_layer(x)
+        return self._model(x)
 
-        outputs = [x]
-        for l in self.down_layers:
-            x = self.downsample(x)
-            x = l(x)
-            outputs.append(x)
-
-        x = self.mid_layer(x)
-
-        for i in range(self.depth - 1, -1, -1):
-            x = self.up_layers[i](x)
-            x = torch.cat((x, outputs[i]), 1)
-            x = self.lateral_layers[i](x)
-
-        x = self.out_layer(x)
-        return x
+    def unlock_layer(self):
+        for i, param in reversed(list(enumerate(self._model.parameters()))):
+            if hasattr(param, "requires_grad"):
+                if not param.requires_grad:
+                    param.requires_grad = True
+                    print(f"Layer {i} unlocked")
+                    return
 
 
 class ResNetBackbone(nn.Module, utils.Identifier):

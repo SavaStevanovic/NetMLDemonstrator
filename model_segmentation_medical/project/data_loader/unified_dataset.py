@@ -34,6 +34,7 @@ class UnifiedKeypointDataset(Dataset):
             self.transforms = augmentation.PairCompose(
                 [
                     augmentation.RandomHorizontalFlipTransform(),
+                    augmentation.RandomWidthFlipTransform(),
                     augmentation.RandomCropTransform((448, 448)),
                     augmentation.RandomNoiseTransform(),
                     augmentation.RandomColorJitterTransform(),
