@@ -11,12 +11,16 @@ class HubmapDataset(Dataset):
     def __init__(self, image_dir, labels_file):
         with open(labels_file, "r") as json_file:
             json_labels = [json.loads(line) for line in json_file]
+        json_ids = {x["id"]: x["annotations"] for x in json_labels}
         image_files = os.listdir(image_dir)
         ids = [f.split(".")[0] for f in image_files]
         self._json_labels = [
-            (os.path.join(image_dir, f"{x['id']}.tif"), x["annotations"])
-            for x in json_labels
-            if x["id"] in ids
+            (
+                os.path.join(image_dir, f"{x}.tif"),
+                json_ids[x] if x in json_ids else [],
+            )
+            for x in ids
+            if x in json_ids
         ]
 
         self.labels = ["background", "blood_vessel"]

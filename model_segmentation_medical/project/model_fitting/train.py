@@ -78,7 +78,7 @@ def fit_epoch(net, dataloader, lr_rate, train, epoch=1):
         if i >= len(dataloader) - 10:
             image = image[0].permute(1, 2, 0).detach().cpu().numpy()
             lab = output_to_image(labels[0].detach().cpu())
-            out = output_to_image(outputs[0].detach().softmax(dim=1).cpu())
+            out = output_to_image(outputs[0].detach().softmax(dim=0).cpu())
 
             plt.imshow(image)
             plt.imshow(lab, alpha=0.55)
