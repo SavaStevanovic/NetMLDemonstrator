@@ -1,35 +1,86 @@
+from sklearn.model_selection import KFold
 import torch
-from data_loader.coco_dataset import CocoDataset
-import torchvision.transforms as transforms
-from data_loader import augmentation
-from visualization import output_transform
 import multiprocessing as mu
-from torch.utils.data import Dataset, DataLoader
-from data_loader.unified_dataset import UnifiedKeypointDataset
-import os
+from data_loader.unified_dataset import TransformedDataset, UnifiedKeypointDataset
+from torch.utils.data import DataLoader, Subset
+from data_loader import augmentation
+
+
+class KFoldCrossValidator:
+    def __init__(self, dataset, num_folds, shuffle=True, random_state=None):
+        self.dataset = dataset
+        self.num_folds = num_folds
+        self.shuffle = shuffle
+        self.random_state = random_state
+
+    def get_data_loaders(self):
+        dataset_size = len(self.dataset)
+        indices = list(range(dataset_size))
+        kfold = KFold(
+            n_splits=self.num_folds,
+            shuffle=self.shuffle,
+            random_state=self.random_state,
+        )
+
+        data_loaders = []
+        for train_indices, val_indices in kfold.split(indices):
+            train_dataset = Subset(self.dataset, train_indices)
+            val_dataset = Subset(self.dataset, val_indices)
+            data_loaders.append((train_dataset, val_dataset))
+
+        return data_loaders
 
 
 class UnifiedKeypointDataloader(object):
     def __init__(self, depth, batch_size=1, th_count=mu.cpu_count()):
         self.th_count = th_count
         self.batch_size = batch_size
-        train_dataset = UnifiedKeypointDataset(
-            True, depth, debug=self.th_count)
-        val_dataset = UnifiedKeypointDataset(False, depth, debug=self.th_count)
+        dataset = UnifiedKeypointDataset(debug=self.th_count)
+        self._k_folder = KFoldCrossValidator(dataset, 6)
+        self._labels = dataset.labels
+        self._train_aug = augmentation.PairCompose(
+            [
+                augmentation.RandomHorizontalFlipTransform(),
+                augmentation.RandomWidthFlipTransform(),
+                augmentation.RandomCropTransform((448, 448)),
+                augmentation.RandomNoiseTransform(),
+                augmentation.RandomColorJitterTransform(),
+                augmentation.OneHotTransform(len(self._labels)),
+                augmentation.OutputTransform(),
+            ]
+        )
+        self._val_aug = augmentation.PairCompose(
+            [
+                augmentation.PaddTransform(2**depth),
+                augmentation.OneHotTransform(len(self._labels)),
+                augmentation.OutputTransform(),
+            ]
+        )
 
-        self.trainloader = torch.utils.data.DataLoader(
-            train_dataset,
-            batch_size=(th_count > 1) * (batch_size - 1) + 1,
-            shuffle=th_count > 1,
-            num_workers=th_count,
-        )
-        self.validationloader = torch.utils.data.DataLoader(
-            val_dataset, batch_size=1, shuffle=False, num_workers=th_count // 2
-        )
-        self.labels = train_dataset.supported_labels
-        self.trainloader.labels = train_dataset.labels
-        self.trainloader.selector = train_dataset.selector
-        self.validationloader.labels = val_dataset.labels
-        self.validationloader.selector = val_dataset.selector
-        self.trainloader.color_set = train_dataset.color_set
-        self.validationloader.color_set = val_dataset.color_set
+    def __iter__(self):
+        for train_data, val_data in self._k_folder.get_data_loaders():
+            train_data = TransformedDataset(
+                train_data,
+                self._train_aug,
+            )
+            val_data = TransformedDataset(
+                val_data,
+                self._val_aug,
+            )
+            trainloader = DataLoader(
+                train_data,
+                batch_size=1 if self.th_count == 1 else self.batch_size,
+                shuffle=True,
+                num_workers=self.th_count,
+            )
+            validationloader = DataLoader(
+                val_data,
+                batch_size=1,
+                shuffle=False,
+                num_workers=self.th_count,
+            )
+            yield trainloader, validationloader
+
+    @property
+    def labels(self):
+        return self._labels

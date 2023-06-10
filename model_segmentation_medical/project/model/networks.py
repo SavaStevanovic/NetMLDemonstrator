@@ -9,7 +9,7 @@ class Unet(nn.Module, utils.Identifier):
     def __init__(self, block, inplanes, in_dim, labels, depth=4, norm_layer=None):
         super(Unet, self).__init__()
         self._model = smp.Unet(
-            encoder_name="efficientnet-b0",
+            encoder_name="resnet34",
             in_channels=in_dim,
             classes=len(labels),
             encoder_depth=depth,

@@ -47,7 +47,7 @@ def fit_epoch(net, dataloader, lr_rate, train, epoch=1):
     iou_total = 0
 
     for i, data in enumerate(tqdm(dataloader)):
-        image, labels, dataset_id = data
+        image, labels = data
         # print(image.shape)
         if train:
             optimizer.zero_grad()
@@ -111,11 +111,13 @@ def fit_epoch(net, dataloader, lr_rate, train, epoch=1):
     )
 
 
-def fit(net, trainloader, validationloader, epochs=1000, lower_learning_period=10):
+def fit(
+    net, trainloader, validationloader, split, epochs=1000, lower_learning_period=10
+):
     model_dir_header = net.get_identifier()
     chp_dir = os.path.join("checkpoints", model_dir_header)
-    checkpoint_name_path = os.path.join(chp_dir, "checkpoints.pth")
-    checkpoint_conf_path = os.path.join(chp_dir, "configuration.json")
+    checkpoint_name_path = os.path.join(chp_dir, f"checkpoints_{split}.pth")
+    checkpoint_conf_path = os.path.join(chp_dir, f"configuration_{split}.json")
     train_config = TrainingConfiguration()
     if os.path.exists(checkpoint_name_path):
         net = torch.load(checkpoint_name_path)
@@ -123,7 +125,7 @@ def fit(net, trainloader, validationloader, epochs=1000, lower_learning_period=1
     net.cuda()
     summary(net, (3, 512, 512))
     writer = SummaryWriter(os.path.join("logs", model_dir_header))
-    images, _, _ = next(iter(trainloader))
+    images, _ = next(iter(trainloader))
 
     with torch.no_grad():
         writer.add_graph(net, images[:2].cuda())
@@ -137,15 +139,17 @@ def fit(net, trainloader, validationloader, epochs=1000, lower_learning_period=1
             net, trainloader, train_config.learning_rate, train=True, epoch=epoch
         )
         writer.add_scalars(
-            "Train/Metrics",
+            f"Train/Metrics/{split}",
             metrics,
             epoch,
         )
         grid = join_images(label_images)
-        writer.add_images("train_labels", grid, epoch, dataformats="HWC")
+        writer.add_images(f"train_labels/{split}", grid, epoch, dataformats="HWC")
         grid = join_images(output_images)
-        writer.add_images("train_outputs", grid, epoch, dataformats="HWC")
-        writer.add_images("train_confusion_matrix", cm, epoch, dataformats="HWC")
+        writer.add_images(f"train_outputs/{split}", grid, epoch, dataformats="HWC")
+        writer.add_images(
+            f"train_confusion_matrix/{split}", cm, epoch, dataformats="HWC"
+        )
         (
             metrics,
             output_images,
@@ -153,15 +157,17 @@ def fit(net, trainloader, validationloader, epochs=1000, lower_learning_period=1
             cm,
         ) = fit_epoch(net, validationloader, None, train=False, epoch=epoch)
         writer.add_scalars(
-            "Validation/Metrics",
+            f"Validation/Metrics/{split}",
             metrics,
             epoch,
         )
         grid = join_images(label_images)
-        writer.add_images("validation_labels", grid, epoch, dataformats="HWC")
+        writer.add_images(f"validation_labels/{split}", grid, epoch, dataformats="HWC")
         grid = join_images(output_images)
-        writer.add_images("validation_outputs", grid, epoch, dataformats="HWC")
-        writer.add_images("validation_confusion_matrix", cm, epoch, dataformats="HWC")
+        writer.add_images(f"validation_outputs/{split}", grid, epoch, dataformats="HWC")
+        writer.add_images(
+            f"validation_confusion_matrix/{split}", cm, epoch, dataformats="HWC"
+        )
         chosen_metric = "iou"
         os.makedirs((chp_dir), exist_ok=True)
         if (train_config.best_metric is None) or (
@@ -191,6 +197,9 @@ def fit(net, trainloader, validationloader, epochs=1000, lower_learning_period=1
         ):
             train_config.learning_rate *= 0.5
             print("Learning rate lowered to {}".format(train_config.learning_rate))
+        if train_config.iteration_age == train_config.stop_age:
+            print("Stoping training")
+            return
         train_config.epoch = epoch + 1
         train_config.save(checkpoint_conf_path)
         torch.save(net, checkpoint_name_path)

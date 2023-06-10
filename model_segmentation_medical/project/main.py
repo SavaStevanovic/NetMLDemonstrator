@@ -8,21 +8,16 @@ th_count = 24
 block_counts = [3, 4, 6]
 depth = 5
 
-dataloader = UnifiedKeypointDataloader(batch_size=16, depth=depth, th_count=th_count)
+dataloaders = UnifiedKeypointDataloader(batch_size=16, depth=depth, th_count=th_count)
 
-net = networks.Unet(
-    block=blocks.ConvBlock,
-    inplanes=64,
-    in_dim=3,
-    depth=5,
-    labels=dataloader.labels,
-    norm_layer=nn.BatchNorm2d,
-)
+for i, (train_data, val_data) in enumerate(dataloaders):
+    net = networks.Unet(
+        block=blocks.ConvBlock,
+        inplanes=64,
+        in_dim=3,
+        depth=5,
+        labels=dataloaders.labels,
+        norm_layer=nn.BatchNorm2d,
+    )
 
-fit(
-    net,
-    dataloader.trainloader,
-    dataloader.validationloader,
-    epochs=1000,
-    lower_learning_period=3,
-)
+    fit(net, train_data, val_data, epochs=1000, lower_learning_period=3, split=i)

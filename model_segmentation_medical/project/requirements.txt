@@ -8,3 +8,5 @@ seaborn
 scikit-image==0.17.2
 ujson
 segmentation-models-pytorch
+torchmetrics
+libtiff
