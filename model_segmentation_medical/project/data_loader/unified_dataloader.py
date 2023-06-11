@@ -4,6 +4,7 @@ import multiprocessing as mu
 from data_loader.unified_dataset import TransformedDataset, UnifiedKeypointDataset
 from torch.utils.data import DataLoader, Subset
 from data_loader import augmentation
+import data_loader.detection_transforms as T
 
 
 class KFoldCrossValidator:
@@ -38,22 +39,15 @@ class UnifiedKeypointDataloader(object):
         dataset = UnifiedKeypointDataset(debug=self.th_count)
         self._k_folder = KFoldCrossValidator(dataset, 6)
         self._labels = dataset.labels
-        self._train_aug = augmentation.PairCompose(
+        self._train_aug = T.Compose(
             [
-                augmentation.RandomHorizontalFlipTransform(),
-                augmentation.RandomWidthFlipTransform(),
-                augmentation.RandomCropTransform((448, 448)),
-                augmentation.RandomNoiseTransform(),
-                augmentation.RandomColorJitterTransform(),
-                augmentation.OneHotTransform(len(self._labels)),
-                augmentation.OutputTransform(),
+                T.PILToTensor(),
+                T.RandomHorizontalFlip(0.5),
             ]
         )
-        self._val_aug = augmentation.PairCompose(
+        self._val_aug = T.Compose(
             [
-                augmentation.PaddTransform(2**depth),
-                augmentation.OneHotTransform(len(self._labels)),
-                augmentation.OutputTransform(),
+                T.PILToTensor(),
             ]
         )
 
@@ -72,14 +66,20 @@ class UnifiedKeypointDataloader(object):
                 batch_size=1 if self.th_count == 1 else self.batch_size,
                 shuffle=True,
                 num_workers=self.th_count,
+                collate_fn=UnifiedKeypointDataloader.collate_fn,
             )
             validationloader = DataLoader(
                 val_data,
                 batch_size=1,
                 shuffle=False,
                 num_workers=self.th_count,
+                collate_fn=UnifiedKeypointDataloader.collate_fn,
             )
             yield trainloader, validationloader
+
+    @staticmethod
+    def collate_fn(batch):
+        return tuple(zip(*batch))
 
     @property
     def labels(self):

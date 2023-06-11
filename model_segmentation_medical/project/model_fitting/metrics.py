@@ -1,13 +1,14 @@
 import numpy as np
 from multiprocessing import Pool
+import torch
 
 
 class RunningConfusionMatrix:
     def __init__(self):
-        self.tp = 0
-        self.tn = 0
-        self.fp = 0
-        self.fn = 0
+        self.tp = torch.tensor(0)
+        self.tn = torch.tensor(0)
+        self.fp = torch.tensor(0)
+        self.fn = torch.tensor(0)
 
     def update_matrix(self, y_true, y_pred):
         self.tp += (y_true * y_pred).sum()

@@ -1,4 +1,4 @@
-from data_loader.hubman_dataset import HubmapDataset
+from data_loader.hubman_dataset import HubmapDataset, HubmapInstanceDataset
 from torch.utils.data import Dataset
 
 
@@ -21,7 +21,7 @@ class UnifiedKeypointDataset(Dataset):
     def __init__(self, debug=False):
         self.debug = debug
         self.datasets = [
-            HubmapDataset("/Data/train", "/Data/polygons.jsonl"),
+            HubmapInstanceDataset("/Data/train", "/Data/polygons.jsonl"),
         ]
 
         self.labels = sorted(list(set(sum([x.labels for x in self.datasets], []))))

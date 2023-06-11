@@ -11,7 +11,7 @@ depth = 5
 dataloaders = UnifiedKeypointDataloader(batch_size=16, depth=depth, th_count=th_count)
 
 for i, (train_data, val_data) in enumerate(dataloaders):
-    net = networks.Unet(
+    net = networks.FasterRCNN(
         block=blocks.ConvBlock,
         inplanes=64,
         in_dim=3,

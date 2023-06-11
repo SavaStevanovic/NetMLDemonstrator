@@ -10,3 +10,4 @@ ujson
 segmentation-models-pytorch
 torchmetrics
 libtiff
+ttach
