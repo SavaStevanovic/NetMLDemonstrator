@@ -48,18 +48,17 @@ class HubmapInstanceDataset(HubmapDataset):
     def __getitem__(self, idx):
         image_path, annots = self._json_labels[idx]
         image = TIFF.open(image_path).read_image()
-        bboxes = []
         masks = HubmapInstanceDataset._generate_masks(annots)
         bboxes = HubmapInstanceDataset._generate_bboxes(masks)
-        bboxes = torch.as_tensor(bboxes, dtype=torch.float32)
+        bboxes = np.array(bboxes)
         areas = HubmapInstanceDataset._generate_areas(bboxes)
         target = {
             "boxes": bboxes,
-            "labels": torch.ones((len(bboxes),), dtype=torch.int64),
-            "masks": torch.as_tensor(masks, dtype=torch.uint8),
-            "image_id": torch.tensor([idx]),
+            "labels": np.ones((len(bboxes),)),
+            "masks": masks,
+            "image_id": np.array([idx]),
             "area": areas,
-            "iscrowd": torch.zeros((len(bboxes),), dtype=torch.int64),
+            "iscrowd": np.zeros((len(bboxes),)),
         }
         return Image.fromarray(image), target
 

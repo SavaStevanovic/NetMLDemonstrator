@@ -1,3 +1,4 @@
+from matplotlib.patches import Rectangle
 import torch
 import os
 from model_fitting.losses import SegmentationLoss
@@ -33,7 +34,6 @@ def fit_epoch(net, dataloader, lr_rate, train, epoch=1):
         optimizer = torch.optim.Adam(net.parameters(), lr_rate)
     else:
         net.eval()
-    cm = metrics.RunningConfusionMatrix()
     torch.set_grad_enabled(train)
     torch.backends.cudnn.benchmark = train
     losses = 0.0
@@ -57,48 +57,87 @@ def fit_epoch(net, dataloader, lr_rate, train, epoch=1):
             losses += loss.item()
             optimizer.step()
         else:
-            outputs = net.eval()(torch.stack(cuda_image))
-            outputs = torch.stack(
-                [
-                    mask
-                    for m in outputs
-                    for i, mask in enumerate(m["masks"])
-                    if m["scores"][i] > 0.5
-                ]
-            ).max(0)[0]
-            labels = torch.stack([m["masks"].max(0)[0] for m in labels])
-            iou_total += (
-                torchmetrics.JaccardIndex(
-                    task="binary",
-                    num_classes=2,
-                    average="macro",
-                    threshold=0.6,
-                )
-                .cuda()(outputs, labels)
-                .item()
-            )
-
-            lab = process_output(labels)
-            out = process_output(outputs.softmax(dim=1))
-            cm.update_matrix(lab.cpu().int(), out.cpu().int())
+            for idx in range(len(cuda_image)):
+                c_image = [cuda_image[idx]]
+                labs = [labels[idx]]
+                outputs = net.eval()(torch.stack(c_image))
+                for output in outputs:
+                    selector = output["scores"] > 0.5
+                    output["masks"] = output["masks"][selector]
+                    output["labels"] = output["labels"][selector]
+                    output["boxes"] = output["boxes"][selector]
+                    output["scores"] = output["scores"][selector]
+                    if not len(output["masks"]):
+                        output["masks"] = torch.zeros(
+                            [1] + list(output["masks"].shape)[1:]
+                        ).cuda()
+                outputs = torch.stack(
+                    [
+                        mask
+                        for m in outputs
+                        for _, mask in enumerate(m["masks"])
+                        # if m["scores"][j] > 0.5
+                    ]
+                ).max(0)[0]
+                labs = torch.stack([m["masks"].max(0)[0] for m in labs])
+                iou_total += (
+                    torchmetrics.JaccardIndex(
+                        task="binary",
+                        num_classes=2,
+                        average="macro",
+                        threshold=0.6,
+                    )
+                    .cuda()(outputs, labs)
+                    .item()
+                ) / len(cuda_image)
         if (not train) and (i >= len(dataloader) - 10):
             image = images[0].permute(1, 2, 0).detach().cpu().numpy()
-            lab = output_to_image(labels[0].detach().cpu())
-            out = output_to_image(outputs[0].detach().cpu())
+            lab = output_to_image(labels[0]["masks"].max(0)[0].detach().cpu())
+            out = net(cuda_image[:1])
+            out = (out[0]["scores"] > 0.5).view(len(out[0]["masks"]), 1, 1, 1) * (
+                out[0]["masks"]
+            )
+            out = output_to_image(out.max(0)[0][0].detach().cpu())
 
-            plt.imshow(image)
-            plt.imshow(lab, alpha=0.55)
+            _, ax = plt.subplots()
+            ax.imshow(image)
+            ax.imshow(lab, alpha=0.55)
+
+            for row in labels[0]["boxes"]:
+                x_min, y_min, x_max, y_max = row.detach().cpu().numpy()
+                width = x_max - x_min
+                height = y_max - y_min
+                rect = Rectangle(
+                    (x_min, y_min),
+                    width,
+                    height,
+                    edgecolor="r",
+                    facecolor="none",
+                    linewidth=3,
+                )
+                ax.add_patch(rect)
+
             label_images.append(plt_to_np(plt))
 
-            plt.imshow(image)
-            plt.imshow(out, alpha=0.55)
-            output_images.append(plt_to_np(plt))
+            _, ax = plt.subplots()
+            ax.imshow(image)
+            ax.imshow(out, alpha=0.55)
 
-    f1_score, accs, confusion_matrix = cm.compute_metrics()
-    sn.heatmap(confusion_matrix, annot=True)
-    plt.xlabel("Predicted")
-    plt.ylabel("True")
-    cm_img = plt_to_np(plt)
+            for row in labels[0]["boxes"]:
+                x_min, y_min, x_max, y_max = row.detach().cpu().numpy()
+                width = x_max - x_min
+                height = y_max - y_min
+                rect = Rectangle(
+                    (x_min, y_min),
+                    width,
+                    height,
+                    edgecolor="r",
+                    facecolor="none",
+                    linewidth=3,
+                )
+                ax.add_patch(rect)
+
+            output_images.append(plt_to_np(plt))
 
     data_len = len(dataloader)
     run_metrics = {
@@ -107,7 +146,7 @@ def fit_epoch(net, dataloader, lr_rate, train, epoch=1):
         "accs": accs,
         "f1_score": f1_score,
     }
-    return (run_metrics, output_images, label_images, cm_img)
+    return (run_metrics, output_images, label_images)
 
 
 def fit(
@@ -129,7 +168,7 @@ def fit(
     # with torch.no_grad():
     #     writer.add_graph(net, images[0][:2].cuda())
     for epoch in range(train_config.epoch, epochs):
-        (metrics, output_images, label_images, cm) = fit_epoch(
+        (metrics, output_images, label_images) = fit_epoch(
             net, trainloader, train_config.learning_rate, train=True, epoch=epoch
         )
         writer.add_scalars(
@@ -137,7 +176,20 @@ def fit(
             metrics,
             epoch,
         )
-        (metrics, output_images, label_images, cm) = fit_epoch(
+        (metrics, output_images, label_images) = fit_epoch(
+            net, trainloader, None, train=False, epoch=epoch
+        )
+        writer.add_scalars(
+            f"Train_infer/Metrics/{split}",
+            metrics,
+            epoch,
+        )
+        grid = join_images(label_images)
+        writer.add_images(f"train_labels/{split}", grid, epoch, dataformats="HWC")
+        grid = join_images(output_images)
+        writer.add_images(f"train_outputs/{split}", grid, epoch, dataformats="HWC")
+
+        (metrics, output_images, label_images) = fit_epoch(
             net, validationloader, None, train=False, epoch=epoch
         )
         writer.add_scalars(
@@ -149,9 +201,6 @@ def fit(
         writer.add_images(f"validation_labels/{split}", grid, epoch, dataformats="HWC")
         grid = join_images(output_images)
         writer.add_images(f"validation_outputs/{split}", grid, epoch, dataformats="HWC")
-        writer.add_images(
-            f"validation_confusion_matrix/{split}", cm, epoch, dataformats="HWC"
-        )
         chosen_metric = "iou"
         os.makedirs((chp_dir), exist_ok=True)
         if (train_config.best_metric is None) or (

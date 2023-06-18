@@ -5,6 +5,7 @@ from data_loader.unified_dataset import TransformedDataset, UnifiedKeypointDatas
 from torch.utils.data import DataLoader, Subset
 from data_loader import augmentation
 import data_loader.detection_transforms as T
+import albumentations as A
 
 
 class KFoldCrossValidator:
@@ -39,16 +40,17 @@ class UnifiedKeypointDataloader(object):
         dataset = UnifiedKeypointDataset(debug=self.th_count)
         self._k_folder = KFoldCrossValidator(dataset, 6)
         self._labels = dataset.labels
-        self._train_aug = T.Compose(
+        self._train_aug = A.Compose(
             [
-                T.PILToTensor(),
-                T.RandomHorizontalFlip(0.5),
-            ]
+                A.RandomCrop(width=448, height=448),
+                A.HorizontalFlip(p=0.5),
+                A.RandomBrightnessContrast(p=0.2),
+            ],
+            bbox_params=A.BboxParams(format="pascal_voc", label_fields=["labels"]),
         )
-        self._val_aug = T.Compose(
-            [
-                T.PILToTensor(),
-            ]
+        self._val_aug = A.Compose(
+            [],
+            bbox_params=A.BboxParams(format="pascal_voc", label_fields=["labels"]),
         )
 
     def __iter__(self):
