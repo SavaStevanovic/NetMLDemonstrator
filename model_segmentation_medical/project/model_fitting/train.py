@@ -49,7 +49,7 @@ def fit_epoch(net, dataloader, lr_rate, train, epoch=1):
         labels = [{k: v.cuda() for k, v in t.items()} for t in labels]
         if train:
             optimizer.zero_grad()
-        cuda_image = [image.cuda() / 255 for image in images]
+        cuda_image = [image.cuda() for image in images]
         if train:
             loss_dict = net(cuda_image, labels)
             loss = sum(loss for loss in loss_dict.values())
@@ -59,7 +59,8 @@ def fit_epoch(net, dataloader, lr_rate, train, epoch=1):
         else:
             outputs = net.eval()(torch.stack(cuda_image))
             outputs = torch.stack(
-                [
+                [torch.zeros([1] + list(labels[0]["masks"].shape[1:])).cuda()]
+                + [
                     mask
                     for m in outputs
                     for i, mask in enumerate(m["masks"])

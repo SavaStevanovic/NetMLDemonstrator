@@ -24,7 +24,6 @@ class HubmapDataset(Dataset):
             if (x in json_ids)
             and any(ann["type"] == "blood_vessel" for ann in json_ids[x])
         ]
-
         self.labels = ["background", "blood_vessel"]
 
     def __len__(self):
@@ -34,32 +33,29 @@ class HubmapDataset(Dataset):
         image_path, annots = self._json_labels[idx]
         image = TIFF.open(image_path).read_image()
         mask = np.zeros((512, 512), dtype=np.float32)
-
         for annot in annots:
             cords = annot["coordinates"]
             if annot["type"] == "blood_vessel":
                 segment = np.array(cords)
                 cv2.fillPoly(mask, segment, 1)
-
-        return Image.fromarray(image), Image.fromarray(mask)
+        return image, Image.fromarray(mask)
 
 
 class HubmapInstanceDataset(HubmapDataset):
     def __getitem__(self, idx):
         image_path, annots = self._json_labels[idx]
         image = TIFF.open(image_path).read_image()
-        bboxes = []
         masks = HubmapInstanceDataset._generate_masks(annots)
         bboxes = HubmapInstanceDataset._generate_bboxes(masks)
-        bboxes = torch.as_tensor(bboxes, dtype=torch.float32)
+        bboxes = np.array(bboxes)
         areas = HubmapInstanceDataset._generate_areas(bboxes)
         target = {
             "boxes": bboxes,
-            "labels": torch.ones((len(bboxes),), dtype=torch.int64),
-            "masks": torch.as_tensor(masks, dtype=torch.uint8),
-            "image_id": torch.tensor([idx]),
+            "labels": np.ones((len(bboxes),)),
+            "masks": masks,
+            "image_id": np.array([idx]),
             "area": areas,
-            "iscrowd": torch.zeros((len(bboxes),), dtype=torch.int64),
+            "iscrowd": np.zeros((len(bboxes),)),
         }
         return Image.fromarray(image), target
 
@@ -87,7 +83,6 @@ class HubmapInstanceDataset(HubmapDataset):
                 mask = np.zeros((512, 512), dtype=np.float32)
                 cv2.fillPoly(mask, segment, 1)
                 masks.append(mask)
-
         return np.array(masks)
 
     @staticmethod

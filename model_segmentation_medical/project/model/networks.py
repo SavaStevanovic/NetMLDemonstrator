@@ -15,7 +15,7 @@ import ttach
 class FasterRCNN(nn.Module, utils.Identifier):
     def __init__(self, block, inplanes, in_dim, labels, depth=4, norm_layer=None):
         super().__init__()
-        model = torchvision.models.detection.maskrcnn_resnet50_fpn(weights="DEFAULT")
+        model = torchvision.models.detection.maskrcnn_resnet50_fpn_v2(weights="DEFAULT")
 
         # replace the classifier with a new one, that has
         # num_classes which is user-defined
