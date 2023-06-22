@@ -38,7 +38,7 @@ class UnifiedKeypointDataloader(object):
         self.th_count = th_count
         self.batch_size = batch_size
         dataset = UnifiedKeypointDataset(debug=self.th_count)
-        self._k_folder = KFoldCrossValidator(dataset, 6)
+        self._k_folder = KFoldCrossValidator(dataset, 6, random_state=42)
         self._labels = dataset.labels
         self._train_aug = A.Compose(
             [
@@ -46,6 +46,10 @@ class UnifiedKeypointDataloader(object):
                 A.HorizontalFlip(p=0.5),
                 A.VerticalFlip(p=0.5),
                 A.RandomRotate90(p=0.5),
+                # A.ShiftScaleRotate(
+                #     scale_limit=0.0,
+                #     rotate_limit=0,
+                # )
                 # A.RandomBrightnessContrast(p=0.2),
             ],
             bbox_params=A.BboxParams(format="pascal_voc", label_fields=["labels"]),
