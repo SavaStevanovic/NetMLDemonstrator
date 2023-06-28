@@ -1,5 +1,6 @@
 import torch
 import os
+from data_loader.instance_eval import evaluate
 from model_fitting.losses import SegmentationLoss
 from torch.utils.tensorboard import SummaryWriter
 from tqdm import tqdm
@@ -153,7 +154,14 @@ def fit(
         writer.add_images(
             f"validation_confusion_matrix/{split}", cm, epoch, dataformats="HWC"
         )
-        chosen_metric = "iou"
+        chosen_metric = "f1"
+        evaluator = evaluate(net, validationloader, "cuda")
+        evaluator.coco_eval["bbox"].stats[-2:]
+        evaluator.coco_eval["bbox"].stats[-2:]
+        metrics["f1"] = (
+            evaluator.coco_eval["bbox"].stats[-2:].prod()
+            / evaluator.coco_eval["bbox"].stats[-2:].sum()
+        )
         os.makedirs((chp_dir), exist_ok=True)
         if (train_config.best_metric is None) or (
             train_config.best_metric < metrics[chosen_metric]
