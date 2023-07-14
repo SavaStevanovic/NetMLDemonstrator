@@ -37,7 +37,7 @@ class UnifiedKeypointDataset(Dataset):
     def __init__(self, debug=False):
         self.debug = debug
         self.datasets = [
-            HubmapInstanceDataset("/Data/train", "/Data/polygons.jsonl"),
+            HubmapInstanceDataset("/Data/train", "/Data/cleaned_polygons.jsonl"),
         ]
         self.labels = sorted(list(set(sum([x.labels for x in self.datasets], []))))
         self.data_ids = [

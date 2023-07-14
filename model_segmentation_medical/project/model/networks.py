@@ -7,18 +7,79 @@ from torchvision.models.detection.faster_rcnn import FastRCNNPredictor
 from torchvision.models.detection.mask_rcnn import MaskRCNNPredictor
 import torchvision
 import ttach
+from torchvision.ops import MultiScaleRoIAlign
+
 
 # from torchvision.models.detection import FasterRCNN
 # from torchvision.models.detection.rpn import AnchorGenerator
+class FasterRCNNauto(nn.Module, utils.Identifier):
+    def __init__(self, block, inplanes, in_dim, labels, depth=4, norm_layer=None):
+        super().__init__()
+        # anchor_generator = AnchorGenerator(
+        #     sizes=((16, 32, 64, 128, 256, 512),), aspect_ratios=((0.5, 1.0, 2.0),)
+        # )
+        model = torchvision.models.detection.maskrcnn_resnet50_fpn(
+            weights="DEFAULT",
+            trainable_backbone_layers=5,
+            # anchor_generator=anchor_generator,
+        )
+        self.encoder = model.backbone
+        # replace the classifier with a new one, that has
+        # num_classes which is user-defined
+
+        encoder_output_dim = self.encoder.out_channels
+
+        # Decoder
+        self.decoder = nn.Sequential(
+            nn.ConvTranspose2d(
+                encoder_output_dim,
+                128,
+                kernel_size=3,
+                stride=2,
+                padding=1,
+                output_padding=1,
+            ),
+            nn.ReLU(),
+            nn.ConvTranspose2d(
+                128, 64, kernel_size=3, stride=2, padding=1, output_padding=1
+            ),
+            nn.ReLU(),
+            nn.ConvTranspose2d(
+                64, 32, kernel_size=3, stride=2, padding=1, output_padding=1
+            ),
+            nn.ReLU(),
+            nn.ConvTranspose2d(
+                32, 3, kernel_size=3, stride=2, padding=1, output_padding=1
+            ),
+            nn.Sigmoid(),
+        )
+
+    def forward(self, x):
+        encoded = self.encoder(x)
+        decoded = self.decoder(encoded["3"])
+        decoded = torch.nn.functional.interpolate(decoded, x.shape[2:], mode="bicubic")
+        return decoded
 
 
 class FasterRCNN(nn.Module, utils.Identifier):
     def __init__(self, block, inplanes, in_dim, labels, depth=4, norm_layer=None):
         super().__init__()
         model = torchvision.models.detection.maskrcnn_resnet50_fpn(
-            weights="DEFAULT", trainable_backbone_layers=5
+            weights="DEFAULT", trainable_backbone_layers=5, box_score_thresh=0
         )
-
+        model.roi_heads.mask_roi_pool = MultiScaleRoIAlign(
+            featmap_names=["0", "1", "2", "3"], output_size=18, sampling_ratio=2
+        )
+        model.backbone = torch.load(
+            "checkpoints_backbone_fill/FasterRCNNauto/checkpoints_0_final.pth"
+        ).encoder
+        # layers_to_train = ["layer4", "layer3", "layer2", "layer1", "conv1"][
+        #     :trainable_layers
+        # ]
+        # if trainable_layers == 5:
+        #     layers_to_train.append("bn1")
+        # for name, parameter in model.backbone.named_parameters():
+        #     parameter.requires_grad_(False)
         # replace the classifier with a new one, that has
         # num_classes which is user-defined
         num_classes = len(labels)  # 1 class (person) + background
