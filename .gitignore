@@ -140,3 +140,4 @@ checkpoints*/
 val2017
 reinforcement_learning/project/tmp/*
 model_detection_2/project/images/*
+model_segmentation_medical/project/packages/*

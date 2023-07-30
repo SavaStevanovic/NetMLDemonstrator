@@ -1,0 +1,14 @@
+torchsummary
+imutils
+autopep8
+sockjs-tornado
+pybase64
+pycocotools
+seaborn
+scikit-image==0.17.2
+ujson
+segmentation-models-pytorch
+torchmetrics
+libtiff
+ttach
+albumentations
