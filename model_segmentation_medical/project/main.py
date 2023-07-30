@@ -8,7 +8,7 @@ th_count = 24
 block_counts = [3, 4, 6]
 depth = 5
 
-dataloaders = UnifiedKeypointDataloader(batch_size=10, depth=depth, th_count=th_count)
+dataloaders = UnifiedKeypointDataloader(batch_size=6, depth=depth, th_count=th_count)
 
 train_data, val_data = next(iter(dataloaders))
 net = networks.FasterRCNN(

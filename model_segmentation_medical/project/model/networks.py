@@ -8,6 +8,7 @@ from torchvision.models.detection.mask_rcnn import MaskRCNNPredictor
 import torchvision
 import ttach
 from torchvision.ops import MultiScaleRoIAlign
+from torchvision.models.detection.anchor_utils import AnchorGenerator
 
 
 # from torchvision.models.detection import FasterRCNN
@@ -64,8 +65,13 @@ class FasterRCNNauto(nn.Module, utils.Identifier):
 class FasterRCNN(nn.Module, utils.Identifier):
     def __init__(self, block, inplanes, in_dim, labels, depth=4, norm_layer=None):
         super().__init__()
+        anchor_generator = AnchorGenerator(
+            sizes=((16, 32, 64, 128, 256, 512),), aspect_ratios=((0.5, 1.0, 2.0),)
+        )
         model = torchvision.models.detection.maskrcnn_resnet50_fpn(
-            weights="DEFAULT", trainable_backbone_layers=5, box_score_thresh=0
+            weights="DEFAULT",
+            trainable_backbone_layers=5,
+            anchor_generator=anchor_generator,
         )
         model.roi_heads.mask_roi_pool = MultiScaleRoIAlign(
             featmap_names=["0", "1", "2", "3"], output_size=18, sampling_ratio=2

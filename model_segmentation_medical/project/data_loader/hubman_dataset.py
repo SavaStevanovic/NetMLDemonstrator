@@ -45,6 +45,7 @@ class HubmapInstanceDataset(HubmapDataset):
     def __getitem__(self, idx):
         image_path, annots = self._json_labels[idx]
         image = TIFF.open(image_path).read_image()
+        image = HubmapInstanceDataset._fill_unsure_masks(image, annots)
         masks = HubmapInstanceDataset._generate_masks(annots)
         bboxes = HubmapInstanceDataset._generate_bboxes(masks)
         bboxes = np.array(bboxes)
@@ -74,6 +75,15 @@ class HubmapInstanceDataset(HubmapDataset):
         return bboxes
 
     @staticmethod
+    def _fill_unsure_masks(image, annots):
+        for annot in annots:
+            cords = annot["coordinates"]
+            if annot["type"] == "unsure":
+                segment = np.array(cords)
+                cv2.fillPoly(image, segment, 0)
+        return image
+
+    @staticmethod
     def _generate_masks(annots):
         masks = []
         for annot in annots:
@@ -82,7 +92,10 @@ class HubmapInstanceDataset(HubmapDataset):
                 segment = np.array(cords)
                 mask = np.zeros((512, 512), dtype=np.float32)
                 cv2.fillPoly(mask, segment, 1)
-                masks.append(mask)
+                if mask.sum() > 64:
+                    # kernel = np.ones((3, 3), np.uint8)
+                    # mask = cv2.dilate(mask, kernel, iterations=1)
+                    masks.append(mask)
         return np.array(masks)
 
     @staticmethod
