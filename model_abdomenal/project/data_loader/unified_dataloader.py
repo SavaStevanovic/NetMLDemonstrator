@@ -42,22 +42,18 @@ class UnifiedKeypointDataloader(object):
         self._labels = dataset.labels
         self._train_aug = A.Compose(
             [
-                A.BBoxSafeRandomCrop(erosion_rate=0.1),
                 A.HorizontalFlip(p=0.5),
                 A.VerticalFlip(p=0.5),
                 A.RandomRotate90(p=0.5),
-                A.augmentations.dropout.cutout.Cutout()
                 # A.ShiftScaleRotate(
                 #     scale_limit=0.0,
                 #     rotate_limit=0,
                 # )
                 # A.RandomBrightnessContrast(p=0.2),
             ],
-            bbox_params=A.BboxParams(format="pascal_voc", label_fields=["labels"]),
         )
         self._val_aug = A.Compose(
             [],
-            bbox_params=A.BboxParams(format="pascal_voc", label_fields=["labels"]),
         )
 
     def __iter__(self):

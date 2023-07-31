@@ -10,6 +10,19 @@ import ttach
 from torchvision.ops import MultiScaleRoIAlign
 from torchvision.models.detection.anchor_utils import AnchorGenerator
 
+class Resnet(nn.Module, utils.Identifier):
+    def __init__(self, block, inplanes, in_dim, labels, depth=4, norm_layer=None):
+        super().__init__()
+        self._model = torchvision.models.resnet34(
+            weights=torchvision.models.ResNet34_Weights
+        )
+        self._model.conv1 = nn.Conv2d(1, self._model.conv1.out_channels, kernel_size=7, stride=2, padding=3, bias=False)
+        self._model.fc = nn.Linear(self._model.fc.in_features, len(labels)) 
+        self.labels = labels
+
+    def forward(self, *args):
+        return self._model(*args)
+
 
 # from torchvision.models.detection import FasterRCNN
 # from torchvision.models.detection.rpn import AnchorGenerator
@@ -76,9 +89,6 @@ class FasterRCNN(nn.Module, utils.Identifier):
         model.roi_heads.mask_roi_pool = MultiScaleRoIAlign(
             featmap_names=["0", "1", "2", "3"], output_size=18, sampling_ratio=2
         )
-        model.backbone = torch.load(
-            "checkpoints_backbone_fill/FasterRCNNauto/checkpoints_0_final.pth"
-        ).encoder
         # layers_to_train = ["layer4", "layer3", "layer2", "layer1", "conv1"][
         #     :trainable_layers
         # ]
