@@ -35,12 +35,13 @@ def fit_epoch(net, dataloader, lr_rate, train, epoch=1):
         optimizer = torch.optim.Adam(net.parameters(), lr_rate)
     else:
         net.eval()
-    metric = torchmetrics.Accuracy(task ="multilabel", num_labels=len(net.labels), average=None).cuda()
+    metric = torchmetrics.Accuracy(task ="binary", num_labels=len(net.labels), average=None).cuda()
     torch.set_grad_enabled(train)
     torch.backends.cudnn.benchmark = train
     losses = 0.0
     criterion = torch.nn.CrossEntropyLoss()
     accs = []
+    slices = [slice(0,2), slice(2,4), slice(4,7), slice(7,10), slice(10,13)]
 
     for i, data in enumerate(tqdm(dataloader)):
         images, labels = data
@@ -53,11 +54,15 @@ def fit_epoch(net, dataloader, lr_rate, train, epoch=1):
         cuda_image = images.cuda().unsqueeze(1)
         output = net(cuda_image)
         if train:
-            loss = criterion(output, labels)
+            loss = sum(criterion(output[:, s], labels[:, s]) for s in slices)
             loss.backward()
             losses += loss.item()
             optimizer.step()
-        accs.extend(metric(output, labels))
+        processed_out = torch.zeros_like(output)
+        for s in slices:
+            one_id = output[:, s].argmax(0)
+            processed_out[:, s][one_id[0], one_id[1]] = 1
+        accs.extend(list((processed_out==labels).float().mean(1)))
 
     data_len = len(dataloader)
     run_metrics = {

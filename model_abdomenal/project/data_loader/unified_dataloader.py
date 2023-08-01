@@ -42,6 +42,7 @@ class UnifiedKeypointDataloader(object):
         self._labels = dataset.labels
         self._train_aug = A.Compose(
             [
+                A.RandomCrop(492, 492),
                 A.HorizontalFlip(p=0.5),
                 A.VerticalFlip(p=0.5),
                 A.RandomRotate90(p=0.5),
